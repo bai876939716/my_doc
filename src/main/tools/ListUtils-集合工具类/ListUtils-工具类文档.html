@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>ListUtils 工具类文档</title>
+    <style>
+        body { font-family: Arial, "Microsoft YaHei", sans-serif; line-height: 1.6; padding: 20px; max-width: 1200px; margin: 0 auto; background: #f5f5f5; }
+        .container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; }
+        h2 { color: #34495e; margin-top: 30px; padding: 12px; background: #ecf0f1; border-left: 5px solid #3498db; }
+        h3 { color: #555; margin-top: 20px; margin-bottom: 10px; }
+        h4 { color: #666; margin-top: 15px; font-size: 0.95em; }
+        .method-block { background: #fafafa; border: 1px solid #ddd; padding: 15px; margin: 15px 0; border-radius: 5px; }
+        .method-sig { background: #2c3e50; color: #fff; padding: 12px; font-family: 'Consolas', monospace; border-radius: 3px; overflow-x: auto; font-size: 0.9em; }
+        .example { background: #f8f8f8; padding: 12px; border-left: 4px solid #27ae60; margin: 12px 0; border-radius: 3px; }
+        .example-title { color: #27ae60; font-weight: bold; margin-bottom: 8px; }
+        .note { background: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; margin: 12px 0; }
+        .tip { background: #d1ecf1; border-left: 4px solid #17a2b8; padding: 12px; margin: 12px 0; }
+        code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: 'Consolas', monospace; color: #c7254e; }
+        pre { background: #2d2d2d; color: #f8f8f2; padding: 15px; overflow-x: auto; border-radius: 5px; font-family: 'Consolas', monospace; font-size: 0.9em; line-height: 1.5; }
+        pre code { background: transparent; color: #f8f8f2; padding: 0; }
+        table { border-collapse: collapse; width: 100%; margin: 15px 0; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background: #3498db; color: white; }
+        tr:nth-child(even) { background: #f9f9f9; }
+        .param-table { margin: 10px 0; }
+        .param-table td { padding: 8px; }
+        .intro-box { background: #e8f4f8; padding: 15px; border-radius: 5px; margin: 20px 0; border: 1px solid #b0d4e8; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>ListUtils 工具类文档</h1>
+
+    <div class="intro-box">
+        <p><strong>包路径：</strong> <code>com.jst.aftersale.common.utils.ListUtils</code></p>
+        <p><strong>作者：</strong> 疆戟 | <strong>日期：</strong> 2024/8/20 | <strong>版本：</strong> 1.0</p>
+        <p><strong>描述：</strong> ListUtils 封装了 Java Stream API 的常用操作，提供了便捷的集合处理方法，简化日常开发中的集合操作代码。</p>
+    </div>
+
+    <h2 id="mapping">一、映射操作 (Mapping)</h2>
+
+    <div class="method-block">
+        <h3>1.1 map - 映射转换</h3>
+        <div class="method-sig">public static &lt;T,R&gt; List&lt;R&gt; map(List&lt;T&gt; list, Function&lt;? super T, ? extends R&gt; mapper)</div>
+        <p><strong>功能：</strong> 将列表中的每个元素通过映射函数转换为新类型，并自动过滤 null 值</p>
+        <table class="param-table">
+            <tr><th>参数</th><th>说明</th></tr>
+            <tr><td>list</td><td>待映射的列表</td></tr>
+            <tr><td>mapper</td><td>映射函数，将 T 类型转换为 R 类型</td></tr>
+        </table>
+        <p><strong>返回值：</strong> 映射后的新列表（过滤掉 null 值）</p>
+        <div class="example">
+            <div class="example-title">示例 1：提取对象属性</div>
+            <pre><code>// 提取所有用户的姓名
+List&lt;User&gt; users = Arrays.asList(
+    new User(1L, "张三", "销售部"),
+    new User(2L, "李四", "市场部")
+);
+List&lt;String&gt; names = ListUtils.map(users, User::getName);
+// 结果: ["张三", "李四"]
+
+// 提取用户ID
+List&lt;Long&gt; userIds = ListUtils.map(users, User::getId);
+// 结果: [1L, 2L]</code></pre>
+        </div>
+        <div class="example">
+            <div class="example-title">示例 2：数学运算</div>
+            <pre><code>List&lt;Integer&gt; numbers = Arrays.asList(1, 2, 3, 4, 5);
+List&lt;Integer&gt; squares = ListUtils.map(numbers, n -> n * n);
+// 结果: [1, 4, 9, 16, 25]
+
+// 计算每个订单的总金额
+List&lt;Order&gt; orders = ...;
+List&lt;BigDecimal&gt; totals = ListUtils.map(orders, Order::getTotalAmount);</code></pre>
+        </div>
+    </div>
+
+    <div class="method-block">
+        <h3>1.2 mapDistinct - 映射并去重</h3>
+        <div class="method-sig">public static &lt;T,R&gt; List&lt;R&gt; mapDistinct(List&lt;T&gt; list, Function&lt;? super T, ? extends R&gt; mapper)</div>
+        <p><strong>功能：</strong> 映射并去除重复元素</p>
+        <div class="example">
+            <div class="example-title">示例：获取唯一的部门列表</div>
+            <pre><code>List&lt;User&gt;oting = Arrays.asList(
+    new User("张三", "销售部"),
+    new User("李四", "销售部"),
+    new User("王五", "市场部"),
+    new User("赵六", "技术部")
+);
+List&lt;String&gt; departments = ListUtils.mapDistinct(users, User::getDepartment);
+// 结果: ["销售部", "市场部", "技术部"] (去除了重复的"销售部")</code></pre>
+        </div>
+    </div>
+
+    <div class="method-block">
+        <h3>1.3 mapToSet - 映射为 Set</h3>
+        <div class="method-sig">public static &lt;T,R&gt; Set&lt;R&gt; mapToSet(List&lt;T&gt; bul, Function&lt;? super T, ? extends R&gt; mapper)</div>
+        <p><strong>功能：</strong> 映射为 Set 集合（自动去重）</p>
+        <div class="example">
+            <div class="example-title">示例：获取所有不同的城市</div>
+            <pre><code>List&lt;Address&gt; addresses = Arrays.asList(
+    new Address("北京"),
+    new Address("上海"),
+    new Address("北京"),
+    new Address("广州")
+);
+Set&lt;String&gt; cities = ListUtils.mapToSet(addresses, Address::getCity);
+// 结果: {"北京", "上海", "广州"} (Set 自动去重)</code></pre>
+        </div>
+    </div>
+
+    <div class="method-block">
+        <h3>1.4 mapBuild - 连续映射</h3>
+        <div class="method-sig">public static &lt;T,R,E&gt; List&lt;E&gt; mapBuild(List&lt;T&gt; list, Function&lt;? super T, ? extends R&gt; mapper, Function&lt;? super R,? extends E&gt; buildMapper)</div>
+        <p><strong>功能：</strong> 进行两次连续的映射转换</p>
+        <div class="example">
+            <div class="example-title">示例：用户 -> 姓名 -> 带前缀的姓名</div>
+            <pre><code>List&lt;User&gt; users = ...;
+List&lt;String&gt; results = ListUtils.mapBuild(
+    users,
+    User::getName,        // 第一次映射：User -> String
+    name -> "用户：" + name  // 第二次映射：String -> String
+);
+// 结果: ["用户：张三", "用户：李四", ...]</code></pre>
+        </div>
+    </div>
+
+    <h2 id="filtering">二、过滤操作 (Filtering)</h2>
+
+    <div class="method-block">
+        <h3>2.1 filter - 过滤</h3>
+        <div class="method-sig">public static &lt;T&gt; List&lt;T&gt; filter(List&lt;T&gt; list, Predicate&lt;? super T&gt; predicate)</div>
+        <p><strong>功能：</strong> 根据条件过滤元素</p>
+        <div class="example">
+            <div class="example-title">示例 1：按年龄过滤</div>
+            <pre><code>List&lt;User&gt; users = Arrays.asList(
+    new User("张三", 25),
+    new User("李四", 17),
+    new User("王五", 30)
+);
+List&lt;User&gt; adults = ListUtils.filter(users, user -> user.getAge() >= 18);
+// 结果: [张三(25), 王五(30)]</code></pre>
+        </div>
+        <div class="example">
+            <div class="example-title">示例 2：按状态过滤</div>
+            <三分><code>List&lt;Product&gt; products = ...;
+                List&lt;Product&gt; available = ListUtils.filter(products, Product::isAvailable);
+                List&lt;Product&gt; active = ListUtils.filter(products, p -> p.getStatus() == ProductStatus.ACTIVE);</code></pre>
+        </div>
+        <div class="note">
+            <strong>注意：</strong> 也提供了对 Set 的过滤版本
+        </div>
+    </div>
+
+    <div class="method-block">
+        <h3>2.2 filterMap - 过滤并映射</h3>
+        <div class="method-sig">public static &lt;T,R&gt; List&lt;R&gt; filterMap(List&lt;T&gt; list, Predicate&lt;? super T&gt; filter, Function&lt;? super T, ? extends R&gt;nimapper)</div>
+        <p><strong>功能：</strong> 先过滤符合条件的元素，再进行映射转换</p>
+        <div class="example">
+            <div class="example-title">示例：获取所有成年用户的姓名</div>
+            <pre><code>List&lt;User&gt; users = ...;
+List&lt;String&gt; adultNames = ListUtils.filterMap(
+    users,
+    user -> user.getAge() >= 18,  // 过滤：成年用户
+    User::getName                 // 映射：提取姓名
+);
+// 结果: ["张三", "王五"]</code></pre>
+        </div>
+        <div class="example">
+            <div class="example-title">示例：获取高价值订单的订单号</div>
+            <pre><code>List&lt;Order&gt; orders = ...;
+List&lt;String&gt; orderIds = ListUtils.filterMap(
+    orders,
+    order -> order.getAmount().compareTo(BigDecimal.valueOf(1000)) > 0,  // 过滤
+    Order::getOrderId                                                    // 映射
+);</code></pre>
+        </div>
+    </div>
+
+    <div class="method-block">
+        <h3 الكريم2.3 filterToMap - 过滤并转为 Map</h3>
+        <div class="method-sig">public static &lt;T, K, V&gt; Map&lt;K, V&gt; filterToMap(List&lt;T&gt; list, Predicate&lt;? super T&gt; filter, Function&lt;? super T, ? extends K&gt; keyMapper, Function&lt;? super T, ? extends V&gt; valueMapper)</div>
+        <p><strong>功能：</strong> 过滤后将符合条件的元素转为 Map</p>
+        <div class="example">
+            <div class="example-title">示例：将活跃用户转为 Map</div>
+            <pre><code>List&lt;User&gt; users = ...;
+Map&lt;Long, String&gt; activeUserMap = ListUtils.filterToMap(
+    users,
+    User::isActive,     // 过滤：只保留活跃用户
+    User::getId,        // 键：用户ID
+    User::getName       // 值：用户名
+);
+// 结果: {1L: "张三", 3L: "王五"}</code></pre>
+        </div>
+    </div>
+
+    <h2 id="transformation">三、转换操作 (Transformation)</h2>
+
+    <div class="method-block">
+        <h3>3.1 toMap - 转为 Map</h3>
+        <h4>版本 1：对象本身作为值</h4>
+        <div class="method-sig">public static &lt;T, K&gt; Map&lt;K, T&gt; toMap(List&lt;T&gt; list, Function&lt;? super T, ? extends K&gt; keyMapper)</div>
+        <div class="example">
+                <pre><code>List&lt;User&gt; users = ...;
+Map&lt;Long, User&gt; userMap = ListUtils.toMap(users, User::getId);
+// 结果: {1L: User对象1, 2L: User对象2}</code></pre>
+        </div>
+
+        <h4>版本 2：指定键和值</h4>
+        <div class="method-sig">public static &lt;T, K, V&gt; Map&lt;K, V&gt; toMap(List&lt;T&gt; list, Function&lt;? super T, ? extends K&gt; keyMapper, Function&lt;? super T, ? extends V&gt; valueMapper)</div>
+        <div class="example">
+                <pre><code>// ID -> 姓名
+Map&lt;Long, String&gt; nameMap = ListUtils.toMap(users, User::getId, User::getName);
+// 结果: {1L: "张三", 2L: "李四"}
+
+// 订单号 -> 总金额
+Map&lt;String, BigDecimal&gt; amountMap = ListUtils.toMap(orders, Order::getOrderId, Order::getAmount);</code></pre>
+        </div>
+
+        <h4>版本 3：指定合并策略</h4>
+        <div class="method-sig">public static &lt;T, K, V&gt; Map&lt;K, V&gt; toMap(List&lt;T&gt; list, Function&lt;? super T, ? extends K&gt; keyMapper, Function&lt;? super T, ? extends V&gt; valueMapper, BinaryOperator&lt;V&gt; mergeFunction)</div>
+        <div class="example">
+            <div class="example-title">示例：相同类别数量求和</div>
+            <pre><code>List&lt;Item&gt; items = Arrays.asList(
+    new Item("电器", 10),
+    new Item("电器", 20),
+    new Item("服装", 15)
+);
+Map&lt;String, Integer&gt; totalMap = ListUtils.toMap(
+    items,
+    Item::getCategory,
+    Item::getQuantity,
+    Integer::sum  // 重复键时求和
+);
+// 结果: {"电器": 30, "服装": 15}</code></pre>
+        </div>
+    </div>
+
+    <h2 id="grouping">四、分组操作 (Grouping)</h2>
+
+    <div class="method-block">
+        <h3>4.1 groupingBy - 分组</h3>
+        <h4>版本 1：按键分组</h4>
+        <div class="method-sig">public static &lt;K,V&gt; Map&lt;K, List&lt;V&gt;&gt; groupingBy(List&lt;V&gt; list, Function&lt;? super V, ? extends K&gt; keyMapper)</div>
+        <div class="example">
+            <div class="example-title">示例：按部门分组员工</div>
+            <pre><code>List&lt;Employee&gt; employees = Arrays.asList(
+    new Employee("张三", "销售部"),
+    new Employee("李四", "销售部"),
+    new Employee("王五", "市场部")
+);
+Map&lt;String, List&lt;Employee&gt;&gt; deptMap = ListUtils.groupingBy(employees, Employee::getDepartment);
+// 结果: {"销售部": [张三, 李四], "市场部": [王五]}</code></pre>
+        </div>
+
+        <h4>版本 2：分组并映射值</h4:<div class="method-sig">public static &lt;K,V,U&gt; Map&lt;K, List&lt;U&gt;&gt; groupingBy(List&lt;V&gt; list, Function&lt;? super V, ? extends K&gt; keyMapper, Function&lt;V, U&gt; mapper)</div>
+            <div class="example">
+                <pre><code>// 按部门分组，只保留员工姓名
+Map&lt;String, List&lt;String&gt;&gt; deptNameMap = ListUtils.groupingBy(
+    employees,
+    Employee::getDepartment,
+    Employee::getName
+);
+// 结果: {"销售部": ["张三", "李四"], "市场部": ["王五"]}</code></pre>
+            </div>
+
+            <h4>版本 3：分组并转换为 Set</h4>
+            <div class="method-sig">public static &lt;K,V,U&gt; Map&lt;.ToString, Set&lt;U&gt;&gt; groupingByReturnSet(List&lt;V&gt; list, Function&lt;? super V, ? extends K&gt; keyMapper, Function&lt;V, U&gt; mapper)</div>
+            <div class="example">
+                <pre><code>// 按地区分组，使用 Set 自动去重
+Map&lt;String, Set&lt;String&gt;&gt; cityMap = ListUtils.groupingByReturnSet(
+    orders,
+    Order::getRegion,
+    Order::getCity
+);</code></pre>
+            </div>
+    </div>
+
+    <h2 id="flatmap">五、展平操作 (FlatMap)</h2>
+
+    <div class="method-block">
+        <h3>5.1 flatMapDistinct - 展平并去重</h3>
+        <div class="method-sig">public static &lt;T,R&gt; List&lt;R&gt; flatMapDistinct(List&lt;T&gt; list, Function&lt;? super T, ? extends Stream&lt;? extends R&gt;&gt; mapper)</div>
+        <p><strong>功能：</strong> 将嵌套的集合展平为一维列表，并去重</p>
+        <div class="example">
+            <div class="example-title">示例 1：展平订单中的所有商品</div>
+            <pre><code>List&lt;Order&gt; orders = Arrays.asList(
+    new Order(Arrays.asList(product1, product2)),
+    new Order(Arrays.asList(product2, product3))
+);
+List&lt;Product&gt; allProducts = ListUtils.flatMapDistinct(
+    orders,
+    Order::getProducts  // 返回 List&lt;Product&gt;.stream()
+);
+// 结果: [product1, product2, product3] (去重)</code></pre>
+        </div>
+        <div class="example">
+            <div class="example-title">示例 2：获取所有用户的角色</div>
+            <pre><code>List&lt;User&gt; users = ...;
+List&lt;String&gt; allRoles = ListUtils.flatMapDistinct(
+    users,
+    user -> user.getRoles().stream()
+);</code></pre>
+        </div>
+    </div>
+
+    <h2 id="collection">六、集合运算 (Collection Operations)</h2>
+
+    <div class="method-block">
+        <h3>6.1 subtract - 差集</h3>
+        <div class="method-sig">public static &lt;T&gt; List&lt;T&gt; subtract(List&lt;T&gt; sourceData, Collection&lt;T&gt; comparisonData)</div>
+        <p><strong>功能：</strong> 返回源数据中存在但对照数据中不存在的元素</p>
+        <div class="example">
+            <div class="example-title">示例 1：计算剩余任务</div>
+            <pre><code>List&lt;Integer&gt; all = Arrays.asList(1, 2, 3, 4, 5);
+List&lt;Integer&gt; processed = Arrays.asList(1, 3, 5);
+List&lt;Integer&gt; remaining = ListUtils.subtract(all, processed);
+// 结果: [2, 4]</code></pre>
+        </div>
+        <div class="example">
+            <div class="example-title">示例 2：找出未处理的订单</div>
+            <pre><code>List&lt;Order&gt; allOrders = ...;
+List&lt;Order&gt; processedOrders = ...;
+List&lt;Order&gt; unprocessed = ListUtils.subtract(allOrders, processedOrders);</code></pre>
+        </div>
+    </div>
+
+    <div class="method-block">
+        <h3>6.2 partition - 拆分</h3>
+        <div class="method-sig">public static &lt;T&gt; List&lt;List&lt;T&gt;&gt; partition(List&lt;T&gt; list, int size)</div>
+        <p><strong>功能：</strong> 将列表拆分为指定大小的子列表</p>
+        <div class="example">
+            <div class="example-title">示例 1：拆分为固定大小</div>
+            <pre><code>List&lt;Integer&gt; list = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9);
+List&lt;List&lt;Integer&gt;&gt; partitions = ListUtils.partition(list, 3);
+// 结果: [[1, 2, 3], [4, 5, 6], [7, 8, 9]]</code></pre>
+        </div>
+        <div class="example">
+            <div class="example-title">示例 2：分批处理订单</div>
+            <pre><code>List&lt;Order&gt; orders = ...;
+List&lt;List&lt;Order&gt;&gt; batches = ListUtils.partition(orders, 100);
+for (List&lt;Order&gt; batch : batches) {
+    processBatch(batch);  // 每次处理 100 个订单
+}</code></pre>
+        </div>
+    </div>
+
+    <h2 id="utility">七、其他工具方法 (Utility)</h2>
+
+    <div class="method-block">
+        <h3>7.1 joining - 连接</h3>
+        <div class="method-sig">public static &lt;T&gt; String joining(List&lt;T&gt; list, Function&lt;? super T, ? extends String&gt; mapper)</div>
+        <p><strong>功能：</strong> 用分号将元素连接成字符串</p>
+        <div class="example">
+            <div class="example-title">示例 1：连接用户名</div>
+            <pre><code>List&lt;User&gt; users = ...;
+String names = ListUtils.joining(users, User::getName);
+// 结果: "张三;李四;王五"</code></pre>
+        </div>
+        <div class="example">
+            <div class="example-title">示例 2：连接ID列表</div>
+            <pre><code>List&lt;Integer&gt; ids = Arrays.asList(1, 2, 3);
+String idStr = ListUtils.joining(ids, String::valueOf);
+// 结果: "1;2;3"</code></pre>
+        </div>
+        <div class="note">
+            <strong>注意：</strong> 分隔符固定为分号（;）
+        </div>
+    </div>
+
+    <div class="method-block">
+        <h3>7.2 getFirst - 获取第一个元素</h3>
+        <div class="method-sig">public static &lt;T&gt; T getFirst(List&lt;T&gt; list, T defaultValue)</div>
+        <p><strong>功能：</strong> 安全获取第一个元素，列表为空时返回默认值</p>
+        <div class="example">
+            <div class="example-title">示例：安全获取用户</div>
+            <pre><code>List&lt;User&gt; users = ...;
+User firstUser = ListUtils.getFirst(users, null);
+String firstName = ListUtils.getFirst(names, "");
+Integer firstId = ListUtils.getFirst(ids, 0);</code></pre>
+        </div>
+    </div>
+
+    <div class="method-block">
+        <h3>7.3 ofNullable - 空值安全</h3>
+        <h4>版本 1：返回列表</h4>
+        <div class="method-sig">public static &lt;T&gt; List&lt;T&gt; ofNullable(List&lt;T&gt; source, List&lt;T&gt; defaultValue)</div>
+        <div class="example">
+            <pre><code>List&lt;String&gt; result = ListUtils.ofNullable(maybeEmpty, Collections.emptyList());</code></pre>
+        </div>
+
+        <h4>版本 2：返回 Stream</h4>
+        <div class="method-sig">public static &lt;T&gt; Stream&lt;T&gt; ofNullable(List&lt;T&gt; source, Stream&lt;T&gt; defaultValue)</div>
+        <div class="example">
+            <pre><code>队长&lt;User&gt; userStream = ListUtils.ofNullable(users, Stream.empty());</code></pre>
+        </div>
+    </div>
+
+    <h2>注意事项与最佳实践</h2>
+
+    <div class="note">
+        <h3>⚠️ 重要提醒</h3>
+        <ul style="margin: 10px 0; padding-left: 25px;">
+            <li>所有方法对 <code>null</code> 输入都有会有良好的处理，不会抛出 <code>NullPointerException</code></li>
+            <li><code>joining</code> 方法使用分号（<code>;</code>）作为分隔符</li>
+            <li>所有返回集合的方法，输入为 null 时返回空集合而不是 null</li>
+            <li><code>toMap</code> 方法在键重复时会使用合并策略（默认保留第一个值）</li>
+        </ul>
+    </div>
+
+    <div class="tip">
+        <h3>💡 使用建议</h3>
+        <ul style="margin: 10px 0; padding-left: 25px;">
+            <li>优先使用这些工具方法而不是直接使用 Stream API，代码更简洁易读</li>
+            <li>方法自动处理 null 值，减少防御性编程代码</li>
+            <li>对于复杂逻辑，建议拆分为多个步骤以提高可读性</li>
+            <li>大量数据处理时，注意考虑性能和内存使用</li>
+        </ul>
+    </div>
+
+    <h2>方法总览表</h2>
+    <table>
+        <tr>
+            <th>方法名</th>
+            <th>功能</th>
+            <th>返回类型</th>
+            <th>分类</th Dowel</tr>
+        <tr><td>map</td><td>映射转换</td><td>List&lt;R&gt;</td><td>映射</td></tr>
+        <tr><td>mapDistinct</td><td>映射并去重</td><td>List&lt;R&gt;</td><td>映射</td></tr>
+        <tr><td>mapToSet</td><td>映射为 Set</td><td>Set&lt;R&gt;</td><td>映射</td></tr>
+        <tr><td>mapBuild</td><td>连续映射</td><td>List&lt;E&gt;</td><td>映射</td></tr>
+        <tr><td>filter</td><td>过滤元素</td><td>List&lt;T&gt;</td><td>过滤</td></tr>
+        <tr><td>filterMap</td><td>过滤并映射</td><td>List&lt;R&gt;</td><td>过滤</td></tr>
+        <tr><td>filterToMap</td><td>过滤转为 Map</td><td>Map&lt;K,V&gt;</td><td>过滤</td></tr>
+        <tr><td>toMap</td><td>转为 Map</td><td>Map&lt;K,V&gt;</td><td>转换</td></tr>
+        <tr><td>groupingBy</td><td>分组</td><td>Map&lt;K,List&lt;V&gt;&gt;</td><td>分组</td></tr>
+        <tr><td>flatMapDistinct</td><td>展平并去重</td><td>List&lt;R&gt;</td><td>展平</td></tr>
+        <tr><td>subtract</td><td>差集</td><td>List&lt;T&gt;</td><td>集合运算</td></tr>
+        <tr><td>partition</td><td>拆分</td><td>List&lt;List&lt;T&gt;&gt;</td><td>集合运算</td></tr>
+        <tr><td>joining</td><td>连接</td><td>String</td><td>工具</td></tr>
+        <tr><td>getFirst</td><td>获取第一个</td><td>T</td><td>工具</td></tr>
+        <tr><td>ofNullable</td><td>空值安全</td><td>List&lt;T&gt;/Stream&lt;T&gt;</td><td>工具</td></tr>
+    </table>
+
+    <div style="margin-top: 40px; text-align: center; color: #888; border-top: 2px solid #eee; padding-top: 20px;">
+        <p>ListUtils 工具类文档 | 生成日期：2024年</p>
+        <p style="margin-top: 10px;">作者：疆戟 | 版本：1.0</p>
+    </div>
+</div>
+</body>
+</html>

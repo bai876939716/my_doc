@@ -1,0 +1,26 @@
+# 分支配置文件
+# 格式：分支名[:数字代号或目标分支名]
+#
+# 数字代号说明：
+#   不写代号 = 默认合并到 TEST_NORMAL, TEST_HOTFIX
+#   1 = TEST_NORMAL, TEST_HOTFIX, TEMP_NORMAL（全部）
+#   2 = TEST_NORMAL
+#   3 = TEST_HOTFIX
+#   4 = TEMP_NORMAL
+#
+# 也支持直接写目标分支名，如 feature_branch:TEST_NORMAL,TEMP_NORMAL
+# 以 # 开头的行为注释，空行会被忽略
+#
+# 示例：
+# feature/xxx/some_feature          → 默认合并到 TEST_NORMAL, TEST_HOTFIX
+# feature/xxx/urgent_feature:1      → 合并到全部（TEST_NORMAL + TEST_HOTFIX + TEMP_NORMAL）
+# feature/xxx/test_only:2           → 只合并到 TEST_NORMAL
+# hotfix/xxx/quick_fix:3            → 只合并到 TEST_HOTFIX
+# feature/xxx/temp_feature:4        → 只合并到 TEMP_NORMAL
+# feature/xxx/custom:TEST_NORMAL,TEMP_NORMAL  → 直接指定分支名
+
+
+feature/qiannian/0402/order/auto_change_goods
+feature/qiannian/0420/invoice/switch
+feature/qiannian/0508/after/small_price_calu
+

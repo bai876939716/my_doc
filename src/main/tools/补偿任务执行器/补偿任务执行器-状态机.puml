@@ -1,0 +1,65 @@
+@startuml 补偿任务执行器-状态机
+!theme plain
+title 补偿任务执行器 - 状态机流转图
+
+skinparam state {
+    BackgroundColor<<waiting>> #E3F2FD
+    BackgroundColor<<success>> #E8F5E9
+    BackgroundColor<<fail>> #FFEBEE
+    BackgroundColor<<custom>> #FFF3E0
+}
+
+[*] --> WAITING : 业务代码插入任务记录
+
+state "通用状态（简单任务）" as Simple {
+    state "WAITING" as W <<waiting>> : 待处理\n等待定时任务捞取
+    state "SUCCESS" as S <<success>> : 处理成功\n任务完成
+    state "FAIL" as F <<fail>> : 处理失败\n超过重试次数/异常
+
+    W --> S : process() 返回 SUCCESS
+    W --> F : 超过最大重试次数
+    W --> F : 状态机循环超 20 次
+    W --> F : process() 返回 FAIL
+    W --> W : process() 返回 WAITING\n（更新 nextExecutionTime 延迟重试）
+}
+
+state "多步状态（复杂任务）" as Multi {
+    state "STEP_1" as S1 <<custom>> : 第一阶段
+    state "STEP_2" as S2 <<custom>> : 第二阶段
+    state "STEP_3" as S3 <<custom>> : 第三阶段
+    state "DONE" as D <<success>> : 完成
+    state "FAILED" as FF <<fail>> : 失败
+
+    [*] --> S1 : 初始状态
+    S1 --> S2 : process() 返回 STEP_2
+    S2 --> S3 : process() 返回 STEP_3
+    S3 --> D : process() 返回 DONE\n(isSuccess=true)
+    S1 --> S1 : 条件不满足\n延迟重试
+    S2 --> S2 : 条件不满足\n延迟重试
+    S1 --> FF : 失败
+    S2 --> FF : 失败
+    S3 --> FF : 失败
+}
+
+note right of Simple
+  **通用模式**
+  适用于一步完成的补偿任务
+  如：商品绑定退货地址、
+  创建店铺地址频率受限
+end note
+
+note right of Multi
+  **多步模式**
+  适用于需要多阶段流转的任务
+  如：极速退款（锁定→扣款→通知）
+  每步由 Processor.process() 驱动
+end note
+
+note bottom of W
+  **捞取条件：**
+  STATUS IN (waitingStatus)
+  AND NEXT_EXECUTION_TIME <= NOW()
+  AND DELETED = 0
+end note
+
+@enduml

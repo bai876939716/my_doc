@@ -1,0 +1,67 @@
+@startuml 补偿任务执行器-架构图
+!theme plain
+skinparam componentStyle rectangle
+skinparam packageStyle frame
+
+title 补偿任务执行器 - 架构图
+
+package "定时任务触发层" {
+    [ProductBindStrategyTask] as Task1
+    [DisPrepaymentQuickRefundTask] as Task2
+    [OrderDeliveryUploadReturnAddrCompensationTask] as Task3
+    note bottom of Task1 : @Scheduled 定时触发
+}
+
+package "服务层 (CompensationTaskService)" {
+    [CompensationTaskServiceImpl] as ServiceImpl
+    note right of ServiceImpl
+        核心执行引擎
+        - 批量查询任务
+        - 分发到工作线程池
+        - 分布式锁 + CAS
+        - 状态机循环
+    end note
+}
+
+package "策略层 (CompensationTaskProcessor)" {
+    [CompensationTaskContext] as Context
+    interface "CompensationTaskProcessor" as IProcessor
+
+    [DisPrepaymentQuickRefundProcessor] as P1
+    [ProductBindMultiLocationProcessor] as P2
+    [CreateShopAddressProcessor] as P3
+    [UpdateSplitOrderProcessor] as P4
+    [OrderShipUploadProcessor] as P5
+
+    IProcessor <|.. P1
+    IProcessor <|.. P2
+    IProcessor <|.. P3
+    IProcessor <|.. P4
+    IProcessor <|.. P5
+
+    Context --> IProcessor : getProcessor(taskType)
+}
+
+package "数据访问层" {
+    [CompensationTaskLogDao] as Dao
+    database "af_compensation_task_log" as DB
+    Dao --> DB
+}
+
+package "基础设施" {
+    [Redis] as Redis
+    [ThreadPoolExecutor\n(Select)] as SelectPool
+    [ThreadPoolExecutor\n(Work)] as WorkPool
+}
+
+Task1 --> ServiceImpl : executeCompensationTask(taskType)
+Task2 --> ServiceImpl
+Task3 --> ServiceImpl
+
+ServiceImpl --> Context : 获取 Processor
+ServiceImpl --> Dao : 查询/更新任务
+ServiceImpl --> Redis : 分布式锁
+ServiceImpl --> SelectPool : @Async 查询
+ServiceImpl --> WorkPool : 提交执行
+
+@enduml

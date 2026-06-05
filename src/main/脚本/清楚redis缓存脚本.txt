@@ -1,0 +1,1 @@
+redis-cli -h r-bp1yobgugrzue2xs8upd-pub.redis.rds.aliyuncs.com -p 6379 -a 'iGZz0OqXSgYHE*r54kO5' -n 5 --scan --pattern "*MENU_VALIDATION_WHITELIST*" | while read key; do redis-cli -h r-bp1yobgugrzue2xs8upd-pub.redis.rds.aliyuncs.com -p 6379 -a 'iGZz0OqXSgYHE*r54kO5' -n 5 DEL "$key"; done

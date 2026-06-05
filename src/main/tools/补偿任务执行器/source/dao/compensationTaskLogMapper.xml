@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jst.aftersale.task.compensation.dao.CompensationTaskLogDao">
+
+    <!-- 插入数据 -->
+    <insert id="insert" parameterType="com.jst.aftersale.task.compensation.model.po.CompensationTaskLogPo">
+        INSERT INTO af_compensation_task_log (ID, CO_ID, UID, BATCH_NO, RETRY_COUNT, LAST_RETRY_TIME,
+                                              NEXT_EXECUTION_TIME, TASK_TYPE, STATUS, PARAM, VERSION, DELETED,
+                                              CREATED, CREATEBY, UPDATED, UPDATEBY)
+        VALUES (#{id}, #{coId}, #{uid}, #{batchNo}, #{retryCount}, #{lastRetryTime},
+                #{nextExecutionTime}, #{taskType}, #{status}, #{param}, #{version},
+                #{deleted}, #{created}, #{createBy}, #{updated}, #{updateBy})
+    </insert>
+
+    <!-- 根据ID更新数据 -->
+    <update id="updateStatus">
+        UPDATE af_compensation_task_log SET STATUS = #{newStatus} WHERE ID = #{id} AND STATUS = #{currentStatus}
+    </update>
+    <update id="updateRetryCount">
+        UPDATE af_compensation_task_log SET RETRY_COUNT = RETRY_COUNT + 1, LAST_RETRY_TIME = NOW() WHERE id = #{id} AND RETRY_COUNT = #{retryCount}
+    </update>
+    <update id="updateNextExecutionTime">
+        UPDATE af_compensation_task_log SET NEXT_EXECUTION_TIME = #{nextExecutionTime} WHERE id = #{id}
+    </update>
+    <select id="queryTrackByStatus"
+            resultType="com.jst.aftersale.task.compensation.model.po.CompensationTaskLogPo">
+        SELECT * FROM af_compensation_task_log
+        WHERE  DELETED = 0 AND TASK_TYPE = #{taskType}
+        AND STATUS IN
+        <foreach collection="waitingStatus" item="status" open="(" separator="," close=")">
+            #{status}
+        </foreach>
+        <if test="lastId != null and lastId != ''">
+            AND ID > #{lastId}
+        </if>
+        AND NEXT_EXECUTION_TIME &lt;= NOW() ORDER BY ID LIMIT 100
+    </select>
+
+    <select id="queryByBatchNoAndCoId" resultType="com.jst.aftersale.task.compensation.model.po.CompensationTaskLogPo">
+        select *
+        from af_compensation_task_log
+        where batch_no = #{batchNo}
+          and co_id = #{coId}
+          and uid = #{uid}
+          and task_type = #{taskType}
+          and deleted = 0
+    </select>
+
+    <select id="queryIdByBatchNoAndCoId" resultType="java.lang.String">
+        select ID
+        from af_compensation_task_log
+        where batch_no = #{batchNo}
+          and co_id = #{coId}
+          and uid = #{uid}
+          and task_type = #{taskType}
+          and deleted = 0 limit 1
+    </select>
+
+    <select id="queryIdByCoIdAndTaskType" resultType="java.lang.String">
+        select ID
+        from af_compensation_task_log
+        where co_id = #{coId}
+        and uid = #{uid}
+        and task_type = #{taskType}
+        and STATUS = #{taskStatus}
+        and deleted = 0 limit 1
+    </select>
+
+    <update id="deleteById">
+        UPDATE af_compensation_task_log SET DELETED = 1 WHERE ID = #{taskId} AND DELETED = 0
+    </update>
+</mapper>

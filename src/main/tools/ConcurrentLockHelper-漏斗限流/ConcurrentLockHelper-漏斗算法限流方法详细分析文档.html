@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ConcurrentLockHelper#isAllowed 方法详细分析</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header .subtitle {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .section {
+            margin-bottom: 50px;
+            padding: 30px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 5px solid #667eea;
+        }
+
+        .section h2 {
+            color: #667eea;
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .section h3 {
+            color: #555;
+            font-size: 1.3em;
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 15px 0;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+
+        .code-block .keyword {
+            color: #c678dd;
+        }
+
+        .code-block .string {
+            color: #98c379;
+        }
+
+        .code-block .comment {
+            color: #5c6370;
+            font-style: italic;
+        }
+
+        .code-block .method {
+            color: #61afef;
+        }
+
+        .code-block .number {
+            color: #d19a66;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+        }
+
+        table th, table td {
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #ddd;
+        }
+
+        table th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+        }
+
+        table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        .highlight {
+            background: #fff3cd;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 500;
+        }
+
+        .warning {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #dc3545;
+            margin: 15px 0;
+        }
+
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #17a2b8;
+            margin: 15px 0;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #28a745;
+            margin: 15px 0;
+        }
+
+        .flow-diagram {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 2px solid #667eea;
+        }
+
+        .flow-step {
+            padding: 10px;
+            margin: 10px 0;
+            background: #e7f3ff;
+            border-left: 4px solid #667eea;
+            border-radius: 4px;
+        }
+
+        .flow-step::before {
+            content: "→ ";
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        ul, ol {
+            margin-left: 30px;
+            margin-top: 10px;
+        }
+
+        li {
+            margin: 8px 0;
+        }
+
+        .method-signature {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            margin: 15px 0;
+        }
+
+        .toc {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+
+        .toc h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .toc ul {
+            list-style: none;
+            margin-left: 0;
+        }
+
+        .toc li {
+            margin: 8px 0;
+        }
+
+        .toc a {
+            color: #667eea;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .toc a:hover {
+            color: #764ba2;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>ConcurrentLockHelper#isAllowed</h1>
+        <div class="subtitle">漏斗算法限流方法详细分析文档</div>
+    </div>
+
+    <div class="content">
+        <div class="toc">
+            <h3>📑 目录</h3>
+            <ul>
+                <li><a href="#overview">1. 方法概述</a></li>
+                <li><a href="#signature">2. 方法签名</a></li>
+                <li><a href="#algorithm">3. 算法原理</a></li>
+                <li><a href="#implementation">4. 实现细节</a></li>
+                <li><a href="#related-methods">5. 相关方法</a></li>
+                <li><a href="#usage">6. 使用示例</a></li>
+                <li><a href="#notes">7. 注意事项</a></li>
+            </ul>
+        </div>
+
+        <div class="section" id="overview">
+            <h2>1. 方法概述</h2>
+            <p>
+                <span class="highlight">isAllowed</span> 是 <span class="highlight">ConcurrentLockHelper</span> 类中的一个核心限流方法，
+                基于 <strong>漏斗算法（Funnel Algorithm）</strong> 实现请求频率限制。
+            </p>
+            <p>
+                该方法用于判断是否允许当前请求通过，通过维护一个漏斗状态来控制请求的速率和容量。
+                漏斗算法可以平滑地限制请求速率，避免突发流量对系统造成冲击。
+            </p>
+
+            <div class="info">
+                <strong>💡 核心特性：</strong>
+                <ul>
+                    <li>基于漏斗算法的限流实现</li>
+                    <li>支持容量和漏出速率两个维度的控制</li>
+                    <li>使用 Redis 存储漏斗状态，支持分布式场景</li>
+                    <li>客户端计算令牌补充，减少 Redis 访问</li>
+                    <li>容忍少量超限，提高系统可用性</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="section" id="signature">
+            <h2>2. 方法签名</h2>
+            <div class="method-signature">
+                public boolean isAllowed(String key, int capacity, int leakRatePerSecond, int expireSeconds)
+            </div>
+
+            <h3>参数说明</h3>
+            <table>
+                <thead>
+                <tr>
+                    <th>参数名</th>
+                    <th>类型</th>
+                    <th>说明</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td><code>key</code></td>
+                    <td>String</td>
+                    <td>Redis 中存储漏斗状态的键。用于标识不同的限流维度（如用户ID、接口路径等）</td>
+                </tr>
+                <tr>
+                    <td><code>capacity</code></td>
+                    <td>int</td>
+                    <td>漏斗容量，即最大令牌数。表示漏斗最多能容纳多少个令牌</td>
+                </tr>
+                <tr>
+                    <td><code>leakRatePerSecond</code></td>
+                    <td>int</td>
+                    <td>每秒漏出速率，即每秒允许通过的请求数。表示漏斗每秒会漏出多少个令牌</td>
+                </tr>
+                <tr>
+                    <td><code>expireSeconds</code></td>
+                    <td>int</td>
+                    <td>Redis key 的过期时间（秒）。用于自动清理不再使用的限流状态</td>
+                </tr>
+                </tbody>
+            </table>
+
+            <h3>返回值</h3>
+            <table>
+                <thead>
+                <tr>
+                    <th>返回值</th>
+                    <th>类型</th>
+                    <th>说明</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td><code>isAllowed</code></td>
+                    <td>boolean</td>
+                    <td>
+                        <strong>true</strong>: 允许请求通过，已消耗一个令牌<br>
+                        <strong>false</strong>: 拒绝请求，当前无可用令牌
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section" id="algorithm">
+            <h2>3. 算法原理</h2>
+
+            <h3>3.1 漏斗算法简介</h3>
+            <p>
+                漏斗算法（Funnel Algorithm）是一种经典的限流算法，类似于一个漏斗：
+            </p>
+            <ul>
+                <li><strong>容量（Capacity）</strong>：漏斗的最大容量，表示最多能容纳多少个令牌</li>
+                <li><strong>漏出速率（Leak Rate）</strong>：漏斗底部每秒漏出的令牌数量</li>
+                <li><strong>剩余容量（Left Capacity）</strong>：漏斗当前剩余的令牌数量</li>
+            </ul>
+
+            <div class="info">
+                <strong>🎯 工作原理：</strong>
+                <ol>
+                    <li>请求到达时，检查漏斗中是否有可用令牌</li>
+                    <li>如果有令牌，消耗一个令牌并允许请求通过</li>
+                    <li>如果没有令牌，拒绝请求</li>
+                    <li>随着时间的推移，漏斗会按照漏出速率自动补充令牌</li>
+                </ol>
+            </div>
+
+            <h3>3.2 令牌补充机制</h3>
+            <p>
+                令牌的补充是通过时间差计算实现的：
+            </p>
+            <div class="code-block">
+                <span class="comment">// 计算自上次检查以来经过的时间（毫秒）</span>
+                long timePassedMillis = now - state.getNextLeakTime();
+
+                <span class="comment">// 根据时间差和漏出速率计算应该补充的令牌数</span>
+                int tokensToAdd = (int) ((timePassedMillis * state.getLeakRate()) / 1000L);
+
+                <span class="comment">// 更新剩余容量，但不能超过最大容量</span>
+                int newLeftCapacity = Math.min(state.getCapacity(), state.getLeftCapacity() + tokensToAdd);
+            </div>
+
+            <div class="success">
+                <strong>✅ 优势：</strong>
+                <ul>
+                    <li>客户端计算令牌补充，减少对 Redis 的访问频率</li>
+                    <li>支持突发流量的平滑处理</li>
+                    <li>可以容忍少量超限，提高系统可用性</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="section" id="implementation">
+            <h2>4. 实现细节</h2>
+
+            <h3>4.1 完整方法代码</h3>
+            <div class="code-block">
+<span class="comment">/**
+ * 判断是否允许请求（容忍少量超限）
+ * key: Redis 中存储漏斗状态的键
+ * capacity: 漏斗容量（最大令牌数）
+ * leakRatePerSecond: 每秒漏出速率（每秒允许通过的请求数）
+ * expireSeconds: Redis key 的过期时间（秒）
+ */</span>
+                <span class="keyword">public</span> <span class="keyword">boolean</span> <span class="method">isAllowed</span>(String key, <span class="keyword">int</span> capacity, <span class="keyword">int</span> leakRatePerSecond, <span class="keyword">int</span> expireSeconds) {
+                <span class="comment">// 获取或初始化漏斗状态</span>
+                AtomicReference&lt;FunnelState&gt; stateRef = <span class="keyword">new</span> AtomicReference&lt;&gt;(<span class="method">getFunnelState</span>(key));
+                <span class="keyword">long</span> now = System.<span class="method">currentTimeMillis</span>();
+                FunnelState state = stateRef.<span class="method">get</span>();
+                <span class="keyword">if</span> (Objects.<span class="method">isNull</span>(state)) {
+                state = FunnelState.<span class="method">build</span>(capacity, leakRatePerSecond, capacity, now);
+                <span class="method">saveFunnelState</span>(key, state, expireSeconds);
+                <span class="keyword">return</span> <span class="keyword">true</span>; <span class="comment">// 第一次肯定能通过</span>
+                }
+
+                <span class="comment">// 补充容量（客户端计算）</span>
+                <span class="keyword">long</span> timePassedMillis = now - state.<span class="method">getNextLeakTime</span>();
+                <span class="keyword">if</span> (timePassedMillis &gt; Constant.ZERO) {
+                <span class="keyword">int</span> tokensToAdd = (<span class="keyword">int</span>) ((timePassedMillis * state.<span class="method">getLeakRate</span>()) / <span class="number">1000L</span>);
+                <span class="keyword">int</span> newLeftCapacity = Math.<span class="method">min</span>(state.<span class="method">getCapacity</span>(), state.<span class="method">getLeftCapacity</span>() + tokensToAdd);
+                state.<span class="method">setLeftCapacity</span>(newLeftCapacity);
+                state.<span class="method">setNextLeakTime</span>(now);
+                <span class="method">saveFunnelState</span>(key, state, expireSeconds);
+                }
+
+                <span class="comment">// 判断是否允许</span>
+                <span class="keyword">if</span> (state.<span class="method">getLeftCapacity</span>() &lt;= Constant.ZERO) {
+                <span class="keyword">return</span> <span class="keyword">false</span>;
+                }
+
+                state.<span class="method">setLeftCapacity</span>(state.<span class="method">getLeftCapacity</span>() - Constant.ONE);
+                <span class="method">saveFunnelState</span>(key, state, expireSeconds);
+                <span class="keyword">return</span> <span class="keyword">true</span>;
+                }
+            </div>
+
+            <h3>4.2 执行流程</h3>
+            <div class="flow-diagram">
+                <div class="flow-step">从 Redis 获取漏斗状态（getFunnelState）</div>
+                <div class="flow-step">获取当前时间戳（System.currentTimeMillis）</div>
+                <div class="flow-step">判断漏斗状态是否存在</div>
+                <div class="flow-step" style="margin-left: 20px;">
+                    <strong>如果不存在：</strong>初始化漏斗状态（容量=capacity，剩余容量=capacity），保存到 Redis，返回 true
+                </div>
+                <div class="flow-step" style="margin-left: 20px;">
+                    <strong>如果存在：</strong>继续后续流程
+                </div>
+                <div class="flow-step">计算自上次检查以来经过的时间（timePassedMillis）</div>
+                <div class="flow-step">如果时间差大于 0，计算并补充令牌</div>
+                <div class="flow-step" style="margin-left: 20px;">
+                    计算应补充的令牌数：tokensToAdd = (timePassedMillis * leakRate) / 1000
+                </div>
+                <div class="flow-step" style="margin-left: 20px;">
+                    更新剩余容量：newLeftCapacity = min(capacity, leftCapacity + tokensToAdd)
+                </div>
+                <div class="flow-step" style="margin-left: 20px;">
+                    更新下次漏出时间：nextLeakTime = now
+                </div>
+                <div class="flow-step" style="margin-left: 20px;">
+                    保存更新后的状态到 Redis
+                </div>
+                <div class="flow-step">检查剩余容量是否小于等于 0</div>
+                <div class="flow-step" style="margin-left: 20px;">
+                    <strong>如果 ≤ 0：</strong>返回 false（拒绝请求）
+                </div>
+                <div class="flow-step" style="margin-left: 20px;">
+                    <strong>如果 > 0：</strong>消耗一个令牌（leftCapacity - 1），保存状态，返回 true（允许请求）
+                </div>
+            </div>
+
+            <h3>4.3 关键步骤详解</h3>
+
+            <h4>步骤 1：获取或初始化漏斗状态</h4>
+            <div class="code-block">
+                <span class="comment">// 从 Redis 获取漏斗状态</span>
+                AtomicReference&lt;FunnelState&gt; stateRef = <span class="keyword">new</span> AtomicReference&lt;&gt;(<span class="method">getFunnelState</span>(key));
+                <span class="keyword">long</span> now = System.<span class="method">currentTimeMillis</span>();
+                FunnelState state = stateRef.<span class="method">get</span>();
+
+                <span class="comment">// 如果状态不存在，说明是第一次请求，初始化漏斗</span>
+                <span class="keyword">if</span> (Objects.<span class="method">isNull</span>(state)) {
+                <span class="comment">// 构建初始状态：容量=capacity，漏出速率=leakRatePerSecond，剩余容量=capacity，下次漏出时间=now</span>
+                state = FunnelState.<span class="method">build</span>(capacity, leakRatePerSecond, capacity, now);
+                <span class="method">saveFunnelState</span>(key, state, expireSeconds);
+                <span class="keyword">return</span> <span class="keyword">true</span>; <span class="comment">// 第一次肯定能通过</span>
+                }
+            </div>
+
+            <h4>步骤 2：补充令牌（客户端计算）</h4>
+            <div class="code-block">
+                <span class="comment">// 计算自上次检查以来经过的时间（毫秒）</span>
+                <span class="keyword">long</span> timePassedMillis = now - state.<span class="method">getNextLeakTime</span>();
+
+                <span class="comment">// 如果时间差大于 0，说明需要补充令牌</span>
+                <span class="keyword">if</span> (timePassedMillis &gt; Constant.ZERO) {
+                <span class="comment">// 计算应该补充的令牌数：时间差（毫秒）* 漏出速率 / 1000</span>
+                <span class="keyword">int</span> tokensToAdd = (<span class="keyword">int</span>) ((timePassedMillis * state.<span class="method">getLeakRate</span>()) / <span class="number">1000L</span>);
+
+                <span class="comment">// 更新剩余容量，但不能超过最大容量</span>
+                <span class="keyword">int</span> newLeftCapacity = Math.<span class="method">min</span>(state.<span class="method">getCapacity</span>(), state.<span class="method">getLeftCapacity</span>() + tokensToAdd);
+                state.<span class="method">setLeftCapacity</span>(newLeftCapacity);
+
+                <span class="comment">// 更新下次漏出时间</span>
+                state.<span class="method">setNextLeakTime</span>(now);
+
+                <span class="comment">// 保存更新后的状态到 Redis</span>
+                <span class="method">saveFunnelState</span>(key, state, expireSeconds);
+                }
+            </div>
+
+            <div class="info">
+                <strong>📊 令牌补充计算示例：</strong>
+                <ul>
+                    <li>假设漏出速率为 10 个/秒</li>
+                    <li>距离上次检查已过去 500 毫秒</li>
+                    <li>应补充令牌数 = (500 * 10) / 1000 = 5 个</li>
+                    <li>如果当前剩余容量为 3，最大容量为 20</li>
+                    <li>更新后剩余容量 = min(20, 3 + 5) = 8</li>
+                </ul>
+            </div>
+
+            <h4>步骤 3：判断并消耗令牌</h4>
+            <div class="code-block">
+                <span class="comment">// 判断是否允许请求</span>
+                <span class="keyword">if</span> (state.<span class="method">getLeftCapacity</span>() &lt;= Constant.ZERO) {
+                <span class="comment">// 没有可用令牌，拒绝请求</span>
+                <span class="keyword">return</span> <span class="keyword">false</span>;
+                }
+
+                <span class="comment">// 有可用令牌，消耗一个令牌</span>
+                state.<span class="method">setLeftCapacity</span>(state.<span class="method">getLeftCapacity</span>() - Constant.ONE);
+
+                <span class="comment">// 保存更新后的状态到 Redis</span>
+                <span class="method">saveFunnelState</span>(key, state, expireSeconds);
+
+                <span class="comment">// 允许请求通过</span>
+                <span class="keyword">return</span> <span class="keyword">true</span>;
+            </div>
+        </div>
+
+        <div class="section" id="related-methods">
+            <h2>5. 相关方法</h2>
+
+            <h3>5.1 getFunnelState - 获取漏斗状态</h3>
+            <p>从 Redis 中获取漏斗状态信息。</p>
+            <div class="code-block">
+<span class="comment">/**
+ * 从 Redis 中获取漏斗状态
+ */</span>
+                <span class="keyword">private</span> FunnelState <span class="method">getFunnelState</span>(String key) {
+                <span class="comment">// 从 Redis Hash 中批量获取漏斗状态的各个字段</span>
+                List&lt;Object&gt; objects = lockRedisTemplate.opsForHash().<span class="method">multiGet</span>(key, FUNNEL_STATE_HAS_KEYS);
+
+                <span class="comment">// 检查数据是否完整</span>
+                <span class="keyword">if</span> (CollectionUtils.<span class="method">isEmpty</span>(objects) || objects.<span class="method">size</span>() != FUNNEL_STATE_HAS_KEYS.<span class="method">size</span>()) {
+                <span class="keyword">return</span> <span class="keyword">null</span>;
+                }
+
+                <span class="comment">// 构建字段映射</span>
+                Map&lt;String, Object&gt; entries = <span class="keyword">new</span> HashMap&lt;&gt;(Constant.DEFAULT_MAP_SIZE);
+                <span class="keyword">for</span> (<span class="keyword">int</span> i = Constant.ZERO, size = FUNNEL_STATE_HAS_KEYS.<span class="method">size</span>(); i &lt; size; i++) {
+                Object o = objects.<span class="method">get</span>(i);
+                <span class="keyword">if</span> (Objects.<span class="method">isNull</span>(o)) {
+                <span class="keyword">continue</span>;
+                }
+                entries.<span class="method">put</span>((String) FUNNEL_STATE_HAS_KEYS.<span class="method">get</span>(i), objects.<span class="method">get</span>(i));
+                }
+
+                <span class="comment">// 提取各个字段并构建 FunnelState 对象</span>
+                Integer capacity = (Integer) entries.<span class="method">get</span>(FunnelState.CAPACITY_KEY);
+                Integer leakRate = (Integer) entries.<span class="method">get</span>(FunnelState.LEAK_RATE_KEY);
+                Integer leftCapacity = (Integer) entries.<span class="method">get</span>(FunnelState.LEFT_CAPACITY_KEY);
+                Long nextLeakTime = (Long) entries.<span class="method">get</span>(FunnelState.NEXT_LEAK_TIME_KEY);
+
+                <span class="keyword">return</span> FunnelState.<span class="method">build</span>(capacity, leakRate, leftCapacity, nextLeakTime);
+                }
+            </div>
+
+            <h3>5.2 saveFunnelState - 保存漏斗状态</h3>
+            <p>将漏斗状态保存到 Redis，使用管道操作提高性能。</p>
+            <div class="code-block">
+<span class="comment">/**
+ * 将漏斗状态保存到 Redis
+ */</span>
+                <span class="keyword">private</span> <span class="keyword">void</span> <span class="method">saveFunnelState</span>(String key, FunnelState funnelState, <span class="keyword">int</span> expireSeconds) {
+                lockRedisTemplate.<span class="method">executePipelined</span>((RedisCallback&lt;Void&gt;) connection -&gt; {
+                <span class="comment">// 执行多个 hash 操作（使用管道批量执行）</span>
+                lockRedisTemplate.opsForHash().<span class="method">put</span>(key, FunnelState.CAPACITY_KEY, funnelState.<span class="method">getCapacity</span>());
+                lockRedisTemplate.opsForHash().<span class="method">put</span>(key, FunnelState.LEAK_RATE_KEY, funnelState.<span class="method">getLeakRate</span>());
+                lockRedisTemplate.opsForHash().<span class="method">put</span>(key, FunnelState.LEFT_CAPACITY_KEY, funnelState.<span class="method">getLeftCapacity</span>());
+                lockRedisTemplate.opsForHash().<span class="method">put</span>(key, FunnelState.NEXT_LEAK_TIME_KEY, funnelState.<span class="method">getNextLeakTime</span>());
+
+                <span class="comment">// 设置过期时间</span>
+                lockRedisTemplate.<span class="method">expire</span>(key, expireSeconds, TimeUnit.SECONDS);
+                <span class="keyword">return</span> <span class="keyword">null</span>;
+                });
+                }
+            </div>
+
+            <h3>5.3 FunnelState - 漏斗状态实体类</h3>
+            <p>用于存储漏斗的状态信息。</p>
+            <div class="code-block">
+<span class="comment">/**
+ * 漏斗状态实体类
+ */</span>
+                <span class="keyword">@Data</span>
+                <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">class</span> FunnelState {
+                <span class="comment">// Redis Hash 字段键名</span>
+                <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String CAPACITY_KEY = <span class="string">"capacity"</span>;
+                <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String LEAK_RATE_KEY = <span class="string">"leak_rate"</span>;
+                <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String LEFT_CAPACITY_KEY = <span class="string">"left_capacity"</span>;
+                <span class="keyword">private</span> <span class="keyword"

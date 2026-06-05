@@ -1,0 +1,106 @@
+@startuml 补偿任务执行器-执行流程
+!theme plain
+title 补偿任务执行器 - 执行流程时序图
+
+participant "定时任务\n(Scheduler)" as Scheduler
+participant "Select线程池\n(core=1)" as SelectPool
+participant "CompensationTaskServiceImpl" as Service
+participant "CompensationTaskContext" as Context
+participant "CompensationTaskLogDao" as Dao
+participant "Work线程池\n(core=20)" as WorkPool
+participant "CompensationTaskProcessor" as Processor
+participant "Redis" as Redis
+database "af_compensation_task_log" as DB
+
+== 阶段一：任务捞取 ==
+
+Scheduler -> Service : executeCompensationTask(taskType)
+activate Service
+Service -> SelectPool : @Async 异步执行
+activate SelectPool
+
+SelectPool -> Context : getProcessor(taskType)
+Context --> SelectPool : processor
+
+loop 每批 100 条（最多 1000 批）
+    SelectPool -> Dao : queryTrackByStatus(taskType, waitingStatus, lastId)
+    Dao -> DB : SELECT * WHERE STATUS IN (...)\nAND NEXT_EXECUTION_TIME <= NOW()\nAND ID > lastId\nORDER BY ID LIMIT 100
+    DB --> Dao : tasks (≤100条)
+    Dao --> SelectPool : tasks
+
+    alt tasks 为空
+        SelectPool --> Scheduler : return（无更多任务）
+    else tasks 非空
+        SelectPool -> SelectPool : lastId = tasks.last().id
+        SelectPool -> WorkPool : execute(() -> tasks.forEach(execute))
+    end
+end
+
+deactivate SelectPool
+deactivate Service
+
+== 阶段二：单任务执行 ==
+
+WorkPool -> Service : executeCompensationTask(processor, task)
+activate Service
+
+Service -> Service : 白名单检查
+alt 生产环境 && coId 在白名单中
+    Service --> WorkPool : return（跳过）
+end
+
+Service -> Processor : checkMaxRetryCount(task)
+alt 超过最大重试次数
+    Service -> Dao : updateStatus(id, FAIL, currentStatus)
+    Service -> Processor : maxRetryCountCallback(task)
+    Service --> WorkPool : return
+end
+
+Service -> Redis : SETNX lockKey "1" EX 300
+alt 获取锁失败
+    Service --> WorkPool : return（已有其他节点处理）
+end
+
+Service -> Dao : updateRetryCount(id, retryCount)
+note right : CAS: WHERE RETRY_COUNT = #{retryCount}
+Dao -> DB : UPDATE ... WHERE id=? AND RETRY_COUNT=?
+DB --> Dao : affectedRows
+
+alt CAS 失败 (affectedRows=0)
+    Service -> Redis : DELETE lockKey
+    Service --> WorkPool : return
+end
+
+== 阶段三：状态机循环（最多 20 轮） ==
+
+loop maxLoop = 20
+    Service -> Processor : process(task, currentStatus)
+    Processor --> Service : nextStatus
+
+    alt nextStatus == failStatus
+        Service -> Dao : updateStatus(id, FAIL, currentStatus)
+        Service -> Processor : failCallback(task, nextStatus)
+        Service --> WorkPool : return
+    else nextStatus == currentStatus（条件不满足）
+        Service -> Processor : nextExecutionTime(task, currentStatus)
+        Processor --> Service : nextTime
+        Service -> Dao : updateNextExecutionTime(id, nextTime)
+        Service --> WorkPool : return（延迟重试）
+    else isSuccess(nextStatus) == true
+        Service -> Dao : updateStatus(id, nextStatus, currentStatus)
+        Service --> WorkPool : return（任务完成）
+    else 状态流转
+        Service -> Service : currentStatus = nextStatus
+        note right : 继续下一轮循环
+    end
+end
+
+note over Service : 循环 20 次仍未终结
+Service -> Dao : updateStatus(id, FAIL, originalStatus)
+Service -> Processor : spinCountLimitCallback(task)
+
+Service -> Redis : DELETE lockKey
+note right : finally 块释放锁
+deactivate Service
+
+@enduml
