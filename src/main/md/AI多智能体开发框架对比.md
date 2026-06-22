@@ -9,6 +9,7 @@
 1. [整体概述](#1-整体概述)
 2. [CrewAI 详细说明](#2-crewai-详细说明)
 3. [AutoGen 详细说明](#3-autogen-详细说明)
+   - [3.3 Team 团队类型（AutoGen 0.4+）](#33-team-团队类型autogen-04)
 4. [OpenAI Swarm 详细说明](#4-openai-swarm-详细说明)
 5. [三大框架综合对比表](#5-三大框架综合对比表)
 6. [场景化选型指南](#6-场景化选型指南)
@@ -129,14 +130,109 @@ if __name__ == "__main__":
 3. **GroupChat**：多智能体群聊容器，管理会话消息
 4. **GroupChatManager**：群聊管理员，负责分配发言权限、控制会话轮次
 
-### 3.3 核心特性
+### 3.3 Team 团队类型（AutoGen 0.4+）
+AutoGen 0.4 重构引入了 **Team（团队）** 概念，将多智能体协作方式显式建模为不同类型的团队。Team 统一管理消息流转、终止条件与运行生命周期，通过 `run()` / `run_stream()` 启动。
+
+#### 终止条件（Termination Condition）
+Team 运行时需配合终止条件判断何时停止：
+
+| 终止条件 | 说明 |
+| ---- | ---- |
+| `MaxMessageTermination(n)` | 消息轮次达到 n 次时停止 |
+| `TextMentionTermination("关键词")` | 消息中出现指定关键词时停止 |
+| `StopMessageTermination()` | Agent 主动发出 StopMessage 时停止 |
+
+终止条件支持逻辑组合：`cond1 | cond2`（任一满足）、`cond1 & cond2`（同时满足）。
+
+#### 四种核心 Team 类型
+
+**1. RoundRobinGroupChat（轮转群聊）**
+- 智能体按注册顺序依次循环发言，流程简单可控
+- 适合有明确顺序依赖的多步骤任务（数据采集 → 分析 → 报告）
+
+```python
+# pip install autogen-agentchat
+from autogen_agentchat.teams import RoundRobinGroupChat
+from autogen_agentchat.conditions import MaxMessageTermination
+
+team = RoundRobinGroupChat(
+    participants=[researcher, analyst, writer],
+    termination_condition=MaxMessageTermination(9)  # 每人3轮后结束
+)
+result = await team.run(task="分析2026年AI多智能体框架趋势")
+```
+
+**2. SelectorGroupChat（选择器群聊）**
+- 由 LLM 或自定义选择函数动态决定每轮发言的智能体
+- 可根据上下文自动路由到最合适的 Agent，灵活性高
+- 适合复杂多角色协作、需要智能调度的研究/决策任务
+
+```python
+from autogen_agentchat.teams import SelectorGroupChat
+from autogen_agentchat.conditions import TextMentionTermination
+
+team = SelectorGroupChat(
+    participants=[researcher, analyst, critic],
+    model_client=model_client,       # 用于动态选择下一个发言者的模型
+    termination_condition=TextMentionTermination("TERMINATE")
+)
+result = await team.run(task="对这份商业方案进行多角色评审")
+```
+
+**3. Swarm（群体接力）**
+- Agent 通过主动发出 `HandoffMessage` 将控制权转移给指定智能体
+- 接力链路清晰，类似 OpenAI Swarm 的 Handoff 机制，但支持更复杂的路由逻辑
+- 适合多阶段流水线，每个 Agent 处理完本职工作后主动交棒
+
+```python
+from autogen_agentchat.teams import Swarm
+from autogen_agentchat.conditions import StopMessageTermination
+
+# Agent 在 system_message 中描述何时 handoff 给谁
+# 触发 HandoffMessage(target="agent_name") 即完成控制权转移
+team = Swarm(
+    participants=[intake_agent, processing_agent, output_agent],
+    termination_condition=StopMessageTermination()
+)
+result = await team.run(task="处理一个客户投诉工单")
+```
+
+**4. MagenticOneGroupChat（MagenticOne 协调群聊）**
+- 内置 **Orchestrator（协调者）** 负责任务规划与进度追踪
+- 协调者将复杂任务分解后分配给专业 Agent，并汇总最终结果
+- 自主性最强，适合多步骤、高复杂度的端到端任务
+- 典型场景：自主软件开发、多工具链协作、复杂报告生成
+
+```python
+# pip install autogen-ext
+from autogen_ext.teams.magentic_one import MagenticOneGroupChat
+
+team = MagenticOneGroupChat(
+    participants=[web_surfer, file_surfer, coder, terminal],
+    model_client=model_client
+)
+result = await team.run(task="帮我调研并生成一份竞品分析报告")
+```
+
+#### 四种 Team 类型横向对比
+| 维度 | RoundRobin | Selector | Swarm | MagenticOne |
+| ---- | ---- | ---- | ---- | ---- |
+| 发言顺序 | 固定轮转 | LLM 动态选择 | Agent 主动交接 | 协调者统一调度 |
+| 灵活程度 | 低 | 高 | 中 | 极高（自主规划）|
+| 适用任务 | 有序多步骤 | 复杂多角色协作 | 多阶段流水线 | 端到端复杂任务 |
+| 上手难度 | 低 | 中 | 中 | 高 |
+| Token 消耗 | 低 | 中 | 中 | 高 |
+
+---
+
+### 3.4 核心特性
 - 无固定执行流程，Agent 自主协商流转，灵活性拉满
 - **原生强支持人机交互（Human-in-the-loop）**，可随时人工干预、审批、补充信息
 - 内置安全代码沙箱，擅长代码编写、数据分析、脚本运行
 - 支持可视化工作台 AutoGen Studio，拖拽编排、调试便捷
 - 适配全品类大模型，本地开源模型可无缝接入
 
-### 3.4 完整可运行代码示例
+### 3.5 完整可运行代码示例
 ```python
 # 安装依赖：pip install pyautogen
 from autogen import AssistantAgent, UserProxyAgent, GroupChat, GroupChatManager
@@ -195,13 +291,13 @@ if __name__ == "__main__":
     )
 ```
 
-### 3.5 适用场景
+### 3.6 适用场景
 - 复杂开放式任务：论文撰写、商业方案、创意策划、需求研讨
 - 全流程软件开发：产品、编码、测试、文档协作
 - 必须人工审批、干预、决策的业务场景
 - AI 智能体方向技术研究、原型探索、能力验证
 
-### 3.6 优缺点
+### 3.7 优缺点
 - 优点：灵活性极强、人机交互完善、代码执行能力顶尖、创意类任务表现好
 - 缺点：多轮对话导致 Token 消耗高、输出结果存在波动、生产级运维能力需要自研
 
