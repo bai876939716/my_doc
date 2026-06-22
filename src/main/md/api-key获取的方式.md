@@ -5,7 +5,7 @@
 ## 目录
 1. [基础概念区分](#一基础概念区分)
 2. [渠道1：Anthropic官方开发者控制台（原生Key）](#二渠道1anthropic官方开发者控制台原生key)
-3. [渠道2：海外云厂商授权通道（AWS Bedrock / Azure AI Foundry / GCP Vertex）](#三渠道2海外云厂商授权通道aws-bedrock--azure-ai-foundry--gcp-vertex)
+3. [渠道2：云厂商授权通道（AWS Bedrock / Azure AI Foundry / GCP Vertex / 阿里云百炼）](#三渠道2云厂商授权通道aws-bedrock--azure-ai-foundry--gcp-vertex--阿里云百炼)
 4. [渠道3：Claude网页订阅会员附赠API额度](#四渠道3claude网页订阅会员附赠api额度)
 5. [渠道4：官方学生专项免费API计划](#五渠道4官方学生专项免费api计划)
 6. [渠道5：第三方API中转聚合平台](#六渠道5第三方api中转聚合平台)
@@ -44,7 +44,7 @@
 ### 4. 适用场景
 海外常驻开发者、跨境商用项目
 
-## 三、渠道2：海外云厂商授权通道（AWS Bedrock / Azure AI Foundry / GCP Vertex）
+## 三、渠道2：云厂商授权通道（AWS Bedrock / Azure AI Foundry / GCP Vertex / 阿里云百炼）
 > Anthropic官方授权全球云厂商上架Claude全系模型，在云厂商控制台独立生成密钥，不经过Anthropic官网
 ### 1. AWS Bedrock
 1. 开通AWS账号，进入Bedrock服务，在模型权限页申请Claude系列模型白名单
@@ -59,12 +59,24 @@
 1. 开通GCP项目，开启Vertex API权限
 2. 申请Claude模型接入权限，生成项目调用密钥
 
-### 优缺点
+### 4. 阿里云百炼（Alibaba Cloud Bailian）
+1. 注册阿里云账号，进入[百炼控制台](https://bailian.console.aliyun.com/)
+2. 在模型广场找到Claude系列模型（需申请开通权限，审核通常1个工作日内）
+3. 开通后在控制台右上角`API-KEY管理`创建专属API Key
+4. 调用时将BaseURL替换为百炼专属地址（`https://dashscope.aliyuncs.com/compatible-mode/v1`），请求格式兼容OpenAI SDK
+
+> 密钥格式：`sk-xxxx`（阿里云百炼自有格式，非原生`sk-ant-`）
+
+### 海外云厂商优缺点
 - 优点：企业合规结算、支持国内银行卡/对公充值、全球多节点，部分国内云区直连无需境外网络、配套云原生权限管控
 - 缺点：开通流程繁琐，个人小额使用成本偏高，接口格式和原生API存在差异需要适配
 
+### 阿里云百炼优缺点
+- 优点：国内注册即可使用、支付宝/银行卡人民币结算、国内网络直连无需代理、接口兼容OpenAI格式降低迁移成本
+- 缺点：模型版本跟进官方存在一定滞后，Claude模型额度定价略高于直采官方，需在阿里云生态内操作
+
 ### 适用场景
-企业项目落地、生产环境部署、合规商用开发
+企业项目落地、生产环境部署、合规商用开发；阿里云百炼尤其适合已在阿里云体系内的国内开发者和企业
 
 ## 四、渠道3：Claude Pro/Max订阅会员附赠API额度
 ### 1. 获取规则
@@ -125,6 +137,7 @@
 | ---- | ---- | ---- | ---- |
 | Anthropic官方控制台 | 美元 | 需要 | 无 |
 | AWS/Azure/GCP云厂商 | 美元/人民币 | 部分不用 | 少量云服务费 |
+| 阿里云百炼 | 人民币 | 不需要 | 少量云服务费 |
 | 会员附赠额度 | 美元订阅 | 需要 | 月费固定 |
 | 学生免费计划 | 免费 | 需要 | 无 |
 | 第三方中转平台 | 人民币 | 不需要 | 10%~20% |
