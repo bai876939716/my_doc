@@ -1,0 +1,120 @@
+@startuml 技术栈全景图
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontSize 11
+skinparam defaultFontName "Microsoft YaHei"
+skinparam rectangleBorderColor #BBBBBB
+skinparam rectangleBackgroundColor #FFFFFF
+skinparam componentBorderColor #BBBBBB
+skinparam componentBackgroundColor #FFFFFF
+skinparam databaseBorderColor #BBBBBB
+skinparam databaseBackgroundColor #FFFFFF
+skinparam arrowColor #555555
+skinparam arrowFontSize 9
+skinparam arrowFontColor #666666
+skinparam packageBorderColor #AAAAAA
+skinparam noteBorderColor #AAAAAA
+skinparam noteBackgroundColor #FAFAFA
+
+title 心屿 AI 系统 — 技术栈全景图
+
+'==== 客户端 ====
+package "客户端" as P_CLIENT #E3F2FD {
+  rectangle "App (iOS / Android)\nHTTPS · JSON" as APP
+}
+
+'==== BFF ====
+package "BFF 接入层" as P_BFF #E8F5E9 {
+  rectangle "soul-haven-web-service\n:8080  统一对外 API" as BFF
+}
+
+'==== Java 微服务 ====
+package "Java 微服务层 (13个服务)  ·  Dubbo 3 Triple + Protobuf  ·  Nacos 服务发现" as P_JAVA #FFFDE7 {
+  rectangle "short-chat-service\n日常对话 · 意图识别 · 40轮窗口" as CHAT
+  rectangle "xingmeng-service\n星梦创建·进入·结束·预扣费" as DREAM
+  rectangle "memory-service\n记忆总结 · miniMerge · PolarDB" as MEM
+  rectangle "relationship-service\n关系等级 · 积分 · 升级触发" as REL
+  rectangle "trade-service · ...\n贝壳 · IAP · 订阅" as TRADE
+}
+
+'==== 基础设施 ====
+package "基础设施" as P_INFRA #FFF9C4 {
+  database "PostgreSQL\ntb_short_chat_message\ntb_memory_summary_task\ntb_xingmeng_stock" as PG
+  rectangle "Redis\n缓存 · 分布式锁 · 幂等键\n频率限制 · 布隆过滤器" as REDIS
+  rectangle "RocketMQ\n记忆总结异步触发\n星梦结束多任务\n延迟消息" as MQ
+  rectangle "Nacos\n服务注册 · 配置热更新\nToken预算 / 触发阈值" as NACOS
+  rectangle "XXL-Job\n04:30批处理调度\n失败重试扫描" as XXL
+  rectangle "Hermes\n长连接推送\n流式分片 · 邀请卡实时到达" as HERMES
+}
+
+'==== MCP 层 ====
+package "MCP Layer  ·  HTTP Streamable Transport  ·  6个MCP Server\nAI层与数据层解耦边界  ·  Agent不直接操作数据库" as P_MCP #FBE9E7 {
+  rectangle "角色信息 MCP\ngetCharacterProfile" as MCP1
+  rectangle "用户信息 MCP\ngetUserProfile" as MCP2
+  rectangle "短对话·记忆 MCP\ngetAppShortChatMessage" as MCP3
+  rectangle "星梦库存 MCP\ngetStockByWindow\nsaveDreamContent" as MCP4
+  rectangle "世界观 MCP\ngetWorldConfig" as MCP5
+}
+
+'==== Python Agent ====
+package "Python AI Agent 层  ·  AgentRun Serverless  ·  LangGraph StateGraph · LangChain · ReAct" as P_AGENT #EDE7F6 {
+  rectangle "xingmeng-opening-rewrite\n实时改写  P99<2s\n预热2实例 / 1vCPU / 100并发\n模块级MCP单例 · 异步日志" as OPENING
+  rectangle "xingmeng-content\n5阶段批处理\n2vCPU/4GB / Semaphore(10)限流\n库存优先复用60%+" as CONTENT
+  rectangle "stranger-feed\n陌生新鲜事\n三语asyncio.gather并行翻译" as STRANGER
+  rectangle "acquaintance-feed\n熟人个性化动态\n离线批量 · Java传入记忆" as ACQ
+}
+
+'==== LLM 网关 ====
+package "LLM 模型网关  ·  AgentRun内置  ·  独立配额隔离" as P_LLM #FCE4EC {
+  rectangle "qwen3-max\n实时链路 · 独立配额\n低延迟 · 中文叙事质量优秀" as QWEN
+  rectangle "deepseek-v4-flash\n批处理链路 · 大配额\n低成本约1/6 · JSON指令遵循稳定" as DEEPSEEK
+}
+
+'==== PolarDB ====
+database "PolarDB 向量引擎 (Memory API = 托管版 Mem0)\naddMemory(infer=true): FACT_RETRIEVAL→ADD/UPDATE/NONE\nsearchMemory(TopK): 向量相似度检索注入长期记忆\nmergeMemories: miniMerge积累5条→语义融合滚动收敛\n降级: infer=false存原文 · XXL-Job重跑推断" as POLARDB #E8EAF6
+
+'==== 主链路 ====
+APP -down-> BFF : HTTPS / JSON
+BFF -down-> CHAT : Dubbo Triple\nProtobuf
+BFF -down-> DREAM
+BFF -down-> REL
+BFF -down-> TRADE
+
+'==== 基础设施连接 ====
+CHAT -down-> PG : 消息读写
+CHAT -right-> MQ : 达40轮\n触发记忆总结
+CHAT -right-> HERMES : 流式分片推送
+DREAM -down-> PG : 星梦数据
+DREAM -right-> MQ : 结束后\n多任务并发
+DREAM -down-> REDIS : 分布式锁\n预扣费校验
+MEM -down-> PG : summary_task
+MEM -left- MQ : 消费→调PolarDB
+MEM -down-> POLARDB : addMemory\nsearch / merge
+REL -down-> REDIS : 积分缓存
+XXL -up-> CHAT : 04:30触发\n批处理流水线
+
+'==== MCP 连接 ====
+MCP1 -up-> REL : Dubbo
+MCP2 -up-> REL : Dubbo
+MCP3 -up-> MEM : Dubbo
+MCP3 -up-> CHAT : Dubbo
+MCP4 -up-> DREAM : Dubbo
+MCP5 -up-> DREAM : Dubbo
+
+'==== Agent → MCP ====
+OPENING -up-> MCP1
+OPENING -up-> MCP2
+OPENING -up-> MCP3
+CONTENT -up-> MCP4
+CONTENT -up-> MCP3
+STRANGER -up-> MCP1
+STRANGER -up-> MCP4
+ACQ -up-> MCP3
+
+'==== Agent → LLM ====
+OPENING -down-> QWEN : 实时推理
+CONTENT -down-> DEEPSEEK : 批量生产
+STRANGER -down-> DEEPSEEK
+ACQ -down-> DEEPSEEK
+
+@enduml

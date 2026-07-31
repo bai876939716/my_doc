@@ -1,0 +1,187 @@
+@startuml short-chat-fullchain
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam defaultFontSize 12
+skinparam sequenceArrowThickness 1.5
+skinparam sequenceLifeLineBorderColor #78909C
+skinparam sequenceParticipantBorderColor #90A4AE
+skinparam sequenceParticipantBackgroundColor #F8F9FA
+skinparam sequenceGroupBorderColor #B0BEC5
+skinparam noteBackgroundColor #FFFDE7
+skinparam noteBorderColor #F9A825
+skinparam sequenceArrowColor #455A64
+
+title 心屿短对话全链路时序图\n（数据结构编号对应《短对话数据结构手册》）
+
+actor "App (iOS/Android)" as APP
+participant "Hermes\nSubHandler" as SUB #D4E6F1
+participant "SubServiceImpl\n(sendMessage)" as SVC #D5F5E3
+participant "DBPostgreSQL" as DB #FEF9E7
+participant "RollingOrchestrator" as ORC #F9EBEA
+participant "WangSu\nLlmClient" as LLM #F0F0F0
+participant "AgentRun\nqwen3-max" as AI #E8DAEF
+participant "HermesPush\nService" as PUB #D4E6F1
+participant "RocketMQ" as MQ #FDEBD0
+participant "MemorySummary\nProcessor" as MEM #D5F5E3
+participant "PolarDB\nMemory API" as POLAR #FEF9E7
+
+== 阶段一：消息接收 & 落库 ==
+
+APP -> SUB : [DS-1] ChatMsgReq\n(Hermes 长连接 · soul_haven_short_chat_topic)
+activate SUB
+
+note right of SUB
+  @SubRequestMsgHandler(ChatMsgReq.class)
+  ShortChatHermesSubHandler.onChatMsg()
+  ↓
+  ShortChatHermesSubServiceImpl.sendMessage()
+end note
+
+SUB -> SVC : sendMessage(userId, req, language)
+activate SVC
+
+SVC -> DB : INSERT [DS-2] ShortChatMessage\n(senderType=0, status=0, content=用户原文)
+SVC -> DB : SELECT [DS-3] ShortChatSession\n(获取 characterId / presetId / saveId)
+SVC -> DB : INSERT / UPDATE [DS-11] ShortChatRollingWaitLog\n(记录本批次，aiStatus=0进行中)
+
+SVC --> SUB : 返回
+SUB --> APP : [DS-9] ChatMsgRsp\n(code=0, data.msgId=落库msgId)\n立即 ACK，不等 AI 生成
+deactivate SUB
+
+== 阶段二：Rolling Flush → 进入 AI 编排器 ==
+
+SVC -> ORC : runAfterFlushCommitted(\n  userId, saveId, sessionId, msgIds, rollingBatchId)
+deactivate SVC
+activate ORC
+
+ORC -> DB : SELECT [DS-2] ShortChatMessage\n(按 msgId 捞本批用户消息，senderType=0)
+ORC -> DB : SELECT [DS-3] ShortChatSession (characterId / presetId)
+
+ORC -> DB : UPDATE [DS-2] ShortChatMessage\n(is_read=1, read_at=now  ← AI已读游标)
+ORC -> PUB : pushReadUpdate(sessionId, maxReadMsgId)\n推已读通知给 App
+
+note right of ORC
+  runSideStep("starDreamIntent")
+  同步意图识别：是否触发星梦邀请
+  若触发则跳过AI回复，走邀请卡流程
+end note
+
+== 阶段三：贝壳预扣费 & 占位消息 ==
+
+ORC -> ORC : chargeBeforeLlm()\n贝壳余额预扣（不足则退出并推计费失败消息）
+
+ORC -> DB : INSERT [DS-7] ShortChatMessage\n(extraType=2·占位, status=1·GENERATING, content="")
+ORC -> PUB : pushChatMessageAsRsp(sessionId, [DS-10])\n推占位消息 → App 显示"●●●正在输入"
+
+== 阶段四：异步意图识别（旁路，不阻塞主链路）==
+
+ORC -[#grey]-> ORC : runSideStep("topicIntent")\nShortChatTopicIntentAsyncTriggerService\n.submitIfNeeded()  [异步]
+
+== 阶段五：LLM 调用 ==
+
+ORC -> LLM : generate(session, promptBody, language, userRows)
+activate LLM
+
+note right of LLM
+  ShortChatWangSuRollingLlmClient
+  buildRequest() → [DS-4] PromptGenerateRequest
+  ·promptType = "APP-短对话"
+  ·extParams: language/saveId/planetId
+              quotedMessage/quotedFeedId
+              isStarDreamTransition
+end note
+
+LLM -> AI : GenerateTextService.generate([DS-4])\n(阻塞调用，等完整响应)
+activate AI
+
+note right of AI
+  AgentRun 内部：
+  ① 拉预配置 XML 提示词模板
+  ② 填入 extParams 占位符
+  ③ 注入记忆（短期+长期+画像）
+  ④ 调 qwen3-max 推理
+end note
+
+AI --> LLM : [DS-5] LlmResponse\n(content=完整回复文本, traceId, usage...)
+deactivate AI
+
+LLM -> LLM : toResult() → [DS-6] LlmChatResult
+LLM --> ORC : [DS-6] LlmChatResult
+deactivate LLM
+
+== 阶段六：机审 + 解析 ==
+
+ORC -> ORC : moderateAiContent(aiContent)\nAI 文本机审（外部 Moderation 服务）
+ORC -> ORC : moderateGuardrailOutput()\nGuardrail 合规过滤
+
+note right of ORC
+  任一审核失败：
+  退款贝壳 → 更新占位消息为 FAILED/MACHINE_REJECT
+  → pushFinalizedPlaceholder → 返回
+end note
+
+ORC -> ORC : normalizeLlmReplyPayload()\n解析 content（JSON / 纯文本兼容）
+ORC -> ORC : ShortChatAiReplySplitUtil\n.splitAiReplyContent()\n切分为 1~5 段 + 计算各段延时
+
+== 阶段七：写分片消息 & 推送 ==
+
+ORC -> DB : UPDATE [DS-2] ShortChatMessage(占位)\n填入 aiContent, status=0·NORMAL
+ORC -> DB : INSERT × N  [DS-8] ShortChatMessage(分片)\n(status=0·立即推 or 5·延时推)
+ORC -> DB : UPDATE [DS-11] ShortChatRollingWaitLog\n(aiStatus=1·成功, aiReplyCount=N)
+
+loop 每条分片
+  alt status = NORMAL（立即推）
+    ORC -> PUB : pushChatMessageAsRsp(sessionId, [DS-10])\n立即推分片文本
+    PUB -> APP : [DS-10] ChatMessageVo\n(content=分片文本, aiBatchIndex, sendTime)
+  else status = WAITING_PUSH（延时推）
+    ORC -> ORC : ShortChatAiDelayQueueService.offer()\n放入延时队列，到 sendTime 再推
+  end
+end
+
+ORC -> PUB : pushSessionUpdate()\n更新会话列表预览文本
+
+== 阶段八：记忆总结触发（旁路异步）==
+
+ORC -[#grey]-> ORC : runSideStep("memorySummary")
+ORC -[#grey]-> DB : SELECT [DS-11] ShortChatRollingWaitLog\n(aiStatus=1, isSummarized=0)\n统计未总结批次数
+
+alt 未总结批次 >= triggerRoundCount(40)
+  ORC -[#grey]-> MQ : publishMemorySummaryTopic([DS-12])\nMemorySummaryReadyEventPayload\n(sceneType=1, idempotencyKey=...)
+end
+deactivate ORC
+
+== 阶段九：异步记忆总结（RocketMQ 驱动）==
+
+MQ -> MEM : consume [DS-12] MemorySummaryReadyEventPayload
+activate MEM
+
+MEM -> MEM : idempotencyStore.tryAcquire(key)\nRedis 幂等检查（TTL=7天）
+
+MEM -> DB : Dubbo Generic Call → 查 20 轮对话原文\n(ShortChatRollingWaitLog startCursor~endCursor)
+
+MEM -> POLAR : POST /v1/memories\nAddMemoryRequest\n(runId="userId__characterId"\n infer=true\n messages=20轮原文\n prompt=FACT_RETRIEVAL_PROMPT)
+activate POLAR
+
+note right of POLAR
+  PolarDB 内部三步：
+  ① FACT_RETRIEVAL_PROMPT → LLM 提取事实列表
+  ② 向量化 + 检索已有记忆
+  ③ UPDATE_MEMORY_PROMPT → ADD/UPDATE/NONE 决策
+end note
+
+POLAR --> MEM : AddMemoryResponse\n(results[]: {id, event:"ADD/UPDATE/NONE", memory:...})
+deactivate POLAR
+
+MEM -> DB : INSERT tb_memory_summary_task\n(summary_type="mini", message_id, memory_summarized=false)
+
+alt unmergedMiniCount >= miniMergeThreshold(5)
+  MEM -> POLAR : POST /v1/memories/merge\nMergeMemoriesRequest\n(messageIds=[5条], deleteOld=true\n prompt=MERGE_MEMORY_PROMPT)
+  POLAR --> MEM : MergeMemoriesResponse\n(mergedMessageId="merged_xxx")
+  MEM -> DB : UPDATE tb_memory_summary_task\n(memory_summarized=true × 5)\nINSERT (summary_type="merged")
+end
+
+MEM -[#grey]-> POLAR : [异步] POST /v1/profile/extract\n用户画像提取 + 合并更新
+deactivate MEM
+
+@enduml

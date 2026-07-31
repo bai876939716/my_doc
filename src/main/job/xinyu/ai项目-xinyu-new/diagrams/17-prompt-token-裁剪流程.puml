@@ -1,0 +1,73 @@
+@startuml prompt-token-裁剪流程
+
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontSize 11
+skinparam defaultFontName "Microsoft YaHei"
+skinparam activityBackgroundColor #FFFFFF
+skinparam activityBorderColor #888888
+skinparam activityDiamondBackgroundColor #FFF9C4
+skinparam activityDiamondBorderColor #888888
+skinparam arrowColor #555555
+skinparam noteBackgroundColor #FAFAFA
+skinparam noteBorderColor #CCCCCC
+
+title Prompt 组装与降级流程（实时对话 Agent · qwen3-max）\n模型 Context Window = 262,144 tokens，系统配置预算上限 = 8,192\n可用预算 = 8,192 × 85% ≈ 6,963 token（主动控制，非模型限制）
+
+start
+
+:实测角色设定 token 数\n（MCP 拉取后缓存，几乎不变）;
+:实测用户画像 token 数\n（MCP 拉取后缓存）;
+
+note right
+  不按固定值 2000/500 扣除
+  用实际大小，surplus 自动留给短期记忆
+end note
+
+:固定保留长期记忆 5 条（~600 token）\n永远全量注入，不参与任何裁剪;
+
+note right #E8F5E9
+  5 条 = 几个月提炼的关键事实
+  信息密度最高，绝不丢弃
+end note
+
+:计算短期记忆可用预算\nshort_budget = 6963 - char - profile - 600;
+
+:从最新轮次往回填入短期记忆\n直到 short_budget 用完或达到 40 轮;
+
+if (实际填入 = 目标 40 轮？) then (是)
+  :组装完整 Prompt\n四块内容全量注入;
+  :记录 actual_turns = 40;
+  stop
+else (否，budget 不足)
+endif
+
+note right
+  仅重度用户（Lv4/Lv5）
+  且角色设定较长时触发
+end note
+
+:从最旧轮次继续删除\n直到 total ≤ 可用预算;
+
+note right #FFF3E0
+  降级只走这一条路：
+  删最旧短期轮次
+  长期记忆始终保留
+  最新对话始终保留
+end note
+
+:组装降级 Prompt;
+
+:记录 TRIM_EVENT\nactual_turns / target_turns / trimmed_turns\nrelationship_level / char_id;
+
+note right
+  监控：Lv5 用户 trimmed_turns 持续 > 10
+  → 升级 Context Window 的决策信号
+  所有阈值 Nacos 热配置
+  换模型只改 model_max_tokens
+end note
+
+stop
+
+@enduml

@@ -1,0 +1,52 @@
+@startuml prompt-token-预算分配
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontSize 11
+skinparam defaultFontName "Microsoft YaHei"
+skinparam packageBorderColor #AAAAAA
+skinparam rectangleBorderColor #AAAAAA
+skinparam noteBorderColor #CCCCCC
+skinparam noteBackgroundColor #FAFAFA
+
+title Prompt Token 预算分配方案对比\n(qwen3-max 实际 Context Window = 262,144 tokens\n系统主动限制预算上限 = 8,192，可用预算 = 8,192 × 85% ≈ 6,963 token)
+
+together {
+
+  package "❌ 初始方案：固定预留" #FFF3E0 {
+    rectangle "角色设定\n固定预留 2000 token\n实际用 1500，浪费 500" as F_CHAR #FFE0B2
+    rectangle "用户画像\n固定预留 500 token\n实际用 400，浪费 100" as F_PROFILE #FFE0B2
+    rectangle "长期记忆 5条\n~600 token" as F_LONG #FFE0B2
+    rectangle "短期记忆\n剩余 3863 token\n≈ 27 轮（上限被压缩）" as F_SHORT #FFCC80
+    note bottom of F_SHORT
+      固定预留扣掉 2500
+      短期记忆只剩 3863 token
+      600 token 的估算误差
+      白白浪费在两个固定槽里
+    end note
+  }
+
+  package "✅ 最终方案：运行时实测" #E8F5E9 {
+    rectangle "角色设定\n实测 1500 token\n（简单角色实际大小）" as D_CHAR #C8E6C9
+    rectangle "用户画像\n实测 400 token\n（实际大小）" as D_PROFILE #C8E6C9
+    rectangle "长期记忆 5条\n~600 token\n永远全量保留" as D_LONG #C8E6C9
+    rectangle "短期记忆\n剩余 4463 token\n≈ 31 轮（+4 轮）" as D_SHORT #81C784
+
+    note right of D_CHAR
+      不同角色实际大小不同：
+      简单角色  ~1200 token
+      复杂角色  ~2500 token
+      实测代替估算，surplus
+      自动流向短期记忆
+    end note
+
+    note bottom of D_SHORT
+      实测后剩余全给短期记忆
+      简单角色：可达 31~34 轮
+      复杂角色：自动收缩到 23 轮
+      不同角色自适应，预算零浪费
+    end note
+  }
+
+}
+
+@enduml

@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>心屿 AI 系统 — 技术栈全景图</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
+    background: #F0F2F5;
+    padding: 32px 24px;
+    color: #1a1a1a;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 17px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 28px;
+    letter-spacing: 0.5px;
+  }
+
+  .diagram {
+    max-width: 1160px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  /* ===== 层容器 ===== */
+  .layer {
+    border-radius: 10px;
+    padding: 12px 14px;
+    border: 1.5px solid rgba(0,0,0,0.10);
+    position: relative;
+  }
+
+  .layer-title {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #666;
+    margin-bottom: 8px;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+
+  .layer-title span {
+    font-weight: 400;
+    color: #888;
+    font-size: 10px;
+    margin-left: 6px;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .row {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+  }
+
+  /* ===== 组件卡片 ===== */
+  .card {
+    flex: 1;
+    border-radius: 7px;
+    padding: 9px 11px;
+    border: 1px solid rgba(0,0,0,0.10);
+    min-width: 0;
+  }
+
+  .card-name {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .card-desc {
+    font-size: 10.5px;
+    color: #666;
+    line-height: 1.55;
+  }
+
+  .card-tag {
+    display: inline-block;
+    font-size: 9.5px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-top: 4px;
+    font-weight: 500;
+  }
+
+  /* ===== 箭头区域 ===== */
+  .arrow-zone {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 5px 0;
+    position: relative;
+  }
+
+  .arrow-line {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .arrow-line .arrow-icon {
+    font-size: 18px;
+    color: #AAAAAA;
+    line-height: 1;
+  }
+
+  .arrow-line .arrow-label {
+    font-size: 10px;
+    color: #AAAAAA;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .arrow-divider {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 0;
+  }
+
+  .arrow-divider .inner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #AAAAAA;
+    font-size: 10px;
+  }
+
+  .arrow-divider .inner::before,
+  .arrow-divider .inner::after {
+    content: '';
+    height: 1px;
+    width: 200px;
+    background: linear-gradient(to right, transparent, #CCCCCC, transparent);
+  }
+
+  /* ===== 颜色主题 ===== */
+  .layer-client  { background: #EBF5FB; border-color: #AED6F1; }
+  .layer-bff     { background: #EAFAF1; border-color: #A9DFBF; }
+  .layer-java    { background: #FDFEFE; border-color: #D5D8DC; }
+  .layer-infra   { background: #FFFDE7; border-color: #F9E79F; }
+  .layer-mcp     { background: #FEF9E7; border-color: #F8C471; }
+  .layer-agent   { background: #F4ECF7; border-color: #D2B4DE; }
+  .layer-llm     { background: #FDEDEC; border-color: #F1948A; }
+  .layer-vector  { background: #EAF2FF; border-color: #AEB6BF; }
+
+  .card-client  { background: #D6EAF8; border-color: #85C1E9; }
+  .card-bff     { background: #D5F5E3; border-color: #82E0AA; }
+  .card-java    { background: #F8F9FA; border-color: #CCD1D1; }
+  .card-infra   { background: #FEF9E7; border-color: #F0B27A; }
+  .card-mcp     { background: #FEF5E7; border-color: #F5CBA7; }
+  .card-agent   { background: #EBD5F5; border-color: #C39BD3; }
+  .card-llm     { background: #FADBD8; border-color: #EC7063; }
+  .card-vector  { background: #D6EAF8; border-color: #85C1E9; }
+
+  .tag-realtime { background: #FADBD8; color: #C0392B; }
+  .tag-batch    { background: #D5F5E3; color: #1E8449; }
+  .tag-async    { background: #EBF5FB; color: #1A5276; }
+  .tag-sync     { background: #FEF9E7; color: #784212; }
+  .tag-hot      { background: #FDEDEC; color: #943126; }
+
+  /* ===== 侧边注释 ===== */
+  .side-note {
+    position: absolute;
+    right: -190px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 178px;
+    background: #FAFAFA;
+    border: 1px dashed #CCCCCC;
+    border-radius: 6px;
+    padding: 7px 9px;
+    font-size: 10px;
+    color: #888;
+    line-height: 1.6;
+  }
+
+  /* ===== 双列布局（Java + 基础设施并排） ===== */
+  .two-col {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+  }
+
+  .col-main { flex: 3; }
+  .col-side { flex: 2; }
+
+  /* ===== 响应式 ===== */
+  @media (max-width: 900px) {
+    .row { flex-wrap: wrap; }
+    .card { min-width: calc(50% - 4px); }
+    .side-note { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<h1>心屿 AI 系统 — 技术栈全景图</h1>
+
+<div class="diagram">
+
+  <!-- ① 客户端 -->
+  <div class="layer layer-client">
+    <div class="layer-title">客户端</div>
+    <div class="row">
+      <div class="card card-client" style="max-width:280px; margin:0 auto;">
+        <div class="card-name">App (iOS / Android)</div>
+        <div class="card-desc">用户侧入口 · 发起 HTTPS 请求 · 接收 Hermes 长连接推送</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-divider"><div class="inner">↓&nbsp;&nbsp;HTTPS · JSON</div></div>
+
+  <!-- ② BFF -->
+  <div class="layer layer-bff">
+    <div class="layer-title">BFF 接入层</div>
+    <div class="row">
+      <div class="card card-bff" style="max-width:400px; margin:0 auto;">
+        <div class="card-name">soul-haven-web-service &nbsp; :8080</div>
+        <div class="card-desc">统一对外 API · 鉴权 · 路由 · 协议转换（JSON → Protobuf）</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-divider"><div class="inner">↓&nbsp;&nbsp;Dubbo 3 Triple · Protobuf · Nacos 服务发现 · 负载均衡</div></div>
+
+  <!-- ③ Java 微服务 + 基础设施 并排 -->
+  <div class="two-col">
+
+    <!-- Java 微服务 -->
+    <div class="col-main">
+      <div class="layer layer-java" style="height:100%;">
+        <div class="layer-title">Java 微服务层 <span>13 个服务 · API+Impl 分离 · 各自独立部署</span></div>
+        <div class="row" style="flex-wrap:wrap; gap:6px;">
+          <div class="card card-java" style="min-width:calc(50% - 3px);">
+            <div class="card-name">short-chat-service</div>
+            <div class="card-desc">日常对话 · 意图识别 · 40轮窗口管理<br>Token预算组装 · Hermes流式分片</div>
+            <span class="card-tag tag-realtime">实时</span>
+          </div>
+          <div class="card card-java" style="min-width:calc(50% - 3px);">
+            <div class="card-name">xingmeng-service</div>
+            <div class="card-desc">星梦创建 · 进入 · 结束 · 频率限制<br>预扣费校验 · Redis分布式锁</div>
+            <span class="card-tag tag-realtime">实时</span>
+          </div>
+          <div class="card card-java" style="min-width:calc(50% - 3px);">
+            <div class="card-name">memory-service</div>
+            <div class="card-desc">记忆总结 · miniMerge触发<br>PolarDB addMemory / search / merge</div>
+            <span class="card-tag tag-async">异步</span>
+          </div>
+          <div class="card card-java" style="min-width:calc(50% - 3px);">
+            <div class="card-name">relationship-service</div>
+            <div class="card-desc">关系等级 Lv0~Lv5 · 积分计算<br>升级触发 · upgrade_pending 标记</div>
+            <span class="card-tag tag-sync">同步</span>
+          </div>
+          <div class="card card-java">
+            <div class="card-name">trade-service · ... (8个)</div>
+            <div class="card-desc">贝壳虚拟货币 · 订阅制 · IAP / Google Play</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 基础设施 -->
+    <div class="col-side">
+      <div class="layer layer-infra" style="height:100%;">
+        <div class="layer-title">基础设施</div>
+        <div class="row" style="flex-direction:column; gap:6px;">
+          <div class="card card-infra">
+            <div class="card-name">PostgreSQL</div>
+            <div class="card-desc">业务主库 · JSONB类型 · MVCC<br>tb_short_chat_message<br>tb_memory_summary_task<br>tb_xingmeng_stock</div>
+          </div>
+          <div class="card card-infra">
+            <div class="card-name">Redis</div>
+            <div class="card-desc">缓存 · 分布式锁 · 幂等键 · 频率限制<br>手写布隆过滤器（100W bit，误判率3%）</div>
+          </div>
+          <div class="card card-infra">
+            <div class="card-name">RocketMQ</div>
+            <div class="card-desc">记忆总结异步触发 · 星梦结束多任务<br>延迟消息（24h过期计时器）</div>
+          </div>
+          <div class="card card-infra">
+            <div class="card-name">Nacos</div>
+            <div class="card-desc">服务注册 · 配置热更新<br>Token预算 / 触发阈值 / 模型配置</div>
+          </div>
+          <div class="card card-infra">
+            <div class="card-name">XXL-Job</div>
+            <div class="card-desc">04:30 批处理调度<br>每10min 失败记录重试扫描（并行8线程）</div>
+          </div>
+          <div class="card card-infra">
+            <div class="card-name">Hermes 长连接推送</div>
+            <div class="card-desc">WebSocket · Topic订阅<br>打字机流式分片 · 星梦邀请实时到达</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /two-col -->
+
+  <div class="arrow-divider">
+    <div class="inner">↕&nbsp;&nbsp;MCP (HTTP Streamable Transport) · AI 层与数据层解耦边界 · Agent 不直接操作数据库</div>
+  </div>
+
+  <!-- ④ MCP 层 -->
+  <div class="layer layer-mcp">
+    <div class="layer-title">MCP Layer <span>6 个 MCP Server · langchain-mcp-adapters · MultiServerMCPClient 模块级单例</span></div>
+    <div class="row">
+      <div class="card card-mcp">
+        <div class="card-name">角色信息 MCP</div>
+        <div class="card-desc">getCharacterProfile<br>getCharacterRelation</div>
+      </div>
+      <div class="card card-mcp">
+        <div class="card-name">用户信息 MCP</div>
+        <div class="card-desc">getUserProfile<br>getUserPreference</div>
+      </div>
+      <div class="card card-mcp">
+        <div class="card-name">短对话历史 MCP</div>
+        <div class="card-desc">getAppShortChatMessage<br>batchSize=40</div>
+      </div>
+      <div class="card card-mcp">
+        <div class="card-name">星梦库存 MCP</div>
+        <div class="card-desc">getStockByWindow<br>saveDreamContent</div>
+      </div>
+      <div class="card card-mcp">
+        <div class="card-name">记忆画像 MCP</div>
+        <div class="card-desc">getLongTermMemory<br>getUserProfile</div>
+      </div>
+      <div class="card card-mcp">
+        <div class="card-name">世界观 MCP</div>
+        <div class="card-desc">getWorldConfig<br>getSceneDetail</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-divider">
+    <div class="inner">↕&nbsp;&nbsp;Python LangGraph StateGraph · LangChain ReAct Agent · asyncio.gather 并行查询</div>
+  </div>
+
+  <!-- ⑤ Python Agent -->
+  <div class="layer layer-agent">
+    <div class="layer-title">Python AI Agent 层 <span>阿里云 AgentRun Serverless · 4 个独立函数 · 差异化部署策略</span></div>
+    <div class="row">
+      <div class="card card-agent">
+        <div class="card-name">xingmeng-opening-rewrite</div>
+        <div class="card-desc">
+          实时开场白改写<br>
+          1vCPU / 2GB / 100并发<br>
+          <b>预热 minReadyInstances=2</b><br>
+          MCP并行查询 → qwen3-max → Hermes流推<br>
+          MCP日志异步化 · P99 &lt; 2s
+        </div>
+        <span class="card-tag tag-realtime">实时  P99&lt;2s</span>
+        <span class="card-tag tag-hot">预热实例</span>
+      </div>
+      <div class="card card-agent">
+        <div class="card-name">xingmeng-content</div>
+        <div class="card-desc">
+          5阶段批处理流水线<br>
+          2vCPU / 4GB / 10并发<br>
+          <b>asyncio.Semaphore(10) 主动限流</b><br>
+          Phase3 库存优先复用 60%+<br>
+          不预热，闲时零资源占用
+        </div>
+        <span class="card-tag tag-batch">批处理  04:30启动</span>
+      </div>
+      <div class="card card-agent">
+        <div class="card-name">stranger-feed</div>
+        <div class="card-desc">
+          陌生角色新鲜事批量生产<br>
+          1vCPU / 2GB / 100并发<br>
+          <b>asyncio.gather 三语并行翻译</b><br>
+          zh-CN / zh-TW / en-US<br>
+          翻译耗时降低约 40%
+        </div>
+        <span class="card-tag tag-batch">批处理</span>
+      </div>
+      <div class="card card-agent">
+        <div class="card-name">acquaintance-feed</div>
+        <div class="card-desc">
+          熟人个性化动态<br>
+          1vCPU / 2GB / 50并发<br>
+          离线批量 · 用户离线期间触发<br>
+          记忆由Java Core传入（不走MCP）<br>
+          时区精确到分钟防时间碰撞
+        </div>
+        <span class="card-tag tag-batch">批处理</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-divider">
+    <div class="inner">↓&nbsp;&nbsp;独立配额组隔离 · 实时组 vs 批处理组互不影响 · OpenAI 兼容接口</div>
+  </div>
+
+  <!-- ⑥ LLM 网关 -->
+  <div class="layer layer-llm">
+    <div class="layer-title">LLM 模型网关 <span>AgentRun 内置模型网关 · 双配额组 · 按优先级隔离</span></div>
+    <div class="row">
+      <div class="card card-llm">
+        <div class="card-name">qwen3-max &nbsp;·&nbsp; 实时链路专属</div>
+        <div class="card-desc">
+          独立配额 · 超限直接拒绝（快速失败）<br>
+          低延迟 · 中文叙事 / 情感表达质量优秀<br>
+          使用方：xingmeng-opening-rewrite
+        </div>
+        <span class="card-tag tag-realtime">低延迟优先</span>
+      </div>
+      <div class="card card-llm">
+        <div class="card-name">deepseek-v4-flash &nbsp;·&nbsp; 批处理专属</div>
+        <div class="card-desc">
+          大配额 · 超限排队等待（不影响实时组）<br>
+          成本约 qwen3-max 的 1/6 · JSON指令遵循稳定<br>
+          使用方：xingmeng-content / stranger-feed / acquaintance-feed
+        </div>
+        <span class="card-tag tag-batch">低成本优先</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-divider">
+    <div class="inner">↕&nbsp;&nbsp;memory-service 调用 · RocketMQ 异步触发 · XXL-Job 重试扫描</div>
+  </div>
+
+  <!-- ⑦ PolarDB -->
+  <div class="layer layer-vector">
+    <div class="layer-title">PolarDB 向量引擎 <span>Memory API = 托管版 Mem0 · 事实提取 · 向量存储 · 去重合并全托管</span></div>
+    <div class="row">
+      <div class="card card-vector">
+        <div class="card-name">addMemory &nbsp; (infer=true)</div>
+        <div class="card-desc">
+          FACT_RETRIEVAL_PROMPT<br>
+          LLM提取事实 → ADD / UPDATE / NONE 三选一<br>
+          UPDATE：与已有记忆冲突→覆盖<br>
+          NONE：重复→丢弃不写入
+        </div>
+        <span class="card-tag tag-sync">实时写入</span>
+      </div>
+      <div class="card card-vector">
+        <div class="card-name">searchMemory &nbsp; (TopK)</div>
+        <div class="card-desc">
+          向量相似度检索<br>
+          runId 命名空间隔离（userId__charId）<br>
+          Agent 组装Prompt时注入长期记忆段落<br>
+          Token预算裁剪：TopK 10→6→3
+        </div>
+        <span class="card-tag tag-realtime">Prompt注入</span>
+      </div>
+      <div class="card card-vector">
+        <div class="card-name">mergeMemories &nbsp; (miniMerge)</div>
+        <div class="card-desc">
+          积累5条mini记忆→触发<br>
+          LLM语义融合·deleteOld=true<br>
+          合并结果写回参与下轮<br>
+          滚动收敛·防无序膨胀
+        </div>
+        <span class="card-tag tag-async">异步批量</span>
+      </div>
+      <div class="card card-vector">
+        <div class="card-name">降级 / 重试</div>
+        <div class="card-desc">
+          infer=false → 原文直接向量化兜底<br>
+          status=FAILED_DEGRADED<br>
+          XXL-Job 每10min 扫描重跑推断<br>
+          最多重试3次·间隔5s
+        </div>
+        <span class="card-tag tag-batch">最终一致</span>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /diagram -->
+
+<!-- 图例 -->
+<div style="max-width:1160px; margin: 20px auto 0; display:flex; gap:12px; flex-wrap:wrap; justify-content:center;">
+  <div style="font-size:10.5px; color:#888; display:flex; align-items:center; gap:5px;">
+    <span style="display:inline-block; width:10px; height:10px; background:#FADBD8; border:1px solid #EC7063; border-radius:2px;"></span> 实时链路（P99 &lt; 2s）
+  </div>
+  <div style="font-size:10.5px; color:#888; display:flex; align-items:center; gap:5px;">
+    <span style="display:inline-block; width:10px; height:10px; background:#D5F5E3; border:1px solid #82E0AA; border-radius:2px;"></span> 批处理链路（04:30 调度）
+  </div>
+  <div style="font-size:10.5px; color:#888; display:flex; align-items:center; gap:5px;">
+    <span style="display:inline-block; width:10px; height:10px; background:#EBF5FB; border:1px solid #85C1E9; border-radius:2px;"></span> 异步消息（RocketMQ）
+  </div>
+  <div style="font-size:10.5px; color:#888; display:flex; align-items:center; gap:5px;">
+    <span style="display:inline-block; width:10px; height:10px; background:#EBD5F5; border:1px solid #C39BD3; border-radius:2px;"></span> MCP 工具调用（AI↔数据解耦边界）
+  </div>
+</div>
+
+</body>
+</html>
