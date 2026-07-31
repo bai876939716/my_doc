@@ -1,0 +1,100 @@
+@startuml shortchat-stardream-linkage
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam defaultFontSize 12
+skinparam SequenceArrowColor #78909C
+skinparam SequenceArrowThickness 1.5
+skinparam ParticipantBackgroundColor #EBF5FB
+skinparam ParticipantBorderColor #90A4AE
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #F9A825
+skinparam ActivationBackgroundColor #E3F2FD
+skinparam SequenceGroupBackgroundColor #F8F9FA
+skinparam SequenceGroupBorderColor #90A4AE
+
+title 心屿 App — 短对话 → 星梦邀请联动流程\nShortChatService · topic-intent-agent · StarDreamService
+
+actor "用户" as User
+participant "App" as App
+participant "BFF\n:8080" as BFF
+participant "short-chat-service\n:13040" as SC
+participant "auto-conversation-service\n:13100" as ACS
+participant "topic-intent-agent\n(AgentRun)" as Agent
+participant "LLM\n(qwen3-max)" as LLM
+participant "star-dream-service\n:13080" as SD
+participant "Hermes" as Hermes
+database "PostgreSQL" as PG
+
+== 普通短对话（每10轮异步触发意图识别）==
+
+User -> App : 发送短对话消息
+App -> BFF : POST /short-chat/api/v1/message/send\n{content, sessionId, characterId}
+BFF -> SC  : Dubbo RPC: SendShortChatMessage
+SC  -> LLM : 流式生成回复（携带短期记忆 + 长期记忆）
+LLM --> SC : 流式 token 片段
+SC  -> Hermes : 推送消息流
+Hermes --> App : 实时打字机效果展示
+
+SC -> SC : roundCount++
+
+alt roundCount % 10 == 0（每10轮触发意图识别）
+  SC ->> ACS : 异步通知: 触发意图识别\n{userId, sessionId, characterId, recentMsgs:最近10轮}
+  note right of ACS
+    异步调用，不阻塞本轮回复
+    用户无感知
+  end note
+
+  ACS ->> Agent : POST /topic-intent/...\n{messages: 最近10轮对话}
+  Agent -> LLM : 意图分析 Prompt
+  LLM --> Agent : intent = "star_dream_invite"\n{suggestedEventType, reason}
+  Agent --> ACS : 意图识别结果
+  ACS --> SC   : 回调意图结果
+
+  alt intent == star_dream_invite
+    SC -> SD : Dubbo RPC: CreateStarDreamInviteCard\n{userId, sessionId, characterId, suggestedEvent}
+    SD -> PG : INSERT tb_soul_haven_star_dream_invite\n{inviteId, status=pending, sessionId}
+    SD -> PG : 查询匹配的星梦事件模板
+    SD --> SC : {inviteId, eventInfo, inviteCard}
+    SC -> Hermes : 推送邀请卡消息\n{type:"star_dream_invite", inviteCard:{场景图、地点、角色邀请语}}
+    Hermes --> App : 显示邀请卡（角色邀请进入星梦）
+  end
+end
+
+== 用户接受 / 拒绝邀请 ==
+
+alt 用户接受邀请
+  User -> App : 点击「好啊」接受
+  App -> BFF  : POST /stardream/apply\n{eventId, characterIds, inviteId}
+  BFF -> SD   : Dubbo RPC: ApplyStarDream
+  SD  -> PG   : INSERT tb_soul_haven_star_dream\n{status=in_progress, inviteId}
+  SD  -> PG   : UPDATE tb_soul_haven_star_dream_invite\n{status=accepted}
+  SD  -> SC   : Dubbo RPC: PersistInviteCardDecisionMessage\n(短对话记录「接受邀请」系统消息)
+  SC  -> PG   : INSERT tb_short_chat_message\n{role=system, type=invite_status, invite_status=accepted}
+  SC  -> Hermes : 推送会话状态更新
+  Hermes --> App : 短对话显示「已接受邀请，即将进入星梦」
+  SD --> BFF  : {starDreamId}
+  BFF --> App : 302 跳转到星梦场景页
+
+else 用户拒绝邀请
+  User -> App : 点击「算了」拒绝
+  App -> BFF  : POST /stardream/decline\n{inviteId}
+  BFF -> SD   : Dubbo RPC: DeclineStarDreamInvite
+  SD  -> PG   : UPDATE tb_soul_haven_star_dream_invite\n{status=rejected}
+  SD  -> SC   : Dubbo RPC: PersistInviteCardDecisionMessage\n{invite_status=rejected}
+  SC  -> PG   : INSERT 拒绝消息
+  SC  -> LLM  : 生成角色对拒绝的温柔回应
+  LLM --> SC  : 回应消息文本
+  SC  -> Hermes : 推送角色回应
+  Hermes --> App : 角色表示理解，短对话继续
+end
+
+note over SC, SD
+  联动机制要点
+  1. 意图识别由 topic-intent-agent 每10轮异步执行，不阻塞主回复链路
+  2. 邀请卡是独立消息类型（type=star_dream_invite），在短对话中内联展示
+  3. 接受/拒绝决策都写回短对话消息流，保持上下文连贯
+  4. 星梦结束后可无缝继续短对话
+end note
+
+@enduml

@@ -1,0 +1,156 @@
+@startuml star-dream-core-sequence
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam SequenceArrowThickness 2
+skinparam SequenceGroupBackgroundColor #E8F5E9
+skinparam NoteBackgroundColor #FFF9C4
+skinparam ParticipantBackgroundColor #E3F2FD
+
+title 心屿 App — ★ 星梦系统核心业务序列图\n从邀请触发到星梦结束完整链路
+
+actor "用户" as User
+participant "App Frontend" as APP
+participant "BFF\n(web-service)" as BFF
+participant "short-chat-service\n:13040" as SCS
+participant "auto-conversation-service\n:13100" as ACS
+participant "star-dream-service\n:13080" as SDS
+participant "trade-service\n:13120" as TRS
+participant "memory-service\n:13090" as MS
+participant "Hermes\n(长连接推送)" as HM
+participant "AgentRun\n(AI Agent集群)" as AR
+participant "LLM" as LLM
+participant "RocketMQ" as MQ
+
+== 阶段一：短对话中触发星梦邀请 ==
+
+User -> APP : 与角色聊天 (发送消息)
+APP -> BFF : POST /short-chat/message
+BFF -> SCS : Dubbo RPC: SendMessage
+
+SCS -> ACS : 调用意图识别 Agent\n(p01: 短对话意图识别)
+ACS -> AR  : POST /openai/v1/chat/completions\n{ messages: [最近对话历史] }
+AR -> LLM  : 意图识别推理
+LLM --> AR : { intent: "star_dream_invite", confidence: 0.92 }
+AR --> ACS : 识别结果: 适合触发星梦邀请
+
+ACS -> SDS : CreateStarDreamInviteCard\n(character_id, user_id, scene_overview)
+SDS -> SDS : 频率限制检查:\n- 10分钟内已邀请? → 冷却中\n- 今日已邀请 ≥ 8次? → 超上限\n- 上次被拒绝 < 5分钟? → 拒绝冷却
+SDS -> SCS : 推送邀请卡消息到短对话\n{ msgType: STAR_DREAM_INVITE_CARD, scene_title, scene_location }
+SCS -> HM  : Hermes推送 chat_session_{id}
+
+HM --> APP : 实时推送邀请卡
+APP --> User : 展示星梦邀请卡 🌟\n"角色邀请你去[场景地点]\n进行[星梦标题]"
+
+== 阶段二：用户接受邀请 & 冲突检测 ==
+
+User -> APP : 点击"接受邀请"
+APP -> BFF : POST /stardream/invite/accept\n{ inviteId, dreamId }
+BFF -> SDS : Dubbo: AcceptStarDreamInvite
+
+SDS -> SDS : 并发锁检测 (StarDreamAcceptLockService)\n防止重复接受
+SDS -> SDS : 查询是否有进行中的其他星梦
+alt 存在进行中星梦
+  SDS --> APP : 返回: 星梦冲突\n{ conflictDreamId, options: [继续旧/结束旧开新] }
+  User -> APP : 选择"结束旧的，开始新的"
+  APP -> BFF : POST /stardream/{oldId}/end
+  BFF -> SDS : EndStarDream(oldId)
+end
+
+SDS -> SDS : 创建新星梦任务记录\n{ user_id, character_ids, status: PENDING\n  hermes_session_id, chat_session_id }
+
+== 阶段三：开场白生成 (2分钟前端倒计时) ==
+
+SDS -> ACS : 调用开场白生成 Agent (p02)
+ACS -> AR  : POST /openai/v1/chat/completions\n{ character_id, user_id, scene_overview\n  relationship_level, user_profile }
+AR -> LLM  : 生成沉浸式开场白\n(长文本强叙事风格)
+LLM --> AR : "夕阳的余晖洒在云顶庄园的石阶上..."
+AR --> ACS : opening_text (300-800字)
+ACS --> SDS : 开场白生成完成
+
+SDS -> HM  : 推送开场白到 Hermes\n chat_session_{starDreamId}
+HM --> APP : 实时展示开场白文字
+
+APP --> User : 展示沉浸式开场白\n用户进入星梦空间 ✨
+
+== 阶段四：进行中 — 用户发送消息 ==
+
+SDS -> TRS : 预扣费检查\n验证贝壳余额 ≥ 预设消耗数
+alt 余额不足
+  TRS --> APP : 弹出充值提示
+  User -> APP : 充值贝壳后继续
+end
+
+User -> APP : 输入并发送消息
+APP -> BFF : POST /stardream/{id}/message\n{ content: "我来了..." }
+BFF -> SDS : Dubbo: PostStarDreamMessage
+
+SDS -> SDS : ① 记录用户消息\n② 触发 "正在输入..." Hermes 推送
+
+SDS -> ACS : 调用自然结束意图识别 (前置判断)
+ACS -> AR  : POST (自然结束意图识别 Agent)\n{ 最近对话历史, scene_overview }
+AR --> ACS : { should_end: false }
+
+SDS -> AR  : 调用星梦对话 Agent\n生成 AI 角色回复\n{ character_persona, chat_history\n  scene_context, relationship_level }
+AR -> LLM  : 长文本叙事推理 (流式)
+LLM --> AR : 流式文本片段...
+AR -> HM   : 分片推送 msgStatus=GENERATING
+HM --> APP : 实时展示 AI 打字效果
+
+LLM --> AR : [生成完毕]
+AR -> HM   : 推送完整回复 msgStatus=SUCCESS
+HM --> APP : 完整 AI 回复
+
+SDS ->> MS : 异步: 将对话写入\n长期记忆队列 (倒数第二轮)
+
+== 阶段五：自然结束 ==
+
+note over User, LLM
+  若干轮对话后...
+end note
+
+User -> APP : "今天聊得很开心，再见~"
+APP -> BFF : POST /stardream/{id}/message
+BFF -> SDS : PostStarDreamMessage
+
+SDS -> ACS : 自然结束意图识别 (p04)
+ACS -> AR  : { latest_message: "再见~", history: [...] }
+AR --> ACS : { should_end: true, confidence: 0.95 }
+
+SDS -> HM  : 推送结束确认弹窗
+HM --> APP : 展示 "星梦即将结束，确认结束？"
+
+User -> APP : 点击"确认结束"
+APP -> BFF : POST /stardream/{id}/end
+BFF -> SDS : EndStarDream
+
+== 阶段六：结束结算 (并行任务) ==
+
+SDS -> ACS : 调用自然结束衔接 Agent (p05)\n生成告别语
+ACS -> AR  : 生成温情告别语
+AR --> SDS : 告别语文本
+SDS -> HM  : 推送告别语
+HM --> APP : 展示最终告别语
+
+par 并行结算任务
+  SDS -> AR  : 生成星梦回忆卡片\n(对话全文摘要 + 关键情节)
+  AR --> SDS : recall_content
+  SDS -> SCS : 推送回忆卡到各参与角色短对话
+  SCS -> HM  : 推送到用户短对话频道
+  HM --> APP : 角色发来"回忆卡片"消息
+also
+  SDS -> AR  : 生成星梦后私信\n(角色发出的后续消息)
+  AR --> SDS : post_dream_message
+  SDS -> SCS : 推送私信到短对话
+also
+  SDS -> MQ  : 发布 StarDreamEndedEvent
+  MQ  --> SDS : 消费: 更新消息Tab/关系等级
+also
+  SDS ->> AR : [异步] 发布星事判断 (p07)\n概率性发布角色新鲜事
+end
+
+SDS -> TRS : 正式结算贝壳消耗\n(用户已发送 ≥ 1 条消息)
+
+APP --> User : 展示星梦结束界面\n"回忆·角色名" + 评价选项
+
+@enduml

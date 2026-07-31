@@ -1,0 +1,88 @@
+@startuml acquaintance-feed-workflow
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam ActivityBackgroundColor #E8F5E9
+skinparam ActivityBorderColor #2E7D32
+skinparam ActivityDiamondBackgroundColor #FFF9C4
+skinparam ArrowColor #2E7D32
+
+title xinyu-agents / acquaintance-feed-initial-library\n熟人新鲜事（用户离线场景）— 完整业务流程
+
+|#E8F5E9| Java Core (调用方) |
+start
+:用户离线检测\n→ 计算时间窗口;
+:构造 AcquaintanceFeedInput\n- character_id / relationship_level (Lv1-5)\n- timezone / current_time / time_range_start/end\n- assigned_times_list (已分配时间，防碰撞)\n- recent_short_chat_messages (最近40轮)\n- user_nickname / user_profile\n- bonded_characters_list;
+:POST /openai/v1/chat/completions;
+
+|#E3F2FD| Node 1: validate_params |
+:解析 AcquaintanceFeedInput;
+if (字段校验) then (失败)
+  :error_code=PARAM_INVALID;
+  stop
+else (通过)
+  :生成 request_id;
+endif
+
+|#E8EAF6| Node 2: generate |
+:构建提示词 (v4.0 XML 结构化)\n注入:\n- 角色人设 + 用户昵称/画像\n- 关系等级名称映射\n  (Lv1初识 / Lv2熟悉 / Lv3亲近\n   Lv4深交 / Lv5灵魂羁绊)\n- 时间范围 + 已有动态摘要\n- 最近40轮对话上下文\n- @ 规则: Lv1-3禁止 / Lv4+最多1次;
+
+:调用 LLM (qwen3-max)\n生成单个 JSON 对象\n(非数组，固定 1 条);
+
+if (LLM 失败) then (是)
+  :error_code=LLM_FAILED;
+  stop
+else (否)
+endif
+
+|#FFF8E1| Node 3: assemble_post |
+:解析 LLM JSON → AcquaintancePostSourceItem\n- dynamic_time (用户本地时间 ISO 8601)\n- content (正文)\n- image_description\n- comments[];
+
+partition "时间校正 adjust_post_dynamic_time" {
+  :检查 dynamic_time 是否在\n[time_range_start, time_range_end] 内;
+  if (超出范围) then (是)
+    :截断到 start 或 end;
+  else (否)
+  endif
+  :遍历 assigned_times_list\n检查每个已分配时间间隔\n(默认最小 20 分钟);
+  if (存在时间碰撞) then (是)
+    :自动推移至下一个\n允许时段 (+20min);
+  else (否)
+  endif
+}
+
+partition "输出规则校验 (非阻断，仅观测)" {
+  :① 时间在窗口范围内?;
+  :② 与已分配时间间隔 ≥ 20 分钟?;
+  :③ 字数 10-30 字 (不含 @{user_nickname})?;
+  :④ @ 规则: Lv<4 禁止 / Lv≥4 最多 1 次?;
+  :⑤ 评论人ID在羁绊列表中?;
+  note right: 规则不通过不阻断流程\n仅记录 time_validations
+}
+
+|#FCE4EC| Java Core (落库) |
+:接收 AcquaintanceFeedWorkflowResponse\n- posts[0]: 单条动态\n  · source_locale\n  · dynamic_time (用户本地时间)\n  · content\n  · image_description\n  · comments[]\n- time_validations: 时间规则校验结果\n- workflow_context;
+
+if (time_validations 有错误?) then (是)
+  :记录告警日志\n(AGENT_OUTPUT_RULE_FAILED);
+  note right: Java Core 可选择\n阻断落库或继续
+else (否)
+endif
+
+:时间转换: 用户本地时间 → UTC;
+:落库到业务数据库;
+
+note right
+  与陌生库的核心差异：
+  无多语言翻译
+  Agent 不负责落库 (Java 负责)
+  规则校验不阻断
+  时间精确到分钟(用户本地时区)
+  支持 @{user_nickname} 占位符
+  注入最近 40 轮对话上下文
+  关系等级差异化表达
+end note
+
+stop
+
+@enduml

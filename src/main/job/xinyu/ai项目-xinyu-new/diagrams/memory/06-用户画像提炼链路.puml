@@ -1,0 +1,57 @@
+@startuml memory-user-profile-pipeline
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam ActivityBackgroundColor #F8F9FA
+skinparam ActivityBorderColor #90A4AE
+skinparam ActivityDiamondBackgroundColor #EBF5FB
+skinparam ActivityDiamondBorderColor #78909C
+skinparam ArrowColor #78909C
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #F9A825
+
+title 心屿 — 用户画像提炼与合并链路
+
+|#E8F5E9| 触发条件 |
+start
+:记忆总结完成\n(MemorySummaryProcessor 成功写入 PolarDB);
+if (profileExtractEnabled = true?) then (否)
+  :跳过画像提取;
+  stop
+else (是)
+endif
+
+|#E3F2FD| PolarDB Profile API |
+:查询对话时间范围\n[startTime, endTime];
+:POST /extractProfile\nExtractProfileRequest {\n  messages: 本批次对话\n  promptName: USER PROFILE EXTRACTION PROMPT\n  schemaId: 当前画像 Schema 版本\n};
+
+:LLM 按 Schema 提取结构化字段\n{昵称偏好, 性格标签, 兴趣爱好\n情绪特征, 生活背景, 关系期待};
+
+:获取已有旧画像;
+
+if (旧画像存在?) then (是)
+  :POST /mergeProfile\nPROFILE MERGE PROMPT v1\n新画像字段 + 旧画像字段 → 合并决策\n（保留最新/最具体的信息）;
+else (否)
+  :直接写入新画像;
+endif
+
+:写回 PolarDB Profile 服务\nupdateUserProfile;
+
+|#FFF8E1| 下游读取 |
+:Agent 调用时 MCP getUserProfile\n读取最新画像注入提示词\n<用户画像>...</用户画像>;
+stop
+
+note right
+  画像示例输出：
+  "用户是大学生，养了一只叫小饼的橘猫
+   偏内向，喜欢在深夜聊天
+   对天文和科幻小说感兴趣
+   倾向用表情包表达情绪"
+
+  更新频率：
+  · 每 30 轮对话触发一次
+  · 活跃用户每天约更新 2-3 次
+  · 最大滞后约 1-2 天
+end note
+
+@enduml

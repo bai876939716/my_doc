@@ -1,0 +1,48 @@
+@startuml memory-seven-scene-types
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam componentStyle rectangle
+skinparam ArrowColor #78909C
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #F9A825
+
+title SummarySceneType — 7 种记忆场景类型
+
+rectangle "短对话域" as ShortDomain #E8F5E9 {
+  component "SHORT CHAT (1)\n用户 ↔ 单角色\n会话+角色 双维度" as SC
+}
+
+rectangle "单人星梦域" as StarDomain #EBF5FB {
+  component "STAR DREAM (3)\n单人星梦 — 会话维度\n记录用户与角色共同经历" as SD
+  component "STAR DREAM ROLE MEMORY (5)\n单人星梦 — 角色维度\nrunId = roleId__saveId" as SDRM
+  SD --> SDRM : fan-out 拆分
+}
+
+rectangle "多人星梦域" as MultiDomain #FFF8E1 {
+  component "MULTI STAR DREAM (6)\n多人星梦 — 会话维度\n所有角色共同经历" as MSD
+  component "MULTI STAR DREAM ROLE MEMORY (7)\n多人星梦 — 角色维度\n每个角色独立视角\nMULTI STAR DREAM SINGLE PERSPECTIVE Prompt" as MSDRM
+  MSD --> MSDRM : fan-out 拆分\n（并行 N 个角色）
+}
+
+rectangle "群聊域" as GroupDomain #F3E5F5 {
+  component "GROUP CHAT (2)\n群聊 — 会话维度\n多角色集体记忆" as GC
+  component "GROUP CHAT ROLE MEMORY (4)\n群聊 — 角色维度\n每个角色独立沉淀" as GCRM
+  GC --> GCRM : fan-out 拆分
+}
+
+note right of ShortDomain
+  runId 规则：
+  短对话：userId__characterId
+  星梦：roleId__saveId
+  群聊：sessionId
+end note
+
+note bottom of MultiDomain
+  记忆隔离：
+  sceneType 不同 → run_id 空间不同
+  → 短聊/星梦/群聊的记忆完全隔离
+  → 同一用户不同角色的记忆隔离
+end note
+
+@enduml

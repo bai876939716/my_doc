@@ -1,0 +1,80 @@
+@startuml end-to-end-data-flow
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam ActivityBackgroundColor #F8F9FA
+skinparam ActivityBorderColor #90A4AE
+skinparam ActivityDiamondBackgroundColor #EBF5FB
+skinparam ActivityDiamondBorderColor #78909C
+skinparam ArrowColor #78909C
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #F9A825
+
+title 心屿 App — 端到端数据流\n用户请求 → AI 生成 → 持久化落库
+
+|#EBF5FB| App & Java 后端 |
+start
+:用户操作 (聊天 / 进入星梦 / 查看动态);
+:HTTPS 请求 → BFF\nJWT 鉴权 · IP 地域控制 · Protobuf 封装;
+:Dubbo Triple RPC\n路由到对应业务服务;
+
+:业务规则处理\n贝壳余额检查 / Redis 限流 / 状态机流转;
+
+:触发 AgentRun 调用\n(auto-conversation-service 编排);
+:HTTP POST /openai/v1/chat/completions\nmessages[0].content = JSON 入参;
+
+|#FFF8F0| AI Agent 层 |
+:LangGraph StateGraph 初始化;
+
+:① validate params\nPydantic 模型解析 & 字段校验;
+if (校验失败?) then (是)
+  :返回 PARAM INVALID;
+  stop
+else (否)
+endif
+
+:② MCP 上下文查询\n角色信息 / 对话历史(40轮) / 用户画像 / 世界观;
+
+:③ 构建 XML 结构化提示词\n角色设定 / 任务目标 / 关系等级 / 创作约束 / 输出格式;
+
+|#F3F8FE| 外部 AI 服务 |
+:LLM 推理\n(qwen3-max / deepseek-v4-flash)\ntemperature=0.9;
+
+|AI Agent 层|
+:④ 输出解析\n移除 think 块 → 提取 JSON → json repair 兜底;
+
+if (解析失败?) then (是)
+  :返回 PARSE FAILED;
+  stop
+else (否)
+endif
+
+:⑤ 业务规则校验\n字数 / 禁用词 / 时段分布 / @ 规则;
+
+if (规则不通过?) then (是)
+  :RULE FAILED (Stranger Feed 阻断)\n或记录 time validations (Acquaintance Feed 不阻断);
+  stop
+else (否)
+endif
+
+:⑥ 多语言翻译 (仅 Stranger Feed)\nzh-TW + en-US 并行翻译;
+
+|外部 AI 服务|
+:MCP 工具调用落库\nbatchSaveStrangerFeedPrefabs\n/ writeProducedDreamsBatch;
+
+|App & Java 后端|
+:接收 Agent 响应\n解析 choices[0].message.content;
+
+:异步后处理\nRocketMQ 事件 / Hermes 推送 / Redis 更新;
+
+:返回响应给 App\n(动态卡片 / 开场白 / 星梦消息);
+stop
+
+note right
+  三种落库模式：
+  Stranger Feed → Agent MCP 落库
+  Acquaintance Feed → Java Core 落库
+  Xingmeng → Agent MCP 落库
+end note
+
+@enduml

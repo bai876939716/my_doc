@@ -1,0 +1,48 @@
+@startuml memory-stardream-three-layers
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam componentStyle rectangle
+skinparam ArrowColor #78909C
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #F9A825
+
+title 星梦 — 三层记忆结构
+
+rectangle "层级 1 — 当场上下文（短期热数据）" as L1 #E8F5E9 {
+  component "本场星梦全部对话消息\n开场白 + 实时对话轮次\nPostgreSQL — 实时读写" as L1C
+}
+
+rectangle "层级 2 — 场内 Mini Summary（中期缓冲）" as L2 #EBF5FB {
+  component "本场星梦关键情节提炼\n触发条件：积累 miniMergeThreshold=5 条\nSTAR DREAM MINI SUMMARY Prompt\n防止单场长星梦撑爆 context window" as L2C
+}
+
+rectangle "层级 3 — 跨场景长期记忆（冷数据）" as L3 #FFF8E1 {
+  component "多次星梦沉淀的角色级事实\nsceneType = STAR DREAM ROLE MEMORY (5)\nrunId = roleId__saveId\nPolarDB 向量存储 — 按相关性检索" as L3C
+}
+
+L1 --> L2 : 同场积累到阈值\n触发 mini summary
+L2 --> L3 : 星梦结束\n触发 role memory 总结
+
+note right of L1
+  场景举例（第 3 次星梦进行中）：
+  开场白 + 已进行的 20 轮对话
+  全部原文注入提示词
+end note
+
+note right of L2
+  第 5 轮 AI 回复后触发：
+  "用户提到了小时候的海边记忆
+   情绪从紧张逐渐变得放松"
+  → 替换原文，节省 token
+end note
+
+note right of L3
+  第 N 次星梦结束后沉淀：
+  "用户怕浪花（第1次星梦）
+   用户喜欢安静的场景
+   每次夜晚场景情绪更放松"
+  → 角色在下次星梦中可引用
+end note
+
+@enduml

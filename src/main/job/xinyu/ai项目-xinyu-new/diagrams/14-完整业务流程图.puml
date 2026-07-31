@@ -1,0 +1,206 @@
+@startuml full-business-flow
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam defaultFontSize 12
+skinparam activityBorderThickness 1.2
+skinparam activityArrowThickness 1.2
+skinparam noteBackgroundColor #FFFDE7
+skinparam noteBorderColor #F9A825
+skinparam noteFontSize 10
+
+skinparam partition {
+  BorderColor #90A4AE
+  BackgroundColor #FAFAFA
+  FontStyle bold
+  FontSize 13
+}
+
+title 心屿 App — 用户完整业务旅程\n初次相遇 → 日常短对话 → 星梦邀请 → 沉浸体验 → 内容沉淀
+
+|#EBF5FB|用户|
+|#FEF2E7|AI 角色|
+|#F5F5F5|平台（后台）|
+
+' ══════════════════════════════════════════
+'  场景一：初次相遇（Lv0 陌生人）
+' ══════════════════════════════════════════
+|平台（后台）|
+start
+#FFCCCC:角色上线时提前准备 8 条公开动态;
+note right
+  <color:red>**【LLM】stranger-feed-agent**</color>
+  LangGraph 5节点：校验→<color:red>生成</color>→规则校验→<color:red>翻译</color>→MCP落库
+  · 三语支持 (zh-CN / zh-TW / en-US)
+  · 含图片描述 + 羁绊角色互评
+  · 按早/午/晚/夜时段分布
+end note
+
+|用户|
+:打开 App，浏览角色主页;
+
+|AI 角色|
+:展示朋友圈风格动态\n「今天去了星轨公园...」;
+note right
+  Lv0 静态库存内容
+  按时段分配展示
+end note
+
+|用户|
+:感兴趣，点击「聊聊」;
+
+' ══════════════════════════════════════════
+'  场景二：日常短对话（建立关系 Lv0→Lv5）
+' ══════════════════════════════════════════
+|用户|
+:给角色发送消息;
+
+|AI 角色|
+#FFCCCC:角色实时流式回复;
+note right
+  短期记忆: 最近 40 轮原文注入
+  长期记忆: TopK 向量检索 (PolarDB Mem0)
+  用户画像: 完整注入
+  <color:red>**【LLM】流式推理 → Hermes 长连接推送（打字机效果）**</color>
+end note
+
+|用户|
+:继续对话，关系逐渐加深;
+
+|平台（后台）|
+#FFCCCC:每 40 轮自动异步触发记忆总结;
+note right
+  RocketMQ 发布 SummaryReadyEvent
+  Redis 幂等校验（防重复）
+  <color:red>**【LLM】PolarDB Memory API 事实提取（ADD/UPDATE/NONE）**</color>
+  <color:red>**【LLM】PolarDB Profile API 用户画像更新**</color>
+  不阻塞对话，用户无感知
+end note
+
+|AI 角色|
+#FFCCCC:用户离线后，角色主动发新鲜事\n「想到你说的那件事，笑了很久~」;
+note right
+  <color:red>**【LLM】acquaintance-feed-agent**</color>
+  LangGraph 3节点：校验→<color:red>生成</color>→组装
+  · 精确到分钟发送时间（防时间碰撞）
+  · Lv4+ 可 @用户昵称
+  · Java Core 负责最终落库
+end note
+
+|用户|
+:重新打开 App，感觉角色「记得我」;
+
+' ══════════════════════════════════════════
+'  场景三：收到星梦邀请
+' ══════════════════════════════════════════
+|平台（后台）|
+#FFCCCC:每10轮对话异步分析话题意图;
+note right
+  <color:red>**【LLM】topic-intent-agent**</color>
+  识别契机：star_dream_invite / normal
+  异步执行，不阻塞主回复链路
+end note
+
+|AI 角色|
+:角色在聊天界面发送邀请卡\n「我发现了一个有趣的地方，要不要一起去？」;
+note right
+  Hermes 推送 type=star_dream_invite
+  展示场景图 + 地点 + 角色邀请语
+end note
+
+|用户|
+:看到邀请卡，点击「好啊」接受;
+
+' ══════════════════════════════════════════
+'  场景四：进入星梦（沉浸式场景）
+' ══════════════════════════════════════════
+|AI 角色|
+#FFCCCC:展示 AI 生成的沉浸式开场白\n「夕阳把整片草地染成金色，\n你来了，我一眼就看见你...」;
+note right
+  <color:red>**【LLM】xingmeng-opening-rewrite-agent**</color>
+  · 读取近期对话（MCP查询）
+  · <color:red>qwen3-max 实时改写</color>
+  · 适配当前关系等级语气
+  · 目标延迟 < 2 秒
+end note
+
+|用户|
+:沉浸在场景中，开始互动;
+
+|AI 角色|
+repeat
+  #FFCCCC:感知用户情绪与行为，自然回应;
+  note right
+    三路并行读取拼接 Prompt:
+    · 短期记忆: 近40轮原文
+    · 长期记忆: TopK 向量事实
+    · 用户画像: 完整结构化JSON
+    <color:red>**【LLM】流式回复 → Hermes推送**</color>
+  end note
+
+  |用户|
+  :继续互动，感受沉浸体验;
+
+  |平台（后台）|
+  if (累计40轮?) then (是)
+    :异步触发本次星梦的记忆沉淀;
+    note right
+      SummarySceneType = STAR_DREAM(3)
+      触发 miniMerge 合并旧事实向量
+      向量去重后更新 PolarDB Memory
+    end note
+  else (否)
+  endif
+
+|AI 角色|
+repeat while (继续星梦?) is (继续)
+-> 结束;
+
+' ══════════════════════════════════════════
+'  场景五：结束星梦，世界留下印记
+' ══════════════════════════════════════════
+|用户|
+:主动结束星梦;
+
+|AI 角色|
+:这段经历以「星事」形式\n出现在角色主页动态中\n「今天和你一起看了落日...」;
+note right
+  星梦内容回流 Feed 库
+  写入 PolarDB Memory 向量存储
+  成为下次对话长期记忆素材
+  生成「回忆卡片」留存体验
+end note
+
+|用户|
+:在主页看到这段回忆，关系等级提升;
+
+' ══════════════════════════════════════════
+'  场景六：平台每日内容生产（用户不感知）
+' ══════════════════════════════════════════
+|平台（后台）|
+#FFCCCC:每天 06:00 为所有用户生产当天星梦内容;
+note right
+  <color:red>**【LLM】xingmeng-content-agent (LangGraph 11节点)**</color>
+  5阶段流水线:
+  Phase1 扫描关系升级角色
+  Phase2 <color:red>改写升级角色的历史星梦</color>
+  Phase3 <color:red>按12时间窗分配+批量生产</color>
+  Phase4 <color:red>Lv3+ 角色全时段覆盖</color>
+  Phase5 <color:red>补充星事钩子(评论/后续)</color>
+  模型: <color:red>deepseek-v4-flash (高吞吐批处理)</color>
+end note
+
+|用户|
+:次日打开 App\n地图上出现新的星梦入口等待探索;
+
+stop
+
+legend right
+  |= 图例 |= 含义 |
+  |<#FFCCCC>         | LLM 调用节点（共 8 处）|
+  |<#EBF5FB>         | 用户操作 |
+  |<#FEF2E7>         | AI 角色行为 |
+  |<#F5F5F5>         | 平台后台处理 |
+endlegend
+
+@enduml

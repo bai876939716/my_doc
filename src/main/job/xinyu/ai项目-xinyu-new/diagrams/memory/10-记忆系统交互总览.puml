@@ -1,0 +1,127 @@
+@startuml memory-system-interaction-overview
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam SequenceArrowColor #78909C
+skinparam ParticipantBackgroundColor #EBF5FB
+skinparam ParticipantBorderColor #90A4AE
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #F9A825
+skinparam ActivationBackgroundColor #E3F2FD
+skinparam SequenceGroupBackgroundColor #F8F9FA
+skinparam SequenceGroupBorderColor #90A4AE
+
+title 心屿记忆系统 — 组件交互总览\n用户 · 大模型 · 数据库 · Mem0（PolarDB Memory API）
+
+actor "用户" as User
+participant "AI Agent\n(Python)" as Agent
+participant "大模型 LLM\nqwen3-max" as LLM
+participant "PostgreSQL\ntb_short_chat_message" as PG
+participant "RocketMQ\n异步解耦" as MQ
+participant "Redis\n幂等校验" as Redis
+participant "PolarDB Memory API\n【Mem0 等价层】\n事实提取 + 向量存储" as Mem0
+participant "PolarDB Profile API\n用户画像存储" as Profile
+
+== 对话阶段：消息存储 + LLM 回复 ==
+
+User -> Agent : 发送消息\n"祁深，我今天加班到九点了"
+Agent -> PG : INSERT 用户消息\nrole=user
+Agent -> LLM : 携带短期记忆 + 长期记忆 + 画像\n构建 Prompt 请求回复
+note right of LLM
+  【LLM #1 对话回复】
+  输入：角色人设 + 用户画像
+       + 长期记忆 TopK
+       + 近期 40 轮原文
+  输出：AI 流式回复
+end note
+LLM --> Agent : 流式输出回复内容
+Agent -> PG : INSERT AI 回复\nrole=assistant
+Agent --> User : 推送回复\n"又加班？什么项目这么紧，说来听听"
+
+== 触发阶段：达到阈值，异步发起记忆总结 ==
+
+Agent -> MQ : 累计 40 轮 → 发布 SummaryReadyEvent\n{userId, characterId, sceneType=SHORT_CHAT}
+note right of MQ
+  异步解耦：不阻塞用户等待回复
+  消息持久化，失败可重投
+end note
+
+== 消费阶段：幂等校验 + 拉取消息 ==
+
+MQ -> Agent : 消费 SummaryReadyEvent
+Agent -> Redis : GET 幂等 Key\nmemory:summary:idempotency:...
+note right of Redis
+  Key 存在 → 重复投递，跳过
+  Key 不存在 → 首次消费，继续
+  TTL = 7 天
+end note
+Redis --> Agent : Key 不存在，继续
+Agent -> Redis : SET 幂等 Key（TTL=7天）
+Agent -> PG : 查询待总结的 20 轮消息原文\nSELECT FROM tb_short_chat_message
+
+== 记忆写入阶段：委托 Mem0（PolarDB）做事实提取与去重 ==
+
+Agent -> Mem0 : POST /v1/memories\n{messages:40条原文, infer:true\nrunId:"10086__5201"\nFACT_RETRIEVAL_PROMPT}
+note right of Mem0
+  【LLM #2 事实提取】
+  从对话原文提取结构化事实：
+  · "林夏是产品设计师"
+  · "UI 改版项目，设计稿被推翻"
+  · "喜欢芋泥波波奶茶解压"
+end note
+Mem0 -> Mem0 : 新事实向量化\n检索 runId 下已有记忆
+note right of Mem0
+  【LLM #3 冲突决策】
+  ADD    → 全新事实，写入
+  UPDATE → 新版更具体，覆盖旧版
+  NONE   → 与已有记忆重复，丢弃
+end note
+Mem0 -> Mem0 : 写入 / 更新 / 跳过\n向量库持久化
+Mem0 --> Agent : AddMemoryResponse\n{messageId, results[ADD/UPDATE/NONE]}
+Agent -> PG : INSERT tb_memory_summary_task\n{messageId, summary_type=mini\nmemory_summarized=false}
+
+== 画像阶段：提取结构化用户画像 ==
+
+Agent -> Profile : POST /v1/profiles/extract\n{messages:40条对话\nUSER_PROFILE_EXTRACTION_PROMPT}
+note right of Profile
+  【LLM #4 画像提取】
+  输出 JSON 片段：
+  {职业:产品设计师, 偏好:芋泥波波奶茶
+   习惯:夜晚倾诉, 压力源:UI改版项目}
+end note
+Profile --> Agent : 返回新画像片段
+Agent -> Profile : GET /v1/profiles 拉取已有画像
+Profile --> Agent : 旧画像：{profile:"林夏是设计师"}
+Agent -> Profile : POST /v1/profiles/merge\n{旧画像 + 新片段\nPROFILE_MERGE_PROMPT_v1}
+note right of Profile
+  【LLM #5 画像合并】
+  保留最新最具体的字段
+  输出合并后完整画像
+end note
+Agent -> Profile : PUT /v1/profiles\n写回最新画像（纯文本 JSON，非向量）
+
+== 下次对话：三路记忆并行读取，注入 Prompt ==
+
+User -> Agent : 第 41 轮消息\n"祁深，最近工作压力好大"
+
+Agent -> PG : 读取短期记忆\nSELECT 最近 40 轮原文
+Agent -> Mem0 : 检索长期记忆\nPOST /v1/memories/search\n{query向量化, runId, TopK=5}
+Agent -> Profile : 读取用户画像\nGET /v1/profiles
+
+note over Agent
+  三路并行读取完成后拼接 Prompt：
+  ─────────────────────────────
+  <用户画像>   产品设计师，喜欢奶茶...
+  <长期记忆>   UI改版项目 / 加班习惯 / 奶茶偏好...
+  <近期对话>   第 41 轮起的原文（最多 40 轮）
+  ─────────────────────────────
+end note
+
+Agent -> LLM : 携带完整上下文请求回复
+note right of LLM
+  【LLM #7 带记忆回复】
+end note
+LLM --> Agent : "UI 改版还没结束吗？\n今天买芋泥波波了没，边喝边说"
+Agent --> User : 推送带记忆的回复
+
+@enduml

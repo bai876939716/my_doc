@@ -1,0 +1,130 @@
+@startuml xinyu-microservices
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam defaultFontSize 12
+skinparam ArrowColor #78909C
+skinparam ArrowThickness 1.5
+skinparam RectangleBorderColor #CFD8DC
+skinparam RectangleBorderThickness 1
+skinparam ComponentBorderColor #CFD8DC
+skinparam ComponentBackgroundColor #FAFAFA
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #F9A825
+skinparam DatabaseBackgroundColor #F3F6FB
+skinparam DatabaseBorderColor #90A4AE
+
+title xinyu-world-simulator-core — 微服务架构图\nSpring Boot 2.7 · Dubbo 3 Triple · Protobuf
+
+' ===== 客户端 =====
+rectangle "客户端" #F7F8F9 {
+  [iOS App] as iOS
+  [Android App] as Android
+  [Admin Web] as AdminWeb
+}
+
+' ===== BFF =====
+rectangle "接入层" #EFF9EF {
+  component "soul-haven-web-service\nHTTP Gateway · :8080\n30+ Controllers · IP地域控制 · OSS" as BFF #E8F5E9
+}
+
+' ===== 业务服务 =====
+rectangle "业务服务集群  (Dubbo Triple RPC)" #F3F8FE {
+
+  rectangle "用户 & 角色域" #EDF4FF {
+    component "user-service :13010\n认证 / 档案 / 签到 / 新手引导" as US #EDF4FF
+    component "character-service :13020\n角色卡 / 关系 / 羁绊" as CHS #EDF4FF
+  }
+
+  rectangle "对话域" #EDFAF6 {
+    component "short-chat-service :13040\n即时聊天 / 意图识别 / 总结" as SCS #EDFAF6
+    component "group-chat-service :13050\n群聊 / 可靠消息 / 分记忆" as GCS #EDFAF6
+  }
+
+  rectangle "核心星梦域 ★" #FFFBF0 {
+    component "star-dream-service :13080\n星梦任务 / 邀请卡 / 预扣费\nHermes推送 / AgentRun编排\n自然结束识别 / 回忆卡片" as SDS #FFF8E1
+  }
+
+  rectangle "记忆 & 内容域" #F8F3FE {
+    component "memory-service :13090\n记忆总结 / RAG向量检索" as MS #F8F3FE
+    component "core-service :13030\nFeed动态 / Push / Topic话题库" as CS #F8F3FE
+  }
+
+  rectangle "自动化 & 商业化域" #FDF3F3 {
+    component "auto-conversation-service :13100\nAgentRun调度 / 意图识别" as ACS #FDF3F3
+    component "trade-service :13120\n贝壳 / 订阅 / IAP / Google Pay" as TS #FDF3F3
+    component "inbox-service :13110\n收件箱 / 通知" as IS #FDF3F3
+  }
+
+  component "admin-service :13070\n运营后台 / Prompt模板管理" as ADM #F7F7F7
+  component "common-service\n翻译 / 内容审核 / LLM网关" as CMS #F7F7F7
+}
+
+' ===== AI Agent 层 =====
+rectangle "xinyu-agents  (Python · AgentRun · LangGraph)" #FFFBF0 {
+  component "stranger-feed-agent\n陌生角色新鲜事 · 多语言" as SFA #FFF3E0
+  component "acquaintance-feed-agent\n熟人新鲜事 · 单条" as AFA #FFF3E0
+  component "xingmeng-content-agent\n星梦批处理 · 5阶段 · 06:00" as XCA #FFF3E0
+  component "xingmeng-opening-rewrite-agent\n开场白实时改写 · <2s" as XOR #FFF3E0
+}
+
+' ===== 基础设施 =====
+rectangle "基础设施" #F7F7F7 {
+  database "PostgreSQL" as PG #F3F6FB
+  database "Redis" as RD #FFF5F5
+  component "RocketMQ" as MQ #FFF8F1
+  component "Hermes 长连接" as HM #F3F8FE
+  component "Nacos" as NC #F3F8FE
+  component "LLM 网关\nqwen3-max / deepseek-v4-flash" as LLM #F5F0EB
+  component "MCP 服务群 (6个)" as MCPS #F0F4F8
+}
+
+' ===== 连线（只画关键路径）=====
+
+iOS -down-> BFF : HTTPS
+Android -down-> BFF : HTTPS
+AdminWeb -down-> BFF : HTTPS
+
+' BFF → 代表性服务（用组级别箭头，不画所有服务）
+BFF -down-> SCS : Dubbo Triple
+BFF -down-> SDS : Dubbo Triple
+BFF -down-> US  : Dubbo Triple
+BFF -down-> CS  : Dubbo Triple
+BFF -down-> TS  : Dubbo Triple
+
+' 核心业务调用链（只画重要路径）
+SCS -right-> SDS : 意图识别触发邀请
+SDS -right-> ACS : AgentRun 编排
+SDS -down->  MS  : 记忆更新
+SDS -right-> TS  : 贝壳扣费
+
+' Agent 调度
+ACS -down-> SFA : HTTP
+ACS -down-> AFA : HTTP
+ACS -down-> XCA : HTTP
+ACS -down-> XOR : HTTP
+
+' 推送 & 消息
+SDS -down-> HM : Hermes 推送
+SDS -down-> MQ : 发布事件
+MQ  -up->  SDS : 消费:过期/计时
+
+' Agent → 外部 AI
+SFA -down-> LLM  : 推理
+XCA -down-> LLM  : 推理
+XOR -down-> LLM  : 推理
+SFA -down-> MCPS : MCP 读写
+XCA -down-> MCPS : MCP 读写
+XOR -down-> MCPS : MCP 读写
+
+' 基础设施注释（不画每条线）
+note bottom of PG
+  全部业务服务 → PostgreSQL（MyBatis-Plus）
+  SDS / SCS / US → Redis（缓存 & 限流）
+  全部服务 → Nacos（注册 & 配置热更新）
+end note
+
+SDS -[hidden]down-> PG
+SDS -[hidden]down-> NC
+
+@enduml

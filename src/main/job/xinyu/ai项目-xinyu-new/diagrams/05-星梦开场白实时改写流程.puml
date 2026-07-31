@@ -1,0 +1,74 @@
+@startuml xingmeng-opening-rewrite-workflow
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam SequenceArrowThickness 2
+skinparam SequenceBoxBackgroundColor #E8F5E9
+skinparam SequenceLifeLineBackgroundColor #FFFFFF
+skinparam NoteBackgroundColor #FFF9C4
+
+title xinyu-agents / xingmeng-opening-rewrite-library\n★ 星梦开场白实时改写 — 序列图 (< 2秒低延迟)\n触发条件: 当前关系等级 ≠ 星梦预生成时的等级
+
+actor "用户 App" as User
+participant "Java Core\n(soul-haven-star-dream-service)" as Core
+participant "Opening Rewrite Agent\n(AgentRun + LangGraph)" as Agent
+participant "MCP: short-service\n(近期对话查询)" as ShortMCP
+participant "MCP: character-service\n(角色信息)" as CharMCP
+participant "MCP: memory-service\n(用户画像)" as MemMCP
+participant "LLM\n(qwen3-max 快模型)" as LLM
+participant "MCP: dream-service\n(日志记录)" as DreamMCP
+
+User -> Core : 点击星梦卡片进入
+Core -> Core : 检测: currentRelationshipLevel(3)\n≠ dreamRelationshipLevel(1)\n→ 触发开场白改写
+
+Core -> Agent : POST /openai/v1/chat/completions\n{\n  user_id, character_id, dream_id,\n  currentRelationshipLevel: 3,\n  dreamRelationshipLevel: 1,\n  opening_line: "你好啊，最近如何？",\n  metadata: { scene_overview, theme },\n  language: "zh-CN"\n}
+
+activate Agent
+
+Agent -> CharMCP : query_character_info(character_id)\n→ 角色人设 / 关系等级映射
+CharMCP --> Agent : { persona, name, ... }
+
+Agent -> ShortMCP : query_recent_dialogue(user_id, character_id, limit=40)\n→ 最近 40 轮对话历史
+ShortMCP --> Agent : [ { senderType, content }, ... ]
+
+Agent -> MemMCP : query_user_profile(user_id, character_id)\n→ 用户画像 / 长期记忆
+MemMCP --> Agent : { profile, long_term_memory }
+
+note over Agent
+  组装提示词 (assemble_prompt)
+  ─────────────────────────────
+  System: "实时内容补救专家"
+  User:
+    - 角色人设 + 当前关系等级: 亲近(Lv3)
+    - 原始关系等级: 初识(Lv1)
+    - 原开场白: "你好啊，最近如何？"
+    - 星梦场景概述 (scene_overview)
+    - 最近对话上下文 (40轮)
+    - 用户画像
+    - 改写目标: 适配 Lv3 亲密度
+    - 字数限制: 20-50字
+end note
+
+Agent -> LLM : invoke(system_prompt, user_prompt)\ntemperature=0.7 快模型推理
+LLM --> Agent : "最近都在忙什么？好久没聊天了，\n挺想念你的。" (新开场白)
+
+Agent -> Agent : cleanup_output\n① 剥离首尾引号\n② 校验非空\n③ 字数检查
+
+Agent ->> DreamMCP : log_opening_rewrite(...)\n[异步非阻塞，失败被吞]
+
+Agent --> Core : OpeningRewriteResponse\n{\n  success: true,\n  opening_line: "最近都在忙什么？..."\n}
+
+deactivate Agent
+
+Core --> User : 展示改写后的开场白\n用户感受到关系升级的温度变化
+
+note over User, DreamMCP
+  ⏱ 全程 < 2 秒 (低延迟优先设计)
+  ─────────────────────────────────
+  MCP 查询: ~500ms (并行可优化)
+  LLM 推理: ~1000ms (qwen3-max 快模型)
+  网络开销: ~200ms
+  日志记录: 异步不计入主链路
+end note
+
+@enduml

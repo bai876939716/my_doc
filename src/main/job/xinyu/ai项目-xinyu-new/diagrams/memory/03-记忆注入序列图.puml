@@ -1,0 +1,58 @@
+@startuml memory-injection-sequence
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam SequenceArrowColor #78909C
+skinparam ParticipantBackgroundColor #EBF5FB
+skinparam ParticipantBorderColor #90A4AE
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #F9A825
+skinparam ActivationBackgroundColor #E3F2FD
+
+title 心屿 — Agent 调用时三层记忆注入序列
+
+participant "Java Core" as JavaCore
+participant "AI Agent\n(LangGraph)" as Agent
+participant "MCP ShortChat\ngetAppShortChatMessage" as MCPShort
+participant "MCP Memory\ngetUserProfile" as MCPMem
+participant "PostgreSQL\n(短期记忆)" as PG
+participant "PolarDB\n(长期记忆+画像)" as PolarDB
+participant "LLM\nqwen3-max" as LLM
+
+JavaCore -> Agent : POST /openai/v1/chat/completions\n{userId, characterId, saveId\nrecentShortChatMessages? longTermMemory? userProfile?}
+
+note over Agent : validate params Node\n解析 Pydantic 模型
+
+Agent -> MCPShort : getAppShortChatMessage\n{userId, characterId, batchSize=40}
+MCPShort -> PG : SELECT last 40 rounds
+PG --> MCPShort : messages[]
+MCPShort --> Agent : 短期记忆 [{senderType, content}, ...]
+
+Agent -> MCPMem : getUserProfile\n{userId, roleId, saveId}
+MCPMem -> PolarDB : HTTP GET /profiles
+PolarDB --> MCPMem : {nickname, profile}
+MCPMem --> Agent : 用户画像 {nickname, profile}
+
+note over Agent
+  long term memory 来源：
+  · 熟人Feed: Java Core 打包传入
+  · 星梦/短聊: MCP 查询向量库
+end note
+
+Agent -> Agent : 构建 XML 结构化提示词\n<角色设定> ... </角色设定>\n<用户画像> nickname + profile </用户画像>\n<双方记忆>\n  <近期对话摘要> 40轮 </近期对话摘要>\n  <长期记忆> PolarDB事实 </长期记忆>\n</双方记忆>
+
+Agent -> LLM : messages[system + user]\ntemperature=0.9
+LLM --> Agent : 生成回复
+
+Agent -> Agent : 输出解析\n移除 think 块 / 提取 JSON / json repair
+
+Agent --> JavaCore : choices[0].message.content
+
+note over JavaCore
+  异步后处理：
+  ① 轮次计数 +1 via RocketMQ
+  ② 达到 30 轮 → SummaryReadyEvent
+  ③ memory-service → PolarDB 写入
+end note
+
+@enduml

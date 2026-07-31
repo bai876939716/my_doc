@@ -1,0 +1,75 @@
+@startuml memory-summary-trigger-flow
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam ActivityBackgroundColor #F8F9FA
+skinparam ActivityBorderColor #90A4AE
+skinparam ActivityDiamondBackgroundColor #EBF5FB
+skinparam ActivityDiamondBorderColor #78909C
+skinparam ArrowColor #78909C
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #F9A825
+
+title 心屿 — 长期记忆总结异步触发流程
+
+|#E8F5E9| 业务服务 Java Core |
+start
+:用户对话 → 写入消息记录;
+:轮次计数 +1;
+
+if (未总结轮次 >= summaryTrigger 30?) then (是)
+  :构造 SummaryReadyEvent\n{userId, saveId, sceneType, idempotencyKey};
+  :检查幂等键\nRedis: memory:summary:idempotency:{key};
+  if (已处理?) then (是)
+    :跳过，防重复消费;
+    stop
+  else (否)
+    :写入幂等键 TTL=7天;
+    :发布到 RocketMQ;
+  endif
+else (否)
+  stop
+endif
+
+|#F3E5F5| RocketMQ |
+:持久化消息\nSummaryReadyEvent;
+
+|#E3F2FD| memory-service MemorySummaryProcessor |
+:消费事件;
+:Dubbo Generic Call\n查询 summaryBatchSize=30 轮对话;
+:构造 AddMemoryRequest\n{messages, userId, agentId, runId\nprompt: FACT RETRIEVAL PROMPT};
+
+|#FFF8E1| PolarDB Memory API |
+:POST /v1/memories asyncMode=true;
+:LLM 提取关键事实;
+:与已有记忆对比\naddMemory 决策：新增/更新/忽略;
+:向量化写入向量数据库;
+:返回 AddMemoryResponse {memoryId, facts[]};
+
+|memory-service MemorySummaryProcessor|
+if (积累记忆数 >= miniMergeThreshold 5?) then (是)
+  :POST /v1/memories/merge\nMEMORY MERGE Prompt 去重;
+else (否)
+endif
+
+if (profileExtractEnabled = true?) then (是)
+  :POST /extractProfile\nUSER PROFILE EXTRACTION PROMPT;
+  :新画像与旧画像合并\nPROFILE MERGE PROMPT v1;
+else (否)
+endif
+
+:标记对话轮次已总结;
+
+|业务服务 Java Core|
+:下次 Agent 调用时\n长期记忆与用户画像已更新;
+stop
+
+note right
+  超时与重试：
+  · addMemory 超时 16s → 标记失败
+  · 最多重试 3 次，间隔 5s
+  · XXL-Job 每 10 分钟扫描兜底
+  · 并行度 8 线程
+end note
+
+@enduml

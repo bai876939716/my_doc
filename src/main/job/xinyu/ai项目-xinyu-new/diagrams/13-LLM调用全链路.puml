@@ -1,0 +1,116 @@
+@startuml llm-call-chain
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam defaultFontSize 12
+skinparam ArrowColor #78909C
+skinparam ArrowThickness 1.5
+skinparam RectangleBorderColor #CFD8DC
+skinparam ComponentBorderColor #CFD8DC
+skinparam ComponentBackgroundColor #FAFAFA
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #F9A825
+
+title 心屿 App — LLM 调用全链路\nJava Core 侧 vs Python Agent 侧双路径对比
+
+' ══════════════════════════════
+'  Java Core 侧 LLM 调用路径
+' ══════════════════════════════
+rectangle "Java Core — LLM 调用路径" #E8F4FD {
+
+  rectangle "业务门面层" #D4ECF8 {
+    component "StarDreamLlmFacade\n(星梦 LLM 门面)" as StarDreamFacade #C5E3F5
+    component "ShortChatLlmFacade\n(短对话 LLM 门面)" as ShortChatFacade #C5E3F5
+  }
+
+  rectangle "soul-haven-generate-text-starter\n统一 LLM 调用封装 (内部私有 Starter)" #D4ECF8 {
+    component "GenerateTextClient\n重试 / 超时 / 流式 / Token 计费" as Starter #C5E3F5
+    note right of Starter
+      流式回调接口 StreamCallback:
+      · onContent(chunk) → Hermes 推送前端
+      · onFinish()       → 触发记忆总结 MQ
+      · onError(e)       → 降级处理
+    end note
+  }
+
+  rectangle "LLM 路由层" #D4ECF8 {
+    component "AgentRun Router\n(阿里云 AgentRun)" as AgentRunRouter #C5E3F5
+    component "DashScope Router\n(阿里云 DashScope)" as DashScopeRouter #C5E3F5
+    component "网宿 LLM Router\n(内网高速通道)" as WangsuRouter #C5E3F5
+  }
+}
+
+' ══════════════════════════════
+'  Python Agent 侧 LLM 调用路径
+' ══════════════════════════════
+rectangle "Python Agent — LLM 调用路径" #FDF4E8 {
+
+  rectangle "模型初始化" #F8E8CC {
+    component "agentrun.integration.langchain.model()\n初始化 ChatModel (温度/惩罚项从环境变量)" as AgentModel #F5DEB3
+  }
+
+  rectangle "LangChain Agent" #F8E8CC {
+    component "create_react_agent(llm, tools=[])\n无工具纯对话智能体" as ReactAgent #F5DEB3
+    component "agent.ainvoke(messages=history)\n异步调用" as AgentInvoke #F5DEB3
+  }
+
+  rectangle "JSON 输出容错解析" #F8E8CC {
+    component "extract_json_array(raw)\n六级容错解析链" as JSONParser #F5DEB3
+    note right of JSONParser
+      1. 去 <think> 推理块 (DeepSeek 特性)
+      2. 去 Markdown 代码围栏
+      3. 截取 [...] 数组边界
+      4. json.loads 标准解析
+      5. 去尾逗号重试
+      6. json_repair 终极兜底
+    end note
+  }
+}
+
+' ══════════════════════════════
+'  LLM 模型服务（实际计算层）
+' ══════════════════════════════
+rectangle "LLM 模型服务" #F5F5F5 {
+  component "qwen3-max\n(低延迟 / 实时场景)" as Qwen3Max #EDE8E0
+  component "deepseek-v4-flash\n(网宿网关 / 批处理场景)" as DeepSeek #EDE8E0
+  component "其他 qwen 系列\n(翻译 / 轻量任务)" as QwenOther #EDE8E0
+}
+
+' Java Core 调用链
+StarDreamFacade --> Starter : 封装 PromptGenerateRequest
+ShortChatFacade --> Starter
+
+Starter --> AgentRunRouter : 按配置路由
+Starter --> DashScopeRouter
+Starter --> WangsuRouter
+
+AgentRunRouter --> Qwen3Max
+DashScopeRouter --> Qwen3Max
+DashScopeRouter --> QwenOther
+WangsuRouter    --> DeepSeek
+
+' Python Agent 调用链
+ReactAgent  --> AgentModel
+AgentInvoke --> ReactAgent
+JSONParser  <-- AgentInvoke
+AgentModel  --> AgentRunRouter : via AgentRun SDK
+
+' 模型选型说明
+AgentModel ..> Qwen3Max  : stranger-feed / acquaintance-feed\nopening-rewrite / topic-intent
+AgentModel ..> DeepSeek  : xingmeng-content\n(批处理 Phase 2-4)
+
+note bottom of Qwen3Max
+  实时场景优先: qwen3-max
+  · 开场白改写 (<2s)
+  · 意图识别 (异步不阻塞)
+  · 短对话流式回复
+end note
+
+note bottom of DeepSeek
+  批处理场景: deepseek-v4-flash
+  · 每日 06:00 星梦批量生产
+  · 通过网宿内网网关访问
+  · 高吞吐量，成本低
+end note
+
+@enduml

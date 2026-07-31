@@ -1,0 +1,71 @@
+@startuml memory-dual-layer-architecture
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam componentStyle rectangle
+skinparam ArrowColor #78909C
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #F9A825
+
+title 心屿 — 双层记忆系统架构
+
+rectangle "AI Agent (Python) — xinyu-agents" as Agent #EBF5FB {
+  component "提示词构建\n<近期对话摘要>  <长期记忆>  <用户画像>" as PromptBuilder
+  component [LLM 推理\nqwen3-max] as LLM
+  PromptBuilder --> LLM
+}
+
+rectangle "短期记忆层（热）" as ShortLayer #E8F5E9 {
+  component "soul-haven-short-chat-service\nMCP: getAppShortChatMessage" as ShortSvc
+  database "PostgreSQL\n对话消息表\n（最近 40 轮）" as ChatDB
+  ShortSvc --> ChatDB
+}
+
+rectangle "长期记忆层（冷）" as LongLayer #FFF8E1 {
+  component "soul-haven-memory-service\nMemoryRpcTripleImpl" as MemSvc
+  component "PolarDB Memory API\n/v1/memories — 事实抽取+向量化" as PolarMem
+  component "PolarDB Profile API\n/profiles — 用户画像" as PolarProfile
+  database "向量数据库\n(PolarDB 内置)" as VectorDB
+  MemSvc --> PolarMem
+  MemSvc --> PolarProfile
+  PolarMem --> VectorDB
+}
+
+queue "RocketMQ\nSummaryReadyEvent" as MQ #F3E5F5
+
+rectangle "Java Core 业务服务" as JavaCore #FCE4EC {
+  component "对话业务逻辑\n轮次计数器" as BizLogic
+}
+
+' 读取路径
+JavaCore --> Agent : POST /openai/v1/chat/completions
+Agent --> ShortSvc : MCP 读取 — 最近 40 轮
+Agent --> MemSvc : MCP 读取 — 用户画像
+
+' 总结写入路径
+BizLogic --> MQ : 轮次 >= 30 → SummaryReadyEvent
+MQ --> MemSvc : 异步消费
+MemSvc --> ShortSvc : Dubbo Generic — 查询轮次
+
+note right of ShortLayer
+  短期记忆：
+  · 最近 40 轮原文，实时可读
+  · triggerRoundCount = 40
+  · 由 MCP getAppShortChatMessage 提供
+end note
+
+note right of LongLayer
+  长期记忆：
+  · 对话 → LLM 事实提取 → 向量化
+  · summaryTrigger = 30 轮触发
+  · 7 种场景类型（SHORT CHAT / STAR DREAM 等）
+  · miniMergeThreshold = 5 条后去重合并
+end note
+
+note bottom of MQ
+  异步解耦：总结不阻塞主流程
+  幂等保障：Redis Key TTL = 7 天
+  失败重试：最多 3 次 / XXL-Job 兜底
+end note
+
+@enduml

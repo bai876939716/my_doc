@@ -1,0 +1,134 @@
+@startuml 心屿App整体系统架构-C4 Container
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+
+title 心屿 App 2.0 — 整体系统架构（C4 Container Level）
+
+' ========== 外部用户 ==========
+actor "用户 (iOS/Android)" as User #LightBlue
+
+' ========== BFF 层 ==========
+rectangle "BFF 网关层" #DDEEFF {
+  component "soul-haven-web-service\n(HTTP API Gateway)\n:8080" as BFF #5D9ECC
+}
+
+' ========== Java 微服务层 ==========
+rectangle "xinyu-world-simulator-core\n(Java 微服务集群 — Spring Boot 2.7 + Dubbo 3 Triple)" #E8F5E9 {
+
+  rectangle "对话域" #C8E6C9 {
+    component "short-chat-service\n短对话服务\n:13040" as SCS #66BB6A
+    component "group-chat-service\n群聊服务\n:13050" as GCS #66BB6A
+    component "star-dream-service\n★ 星梦服务\n:13080" as SDS #2E7D32
+  }
+
+  rectangle "用户/角色域" #FFF9C4 {
+    component "user-service\n用户认证&档案\n:13010" as US #F9A825
+    component "character-service\n角色卡&羁绊\n:13020" as CHS #F9A825
+    component "memory-service\n记忆&RAG\n:13090" as MS #F57F17
+  }
+
+  rectangle "内容&运营域" #FCE4EC {
+    component "core-service\n星球/Feed/Push\n:13030" as CS #E91E63
+    component "auto-conversation-service\nAgent运行调度\n:13100" as ACS #AD1457
+    component "inbox-service\n收件箱通知\n:13110" as IS #C2185B
+    component "admin-service\n管理后台\n:13070" as ADM #880E4F
+  }
+
+  rectangle "商业化域" #EDE7F6 {
+    component "trade-service\n贝壳&订阅&IAP\n:13120" as TS #7B1FA2
+    component "common-service\n翻译&审核&LLM网关" as CMS #9C27B0
+  }
+}
+
+' ========== AI Agent 层 ==========
+rectangle "xinyu-agents\n(Python AI Agent 集群 — AgentRun + LangGraph)" #FFF3E0 {
+  component "stranger-feed-agent\n陌生角色新鲜事\n初始库生产" as SFA #FF6D00
+  component "acquaintance-feed-agent\n熟人新鲜事\n离线单条生产" as AFA #FF6D00
+  component "xingmeng-content-agent\n★ 星梦内容\n每日批处理" as XCA #D84315
+  component "xingmeng-opening-rewrite-agent\n★ 星梦开场白\n实时改写" as XOR #D84315
+  component "topic-intent-agent\n话题意图识别\n每10轮触发" as TIA #FF6D00
+}
+
+' ========== 基础设施层 ==========
+rectangle "基础设施 & 外部服务" #F5F5F5 {
+  database "PostgreSQL\n(业务数据)" as PG #336791
+  database "Redis\n(缓存&锁)" as RD #D82C20
+  component "RocketMQ\n(异步事件)" as MQ #E65100
+  component "Nacos\n(配置&注册中心)" as NC #00BCD4
+  component "Hermes\n(长连接推送)" as HM #455A64
+
+  rectangle "MCP 服务群" #ECEFF1 {
+    component "xinyu-core-feed-prefab-mcp\n动态预制库" as MCP1 #607D8B
+    component "dream-service-mcp\n星梦库存/日计划/星事" as MCP2 #607D8B
+    component "character/user/memory-mcp\n角色/用户/记忆查询" as MCP3 #607D8B
+  }
+
+  rectangle "LLM 模型服务" #ECEFF1 {
+    component "阿里云百炼\n(qwen3-max)" as LLM1 #795548
+    component "网宿 LLM 网关\n(deepseek-v4-flash)" as LLM2 #795548
+  }
+}
+
+' ========== 关系连线 ==========
+User -down-> BFF : HTTPS
+
+BFF -down-> SCS : Dubbo Triple RPC
+BFF -down-> GCS : Dubbo Triple RPC
+BFF -down-> SDS : Dubbo Triple RPC
+BFF -down-> US  : Dubbo Triple RPC
+BFF -down-> CHS : Dubbo Triple RPC
+BFF -down-> CS  : Dubbo Triple RPC
+BFF -down-> TS  : Dubbo Triple RPC
+
+SDS -right-> ACS : 调用 AgentRun
+SDS -down-> HM  : Hermes 推送消息
+SDS -down-> MQ  : 发布星梦事件
+SCS -down-> MQ  : 发布对话事件
+
+ACS -right-> XCA : HTTP (AgentRun)
+ACS -right-> XOR : HTTP (AgentRun)
+CS  -right-> SFA : HTTP (AgentRun)
+SCS -right-> AFA : HTTP (AgentRun)
+SCS -right-> TIA : HTTP (AgentRun)
+
+SFA -down-> MCP1 : MCP batchSave
+XCA -down-> MCP2 : MCP write/query
+XCA -down-> MCP3 : MCP query
+XOR -down-> MCP3 : MCP query
+
+SFA -down-> LLM1 : LLM 调用
+AFA -down-> LLM1 : LLM 调用
+XCA -down-> LLM2 : LLM 调用
+XOR -down-> LLM1 : LLM 调用
+TIA -down-> LLM1 : LLM 调用
+
+SDS -down-> PG
+SCS -down-> PG
+GCS -down-> PG
+US  -down-> PG
+CHS -down-> PG
+MS  -down-> PG
+TS  -down-> PG
+
+SDS -down-> RD
+SCS -down-> RD
+US  -down-> RD
+
+MQ  --> SDS : 消费:过期/事件
+
+note right of SDS
+  ★ 核心创新模块
+  - 沉浸式互动剧本
+  - 预扣费 + 自然结束识别
+  - 多人星梦 + 记忆拆分
+  - 回忆卡片生成
+end note
+
+note right of XCA
+  每日 06:00 触发
+  5 阶段批处理流水线
+  LangGraph 状态图编排
+end note
+
+@enduml

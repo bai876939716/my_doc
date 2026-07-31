@@ -1,0 +1,68 @@
+@startuml xingmeng-content-batch-workflow
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam ActivityBackgroundColor #F8F9FA
+skinparam ActivityBorderColor #90A4AE
+skinparam ActivityDiamondBackgroundColor #EBF5FB
+skinparam ActivityDiamondBorderColor #78909C
+skinparam ArrowColor #78909C
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #F9A825
+
+title xinyu-agents / xingmeng-content-generation-library\n★ 星梦内容每日批处理 — 5 阶段生产流水线
+
+|#F0F8FF| 触发 & 初始化 |
+start
+:外部调度器 06:00 触发\n构造 BatchWorkflowInput\n(user id / save id / current time);
+:初始化 MCP 客户端 (6 个服务)\n查询昨日日计划 + 用户角色关系列表;
+
+|#F5FBF5| 内容扫描 & 改写 |
+:Phase 1 — 扫描升级角色\n查找 upgrade pending 角色\n清理旧库存 (标记 consumed);
+
+note right
+  示例输出：
+  发现 5 个角色升级
+end note
+
+repeat
+  :Phase 2 — 改写旧星梦\n构建改写提示词 (旧内容 + 新 Lv 措辞)\nLLM 推理 → 解析 → MCP 落库;
+repeat while (还有升级角色?) is (是)
+->否;
+
+|#FFFBF0| 分配 & 批量生产 |
+:Phase 3a — 角色分配到 12 时间窗\nW01(06-08 清晨) ~ W12(04-06 黎明)\n每窗约束: >=1 多人星梦 + >=8 总星梦;
+
+repeat
+  if (库存充足?) then (是)
+    :从库存提取\n(预制 / 已改写内容);
+  else (否)
+    :Phase 3b — LLM 批量生产\n单人星梦 / 多人星梦 Agent;
+    :MCP 落库 writeProducedDreamsBatch;
+  endif
+repeat while (还有分配项?) is (是)
+->否;
+
+|#FDF6FF| 补充 & 结算 |
+:Phase 4 — 全量补充 (Lv3+ 角色)\n强制覆盖缺失的时间窗\n保证高等级角色全天内容;
+
+:Phase 5 — 星事钩子补充\n为缺少星事的星梦逐条生成\n星事 = 星梦的评论/后续发展;
+
+:清理消费生命周期\nsoft delete 已消费旧条目;
+
+:MCP batchWriteDailyPlan\n写入今日日计划 (W01-W12 分槽);
+
+:返回 BatchWorkflowOutput\nphase1~5 各阶段计数 + 总耗时;
+stop
+
+note right
+  典型输出示例：
+  phase1 upgraded: 5
+  phase2 rewritten: 10
+  phase3 produced: 24
+  phase4 coverage: 8
+  phase5 star events: 15
+  total dreams: 50
+end note
+
+@enduml

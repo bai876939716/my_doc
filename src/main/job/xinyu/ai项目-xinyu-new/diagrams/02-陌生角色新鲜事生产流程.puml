@@ -1,0 +1,114 @@
+@startuml stranger-feed-workflow
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam ActivityBackgroundColor #E3F2FD
+skinparam ActivityBorderColor #1565C0
+skinparam ActivityDiamondBackgroundColor #FFF9C4
+skinparam ArrowColor #1565C0
+
+title xinyu-agents / stranger-feed-initial-library\n陌生角色新鲜事初始库 — 完整业务流程
+
+|#E8F5E9| Java Core (调用方) |
+start
+:构造 StrangerFeedInput\n- source_locale / character_id / character_name\n- quantity(1-32) / character_persona\n- world_lore_locations / bonded_characters_list\n- existing_library_posts(库存摘要);
+:POST /openai/v1/chat/completions\nmessages[0].content = JSON 字符串;
+
+|#E3F2FD| Node 1: validate_params |
+:解析 OpenAI messages → StrangerFeedInput;
+if (字段校验) then (失败)
+  :返回 error_code=PARAM_INVALID;
+  stop
+else (通过)
+  :生成 request_id (uuid);
+endif
+
+|#E8EAF6| Node 2: generate |
+:构建 XML 结构化提示词 (v4.0)\n<系统信息><任务目标><角色设定>\n<世界观地点><羁绊角色><库存摘要>\n<动态创作细则><红线禁止项><输出格式>;
+:调用 LLM (deepseek-v4-flash / qwen3-max)\ntemperature=0.9, top_p=0.7;
+if (LLM 调用) then (失败)
+  :返回 error_code=LLM_FAILED;
+  stop
+else (成功)
+  :获取原始文本 raw\n移除 <think> 推理块;
+endif
+
+|#F3E5F5| Node 3: validate_output |
+:从 raw 提取 JSON 数组\n① 查找 ```json 围栏\n② 定位 [ ] 边界\n③ json.loads()\n④ 失败→ json_repair.loads();
+if (JSON 解析) then (失败)
+  :返回 error_code=PARSE_FAILED;
+  stop
+else (成功)
+endif
+:Pydantic 校验 FeedPostSourceItem[];
+if (Schema 校验) then (失败)
+  :返回 error_code=SCHEMA_FAILED;
+  stop
+else (通过)
+endif
+
+partition "输出规则校验 (硬规则)" {
+  :① 条数 ≤ quantity;
+  :② 字数: 正文 zh:20-50字 / en:15-120词;
+  :③ 评论 ≤ 200字;
+  :④ 禁用词: @用户、"你"（禁止对话用户）;
+  :⑤ 时段均衡: morning/afternoon/evening/night;
+  :⑥ 羁绊评论: 同一动态同角色不重复;
+  if (规则校验) then (不通过)
+    :返回 error_code=RULE_FAILED;
+    stop
+  else (通过)
+  endif
+}
+
+|#FFF8E1| Node 4: translate |
+fork
+  :翻译 zh-TW\n调用翻译 LLM\n(qwen3-max)\n加载 translate/zh-TW_prompt.md\n注入术语表 glossary.md;
+fork again
+  :翻译 en-US\n调用翻译 LLM\n(qwen3-max)\n加载 translate/en-US_prompt.md\n注入术语表 glossary.md;
+end fork
+
+:合并为 FeedPostItem\nlocales: { zh-CN, zh-TW, en-US }\n各含 content/image_description/comments;
+
+if (翻译失败) then (是)
+  :返回 error_code=TRANSLATION_FAILED;
+  stop
+else (否)
+endif
+
+|#FCE4EC| Node 5: persist (MCP) |
+if (MCP 已配置?) then (否)
+  :返回 error_code=MCP_NOT_CONFIGURED;
+  stop
+else (是)
+endif
+
+:组装 MCP 入参\n- characterId / planetId / defaultLanguage\n- writeMode=APPEND\n- metadata: requestId/promptVersion/model\n- items: [{ suggestedTime, i18nRows[] }];
+:调用 MCP Tool\nbatchSaveStrangerFeedPrefabs\n→ xinyu-core-stranger-feed-prefab-service;
+if (MCP 调用) then (失败)
+  :返回 error_code=MCP_FAILED;
+  stop
+else (成功)
+endif
+
+|Java Core (调用方)|
+:返回 StrangerFeedWorkflowResponse\n- success: true\n- posts[]: 含 8 条多语言动态\n- diversity: 规则校验报告\n- persist_result: MCP 返回值\n- workflow_context: 执行追踪;
+stop
+
+note right
+  每条 FeedPostItem 结构：
+  ─────────────────────
+  suggested_time: morning/afternoon
+                  evening/night
+  locales:
+    zh-CN:
+      content: 正文(20-50字)
+      image_description: 配图说明
+      comments:
+        - commenter_character_id
+          comment_content
+    zh-TW: ...
+    en-US: ...
+end note
+
+@enduml

@@ -1,0 +1,45 @@
+@startuml memory-memoryos-hierarchy
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam componentStyle rectangle
+skinparam ArrowColor #78909C
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #F9A825
+
+title MemoryOS 分层记忆方案 — 与心屿实现对照
+
+rectangle "Hot — 工作记忆 Working Memory" as Hot #E8F5E9 {
+  component "最近对话原文\n即时可用，无压缩\n类比：CPU 内存 / RAM\n容量上限：token budget" as HotComp
+}
+
+rectangle "Warm — 情节记忆 Episodic Memory" as Warm #EBF5FB {
+  component "具体事件/场景记录\n从 Hot 蒸馏而来\n类比：SSD 快速存储\n保留：Who / When / Where / What" as WarmComp
+}
+
+rectangle "Cold — 语义记忆 Semantic Memory" as Cold #FFF8E1 {
+  component "抽象事实、用户特征\n从 Episodic 提炼\n类比：归档冷存储\n保留：用户是什么样的人" as ColdComp
+}
+
+Hot --> Warm : 容量满 → LLM 蒸馏\n保留重要事件
+Warm --> Cold : 容量满 → LLM 提炼\n抽象为持久特征
+
+rectangle "心屿对应实现" as Xinyu #FCE4EC {
+  component "短期记忆\n最近 40 轮原文\nPostgreSQL 实时读写" as XHot
+  component "星梦 Mini Summary\n场内情节提炼\nminiMergeThreshold=5 触发" as XWarm
+  component "长期事实 + 用户画像\nPolarDB 向量存储\nSTAR DREAM ROLE MEMORY 等" as XCold
+}
+
+Hot .. XHot : 对应
+Warm .. XWarm : 对应
+Cold .. XCold : 对应
+
+note bottom of Xinyu
+  心屿架构天然对应 MemoryOS 三层
+  但未显式使用该框架：
+  · 层间流动由 summaryTrigger 阈值驱动
+  · 不是由 LLM 实时决策"值不值得保留"
+  · 检索时三层各自独立，未并行召回合并
+end note
+
+@enduml

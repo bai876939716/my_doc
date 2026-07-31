@@ -1,0 +1,136 @@
+@startuml relationship-level-state-machine
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam StateBackgroundColor #E8F5E9
+skinparam StateBorderColor #1B5E20
+skinparam StateArrowColor #2E7D32
+skinparam NoteBackgroundColor #FFFDE7
+
+title 心屿 App — 关系等级状态机 & 内容生产联动图\n(用户与 AI 角色的关系演进驱动内容策略变化)
+
+[*] --> Lv0陌生 : 用户发现角色\n(推荐/搜索)
+
+state "Lv0 · 陌生\n(未建立关系)" as Lv0 {
+  state "内容策略" as Lv0C {
+    Lv0C : ◎ Stranger Feed 专属
+    Lv0C : ◎ 公开展示，不涉及用户
+    Lv0C : ◎ 多语言 (zh-CN/zh-TW/en-US)
+    Lv0C : ◎ 批量预制 (8条/批)
+    Lv0C : ✗ 无法触发星梦
+    Lv0C : ✗ 无法 @用户
+  }
+}
+
+state "Lv1 · 初识\n(首次互动后)" as Lv1 {
+  state "内容策略" as Lv1C {
+    Lv1C : ◎ Acquaintance Feed 激活
+    Lv1C : ◎ 用户离线时生产单条动态
+    Lv1C : ◎ 时间精确到分钟 (用户时区)
+    Lv1C : ◎ 星梦内容: 初遇版开场白
+    Lv1C : ◎ 星梦批处理激活 (W01-W12)
+    Lv1C : ✗ 禁止 @用户
+    Lv1C : ✗ 不涉及用户私密信息
+  }
+}
+
+state "Lv2 · 熟悉\n(多次深入对话)" as Lv2 {
+  state "内容策略" as Lv2C {
+    Lv2C : ◎ 动态内容开始提及共同话题
+    Lv2C : ◎ 星梦场景多样化
+    Lv2C : ◎ 对话历史注入更深层上下文
+    Lv2C : ✗ 禁止 @用户
+  }
+}
+
+state "Lv3 · 亲近\n(关系质变)" as Lv3 {
+  state "内容策略" as Lv3C {
+    Lv3C : ◎ Phase4: 全量时窗覆盖激活
+    Lv3C : ◎ 星梦全 12 时间窗强制覆盖
+    Lv3C : ◎ 个性化内容增强
+    Lv3C : ◎ 长期记忆 RAG 检索激活
+    Lv3C : ✗ 禁止 @用户
+  }
+}
+
+state "Lv4 · 深交\n(深度羁绊)" as Lv4 {
+  state "内容策略" as Lv4C {
+    Lv4C : ◎ 允许正文 @{user_nickname} (最多1次)
+    Lv4C : ◎ 星梦内容含深度情感线
+    Lv4C : ◎ 多人星梦配角参与度提升
+    Lv4C : ◎ 后私信频率提升
+    Lv4C : ◎ 回忆卡片内容更丰富
+  }
+}
+
+state "Lv5 · 灵魂羁绊\n(最高等级)" as Lv5 {
+  state "内容策略" as Lv5C {
+    Lv5C : ◎ 完整个性化内容体验
+    Lv5C : ◎ 灵魂共鸣叙事风格
+    Lv5C : ◎ 共同记忆深度引用
+    Lv5C : ◎ 星梦: 生命意义/共同梦想主题
+    Lv5C : ◎ 最高频 @用户 互动
+    Lv5C : ◎ Phase2改写: Lv5专属措辞
+  }
+}
+
+Lv0 --> Lv1 : 首次互动\n(Java Core 计算虚数值达阈值)
+Lv1 --> Lv2 : 持续对话积累\n(虚数值 Lv1→Lv2 阈值)
+Lv2 --> Lv3 : 深入对话频次\n(虚数值 Lv2→Lv3 阈值)
+Lv3 --> Lv4 : 长期深度关系\n(虚数值 Lv3→Lv4 阈值)
+Lv4 --> Lv5 : 灵魂共鸣深度\n(虚数值 Lv4→Lv5 阈值)
+
+note on link
+  每次 Lv 升级触发:
+  ① Java Core 更新关系等级
+  ② 标记 upgrade_pending = true
+  ③ 次日 06:00 批处理 Phase1 扫描到升级
+  ④ Phase2 改写旧星梦 (适配新 Lv 措辞)
+  ⑤ 新等级内容策略立即生效
+end note
+
+state "关系等级升级触发链路" as UpgradeFlow {
+  state "用户行为积累" as UA
+  state "虚数值计算\n(Java Core)" as VC
+  state "达到升级阈值\nupgrade_pending=true" as UP
+  state "06:00 批处理\nPhase1 扫描升级角色" as P1
+  state "Phase2 改写\n旧星梦内容" as P2
+  state "新内容策略生效" as NCS
+
+  UA --> VC : 聊天/星梦/互动
+  VC --> UP : 虚数值 ≥ 阈值
+  UP --> P1 : 每日触发
+  P1 --> P2 : 发现 upgrade_pending 角色
+  P2 --> NCS : LLM 改写 + MCP 落库
+}
+
+note right of UpgradeFlow
+  Phase2 改写策略：
+  ─────────────────
+  • 保留原星梦核心场景
+  • 调整语言亲密度
+    (Lv1: 疏远 → Lv5: 亲密)
+  • 增加新等级专属细节
+  • 不改变核心事件/地点
+end note
+
+state "星梦开场白实时修正" as ORAF {
+  state "用户点击进入星梦" as Click
+  state "检测 Lv 不匹配\ncurrentLv ≠ dreamLv" as Check
+  state "触发开场白改写 Agent\n(xingmeng-opening-rewrite)" as Rewrite
+  state "< 2秒返回新开场白" as Return
+
+  Click --> Check
+  Check --> Rewrite : Lv 不匹配
+  Check --> Return : Lv 匹配 (无需改写)
+  Rewrite --> Return
+}
+
+note right of ORAF
+  处理场景：
+  批处理生成时 Lv1
+  用户进入时已升至 Lv3
+  → 实时改写，无感知
+end note
+
+@enduml

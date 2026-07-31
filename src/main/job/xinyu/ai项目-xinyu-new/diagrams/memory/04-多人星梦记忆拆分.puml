@@ -1,0 +1,45 @@
+@startuml memory-multi-stardream-fanout
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam ActivityBackgroundColor #F8F9FA
+skinparam ActivityBorderColor #90A4AE
+skinparam ActivityDiamondBackgroundColor #EBF5FB
+skinparam ActivityDiamondBorderColor #78909C
+skinparam ArrowColor #78909C
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #F9A825
+
+title 多人星梦 — 角色视角记忆拆分（Fan-out）
+
+start
+
+:多人星梦结束\n（用户 + 角色A + 角色B 三方）;
+
+:触发会话级总结\nsceneType = MULTI STAR DREAM (6)\n记录所有人共同经历的事件;
+
+fork
+  :角色A 视角记忆\nsceneType = MULTI STAR DREAM ROLE MEMORY (7)\nrunId = charA__saveId;
+  :MULTI STAR DREAM SINGLE PERSPECTIVE Prompt\n从角色A 的第一人称视角提炼事实;
+  :写入角色A 的长期记忆向量库;
+  note right
+    A 的记忆：
+    "用户怕浪花，我注意到了
+     B 和用户聊得很投入"
+  end note
+fork again
+  :角色B 视角记忆\nsceneType = MULTI STAR DREAM ROLE MEMORY (7)\nrunId = charB__saveId;
+  :MULTI STAR DREAM SINGLE PERSPECTIVE Prompt\n从角色B 的第一人称视角提炼事实;
+  :写入角色B 的长期记忆向量库;
+  note left
+    B 的记忆：
+    "用户聊了很多猫的事
+     A 一直在默默陪伴"
+  end note
+end fork
+
+:两角色记忆相互隔离\n下次各自调用时按 runId 独立检索\n不会混用对方的视角;
+
+stop
+
+@enduml

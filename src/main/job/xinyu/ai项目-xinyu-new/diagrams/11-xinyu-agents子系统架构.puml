@@ -1,0 +1,129 @@
+@startuml xinyu-agents-subsystem
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam defaultFontSize 12
+skinparam ArrowColor #78909C
+skinparam RectangleBorderColor #CFD8DC
+skinparam RectangleBorderThickness 1
+skinparam ComponentBorderColor #CFD8DC
+skinparam ComponentBackgroundColor #FAFAFA
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #F9A825
+
+title xinyu-agents — 五大 Agent 子系统架构\nAgentRun Serverless · LangGraph · MCP
+
+' ───────── 公共基础层 ─────────
+rectangle "公共基础层" #F0F4F8 {
+  component "AgentRunServer\n(HTTP 服务框架)" as Server #E8F0F8
+  component "message_utils.py\nOpenAI 消息解析" as MsgUtils #E8F0F8
+  component "llm_sampling.py\n环境变量→采样参数" as Sampling #E8F0F8
+  component "agentrun-sdk\nLangChain + MCP + Server" as SDK #E8F0F8
+}
+
+' ───────── Agent 1 ─────────
+rectangle "stranger_feed_initial_library\n陌生角色新鲜事 (LangGraph 5节点)" #E8F4FD {
+  rectangle "节点流水线" #DCEEFA {
+    component "[validate_params]" as SF1 #C5E3F5
+    component "[generate]\nXML 提示词 v4.0" as SF2 #C5E3F5
+    component "[validate_output]\n规则阻断校验" as SF3 #C5E3F5
+    component "[translate]\n并行三语(zh-TW+en-US)" as SF4 #C5E3F5
+    component "[persist]\nMCP batchSave" as SF5 #C5E3F5
+  }
+  component "StrangerFeedInput\nschema.py" as SFSchema #DCEEFA
+}
+
+' ───────── Agent 2 ─────────
+rectangle "acquaintance_feed_initial_library\n熟人新鲜事 (LangGraph 3节点)" #E8FDE8 {
+  rectangle "节点流水线" #D5F8D5 {
+    component "[validate_params]" as AF1 #BDEEBE
+    component "[generate]" as AF2 #BDEEBE
+    component "[assemble_post]\n时间防碰撞校正" as AF3 #BDEEBE
+  }
+  component "time_spacing.py\n精确到分钟时间校正" as AFTime #D5F8D5
+  note right of AF3
+    非阻断型校验
+    Java Core 做最终落库
+  end note
+}
+
+' ───────── Agent 3 ─────────
+rectangle "xingmeng_content_generation_library\n星梦批量生产 (LangGraph 11节点)" #FDF4E8 {
+  rectangle "Phase 1-3" #F8E8CC {
+    component "[validate_params]" as XM1 #F5DEB3
+    component "[load_daily_plan]" as XM2 #F5DEB3
+    component "[phase1_scan]\n扫描升级角色" as XM3 #F5DEB3
+    component "[phase2_rewrite]\ndeepseek-v4-flash" as XM4 #F5DEB3
+    component "[phase3_allocate]\n分配时间窗" as XM5 #F5DEB3
+    component "[phase3_produce]\ndeepseek-v4-flash" as XM6 #F5DEB3
+  }
+  rectangle "Phase 4-5" #F8E8CC {
+    component "[phase4_full_coverage]\nLv3+ 全覆盖" as XM7 #F5DEB3
+    component "[star_event_supplement]\nqwen3-max 钩子补充" as XM8 #F5DEB3
+    component "[assemble_result]" as XM9 #F5DEB3
+  }
+  component "mcp_client.py\n全局单例 MCP 客户端" as XMMCP #F8E8CC
+}
+
+' ───────── Agent 4 ─────────
+rectangle "xingmeng_opening_rewrite_library\n开场白实时改写 (直接调用，无LangGraph)" #FDE8F8 {
+  component "opening_rewriter.py" as OR #F8D5F0
+  note right of OR
+    1. MCP 查近期对话
+    2. 渲染 Prompt
+    3. qwen3-max 生成
+    4. 清洗输出
+    5. 审计日志(异步非阻塞)
+    目标延迟 < 2 秒
+  end note
+}
+
+' ───────── Agent 5 ─────────
+rectangle "topic_intent_library\n话题意图识别 (每10轮触发)" #EDF8E8 {
+  component "topic_intent.py\n意图分类 LLM 调用" as TI #D8F0D8
+  note right of TI
+    每10轮对话后
+    ShortChat 异步触发
+    识别: star_dream_invite
+         / normal / ...
+    结果驱动邀请卡创建
+  end note
+}
+
+' ───────── 连线 ─────────
+Server --> SF1
+Server --> AF1
+Server --> XM1
+Server --> OR
+Server --> TI
+
+SF1 --> SF2 : 校验通过
+SF2 --> SF3 : 生成完成
+SF3 --> SF4 : 规则通过
+SF4 --> SF5 : 翻译完成
+SFSchema --> SF1
+
+AF1 --> AF2
+AF2 --> AF3
+AFTime --> AF3
+
+XM1 --> XM2
+XM2 --> XM3
+XM3 --> XM4
+XM4 --> XM5
+XM5 --> XM6
+XM6 --> XM7
+XM7 --> XM8
+XM8 --> XM9
+XMMCP --> XM2
+XMMCP --> XM3
+
+note bottom of XMMCP
+  MCP 全局单例模式
+  避免每次请求重建连接
+  通过 xinyu-core-feed-prefab-mcp
+  / dream-service-mcp
+  / character-memory-mcp 读写数据
+end note
+
+@enduml

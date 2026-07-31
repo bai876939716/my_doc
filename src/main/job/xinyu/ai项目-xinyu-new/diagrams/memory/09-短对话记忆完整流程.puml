@@ -1,0 +1,560 @@
+/Users/harvey/Desktop/ai面试文档相关/ai项目-xinyu-new/diagrams/memory/11-短对话记忆完整流程.puml@startuml short-chat-memory-full-flow
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam ActivityBackgroundColor #EBF5FB
+skinparam ActivityBorderColor #90A4AE
+skinparam ActivityDiamondBackgroundColor #FFF8E1
+skinparam ActivityDiamondBorderColor #F9A825
+skinparam ArrowColor #78909C
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #F9A825
+skinparam PartitionBackgroundColor #F8F9FA
+skinparam PartitionBorderColor #90A4AE
+
+title 心屿短对话 — 记忆完整处理流程\n模拟场景：用户「林夏」(userId=10086)  ×  角色「祁深」(characterId=5201)\n\nLLM 调用时机：#1 对话回复  #2 事实提取  #3 ADD/UPDATE/NONE决策  #4 画像提取  #5 画像合并  #6 跨批次融合（星梦）  #7 带记忆回复
+
+start
+
+partition "阶段一  消息实时写入  soul-haven-short-chat-service" {
+
+  :用户发送消息\n【ShortChatHermesSubHandler.onChatMsg()】\nHermes 长连接接收;
+  note right
+    INSERT INTO tb_short_chat_message
+    ──────────────────────────────────────
+    id           : 1001
+    session_id   : "chat_1_10086_5201_1752314400"
+    user_id      : 10086
+    character_id : 5201
+    role         : "user"
+    content      : "祁深，我今天又加班到九点了，好累"
+    send_time    : 2026-07-12 21:00:00
+  end note
+
+  :【LLM #1 — 对话回复生成】\nLLM 流式生成回复 落库\n【ShortChatRollingFlushAiOrchestrator.runAfterFlushCommitted()】;
+  note right
+    INSERT INTO tb_short_chat_message
+    ──────────────────────────────────────
+    id           : 1002
+    session_id   : "chat_1_10086_5201_1752314400"
+    user_id      : 10086
+    character_id : 5201
+    role         : "assistant"
+    content      : "又加班？是什么项目这么紧，说来听听"
+    send_time    : 2026-07-12 21:00:08
+
+    ↑ 以上共 2 条 = 第 1 轮
+  end note
+
+  :对话持续积累...;
+  note right
+    tb_short_chat_message 持续写入：
+    ──────────────────────────────────────
+    第  2 轮：用户 - "UI改版项目，设计稿老被推翻"
+             AI   - "改版最磨人了，你是做设计的？"
+    第  3 轮：用户 - "对，我是产品设计师"
+             AI   - "难怪，产品和视觉拉锯你都懂"
+    第  4 轮：用户 - "下班买了芋泥波波才好受一点"
+             AI   - "奶茶续命，确实管用"
+    ...
+    第 40 轮：用户 - "和你说完心里好多了"
+             AI   - "随时都在，好好休息"
+    ──────────────────────────────────────
+    此时表中共 80 条（40轮×2条）未触发总结的消息
+  end note
+
+}
+
+partition "阶段二  触发总结检测  AdminShortChatMemorySummaryProperties" {
+
+  if (未总结消息轮次 >= triggerRoundCount (40)？) then (否)
+    :继续积累，等下一条消息再判断;
+    stop
+  else (是)
+  endif
+
+  :发布异步总结事件\n【AdminShortChatServiceImpl.publishMemorySummaryReadyEventIfNeeded()\n→ MemorySummaryReadyEventPublisher.publish()】;
+  note right
+    RocketMQ — Topic: MEMORY_SUMMARY_EVENT
+    ──────────────────────────────────────
+    {
+      "userId"      : 10086,
+      "characterId" : 5201,
+      "sessionId"   : "chat_1_10086_5201_1752314400",
+      "sceneType"   : 1,           ← SHORT_CHAT
+      "batchSize"   : 20,          ← publish-round-count
+      "triggerType" : "ROUND_COUNT"
+    }
+
+    配置来源：AdminShortChatMemorySummaryProperties
+    ──────────────────────────────────────
+    trigger-round-count : 40   达到40轮才触发
+    publish-round-count : 20   每次打包投递20轮
+  end note
+
+}
+
+partition "阶段三  幂等校验  MemorySummaryProcessor" {
+
+  :消费 MQ 消息\n【MemorySummaryProcessor.handleSummaryReadyEvent()】;
+
+  if (Redis 幂等 Key 已存在？) then (是 — 重复投递)
+    :跳过，直接 ACK;
+    stop
+  else (否 — 首次消费)
+  endif
+
+  :写入幂等 Key\n【RedisSummaryIdempotencyStore.tryAcquire()】;
+  note right
+    Redis Key（TTL = 7天）：
+    "memory:summary:idempotency:10086:5201:chat_1_10086_5201_1752314400"
+
+    防止 MQ 重投 / 网络重试 导致重复总结同一批消息
+  end note
+
+}
+
+partition "阶段四  查询待总结消息  Dubbo Generic Call" {
+
+  :Dubbo 泛化调用拉取 20 轮原文\n【MemorySummaryProcessor.summarizeWithRetry()\n→ ConversationRoundQueryService.queryRounds()】;
+  note right
+    调用：ShortChatRpcService.queryMessages()
+    参数：sessionId="chat_1_10086_5201_1752314400"
+          limit=40   ← 20轮 × 2条(user+ai)
+
+    等效 SQL：
+    SELECT * FROM tb_short_chat_message
+    WHERE session_id = 'chat_1_10086_5201_1752314400'
+    ORDER BY send_time ASC
+    LIMIT 40
+
+    返回 40 条原文消息（20轮）：
+    [
+      {role:"user",      content:"我今天又加班到九点了，好累"},
+      {role:"assistant", content:"又加班？是什么项目这么紧"},
+      {role:"user",      content:"UI改版项目，设计稿老被推翻"},
+      {role:"assistant", content:"改版最磨人了，你是做设计的？"},
+      {role:"user",      content:"对，我是产品设计师"},
+      {role:"assistant", content:"难怪，产品和视觉拉锯你都懂"},
+      {role:"user",      content:"下班买了芋泥波波才好受一点"},
+      {role:"assistant", content:"奶茶续命，确实管用"},
+      ... 共 40 条
+    ]
+  end note
+
+}
+
+partition "阶段五  调用 PolarDB addMemory  POST /v1/memories" {
+
+  :构造请求体\n【MemorySummaryProcessor.buildAddMemoryRequest()】;
+  note right
+    AddMemoryRequest {
+      userId    : "10086"
+      agentId   : "5201"              ← characterId
+      runId     : "10086__5201"       ← userId__characterId（记忆空间隔离键）
+      infer     : true                ← 开启 LLM 推断，触发事实提取+对比
+      asyncMode : false               ← 同步等待（心屿控制超时 confirmTimeoutMs=16000ms）
+      messages  : [40条对话消息]
+      prompt: {
+        "FACT_RETRIEVAL_PROMPT": "SHORT_CHAT_FACT_RETRIEVAL"
+      }
+    }
+  end note
+
+  :【LLM #2 — 事实提取】PolarDB 内部\nLLM 从对话原文提取事实列表\nPrompt: FACT_RETRIEVAL_PROMPT;
+  note right
+    输入：40 条对话原文
+
+    LLM 输出事实列表：
+    F1: "用户名叫林夏，职业是产品设计师"
+    F2: "用户公司正在推进 UI 大改版项目"
+    F3: "设计稿反复被推翻，今天加班到晚上九点"
+    F4: "用户喜欢芋泥波波奶茶，经常用来解压"
+    F5: "用户倾向于在夜晚找祁深倾诉工作压力"
+  end note
+
+  :PolarDB 内部步骤二\n将新事实向量化\n检索 runId 下已有记忆做相似度对比;
+  note right
+    向量库已有记忆（runId = "10086__5201"）：
+    mem_old_01 向量：embedding("林夏是一名设计师")
+                     与 F1 相似度 0.91
+    mem_old_02 向量：embedding("林夏喜欢喝奶茶")
+                     与 F4 相似度 0.88
+  end note
+
+  :【LLM #3 — ADD/UPDATE/NONE决策】PolarDB 内部\nLLM 对每条新事实与已有记忆对比决策\nPrompt: UPDATE_MEMORY_PROMPT;
+  note right
+    决策结果（ADD / UPDATE / NONE）：
+    ──────────────────────────────────────
+    F1 → UPDATE  与 mem_old_01 冲突，新版更具体
+         旧："林夏是一名设计师"
+         新："用户名叫林夏，职业是产品设计师"
+         → 覆盖 mem_old_01
+
+    F2 → ADD     向量库中无相似条目，写入新记录
+         id: mem_102
+
+    F3 → ADD     新事实，带时效性信息
+         id: mem_103
+
+    F4 → UPDATE  与 mem_old_02 冲突，新版更具体
+         旧："林夏喜欢喝奶茶"
+         新："林夏喜欢芋泥波波奶茶，经常用来解压"
+         → 覆盖 mem_old_02
+
+    F5 → ADD     新事实
+         id: mem_105
+
+    （若某条与已有记忆高度重复 → NONE，直接丢弃不写入）
+  end note
+
+  :PolarDB 返回 AddMemoryResponse;
+  note right
+    AddMemoryResponse {
+      messageId : "polar_batch_007"    ← 本批次唯一 ID，后续合并用
+      llmStatus : "SUCCESS"
+      results: [
+        {id:"mem_101", event:"UPDATE", memory:"用户名叫林夏，职业是产品设计师"},
+        {id:"mem_102", event:"ADD",    memory:"UI大改版项目，设计稿反复被推翻"},
+        {id:"mem_103", event:"ADD",    memory:"今天加班到晚上九点"},
+        {id:"mem_104", event:"UPDATE", memory:"林夏喜欢芋泥波波奶茶，经常用来解压"},
+        {id:"mem_105", event:"ADD",    memory:"林夏倾向夜晚找祁深倾诉工作压力"}
+      ]
+    }
+  end note
+
+  if (llmStatus 正常？) then (是)
+    :走正常落库链路;
+  else (否 — LLM 静默失败)
+    :降级：存原文到向量库\n【persistRawConversationAfterDegraded()】;
+    note right
+      降级请求：原 AddMemoryRequest 修改 infer=false
+      PolarDB 直接将 40 条对话原文 embedding 后存入向量库
+      不做事实提取，不做对比
+
+      tb_memory_summary_task.status = "FAILED_DEGRADED"
+      → 此记录仍计入 miniMerge 计数
+      → 后续可通过 POST /v1/memories/retry 补跑推断
+    end note
+  endif
+
+}
+
+partition "阶段六  登记任务状态  tb_memory_summary_task" {
+
+  :异步写入任务记录\n【MemoryAddSuccessRecordAsyncWriter.recordAddMemoryAsync()】;
+  note right
+    INSERT INTO tb_memory_summary_task
+    ──────────────────────────────────────────
+    id               : 9901
+    scene_id         : "chat_1_10086_5201_1752314400"
+    scene_type       : 1                    ← SHORT_CHAT
+    user_id          : 10086
+    summary_type     : "mini"
+    message_id       : "polar_batch_007"    ← PolarDB 返回的批次 ID
+    memory_summarized: false                ← 未被 miniMerge 合并
+    status           : "COMPLETED"
+    created_at       : 2026-07-12 21:10:00
+
+    作用：miniMerge 会 COUNT 此表中 memory_summarized=false 的行
+         判断积累数量是否触发合并
+         （短对话本身不走 miniMerge，但记录依然写入）
+  end note
+
+}
+
+partition "阶段七  用户画像提取（可选）  UserProfileExtractor" {
+
+  if (画像提取开关开启？\nprofiling.enabled=true) then (是)
+
+    :【LLM #4 — 画像提取】\nPOST /v1/profiles/extract\n【MemorySummaryProcessor.submitProfileExtract()\n→ ProfileAndPersonalityHttpClient.extractProfile()】\nPrompt: USER_PROFILE_EXTRACTION_PROMPT;
+    note right
+      输入：本轮 40 条对话原文
+
+      LLM 输出本轮画像片段（JSON）：
+      {
+        "职业"  : "产品设计师",
+        "压力源": "UI改版项目，设计稿反复被推翻",
+        "习惯"  : "夜晚通过聊天排解压力",
+        "偏好"  : "芋泥波波奶茶"
+      }
+
+      注意：这里是结构化 JSON，不是向量
+           PolarDB Profile 服务是独立于向量记忆的存储
+    end note
+
+    :拉取当前已有画像\nGET /v1/profiles\n【ProfileAndPersonalityHttpClient.getProfile()】;
+    note right
+      已有画像（上一轮总结后写入的）：
+      {
+        "nickname": "林夏",
+        "profile" : "用户是一名设计师"   ← 旧版，较模糊
+      }
+
+      若从未提取过：返回空
+    end note
+
+    :【LLM #5 — 画像合并】\nPOST /v1/profiles/merge（PolarDB 内部执行合并）\nPrompt: PROFILE_MERGE_PROMPT_v1;
+    note right
+      LLM 输入：
+        旧画像：{"profile":"用户是一名设计师"}
+        新片段：{"职业":"产品设计师","偏好":"芋泥波波奶茶",...}
+
+      LLM 合并策略：
+        · 新版比旧版更具体 → 用新版
+        · 新增字段 → 追加
+        · 字段冲突 → 保留最新
+    end note
+
+    :写回 PolarDB Profile\nPUT /v1/profiles\n【ProfileAndPersonalityHttpClient.updateProfile()】;
+    note right
+      存储位置：PolarDB Profile API（非向量表，普通 KV 存储）
+      存储格式：纯文本 JSON，不做向量化
+      ─────────────────────────────────────────
+      {
+        "userId"   : "10086",
+        "agentId"  : "5201",         ← 当前对话角色 characterId
+        "nickname" : "林夏",
+        "profile"  : "用户林夏是产品设计师（UI方向），
+                      正赶 UI 大改版项目，设计稿反复被推翻；
+                      习惯在夜晚找祁深聊天排解压力；
+                      喜欢芋泥波波奶茶解压"
+      }
+      ─────────────────────────────────────────
+      与长期记忆的区别：
+        长期记忆 → 向量化，按相似度检索 TopK 条注入
+        用户画像 → 纯文本，每次全量注入 <用户画像> 标签
+    end note
+
+  else (否)
+    :跳过画像提取;
+  endif
+
+}
+
+partition "阶段八  第二层去重：miniMerge  mergeMiniMemoriesIfNeeded()" {
+
+  :检查 sceneType 是否触发合并\n【MemorySummaryProcessor.mergeMiniMemoriesIfNeeded()】;
+
+  if (sceneType 在合并白名单？\n星梦(3) / 多人星梦(6) / 星梦角色记忆(5)) then (否 — SHORT_CHAT(1))
+    :短对话跳过 miniMerge\n直接返回;
+    note right
+      SHORT_CHAT 不在白名单
+      原因：短对话积累慢，每次只产出 1 条 mini 记录
+           PolarDB 自身 ADD/UPDATE/NONE 去重已足够
+           不需要跨批次语义合并
+    end note
+  else (是 — 若为星梦场景参考此路径)
+
+    :查询当前场景下未合并的 mini 记录\n【MybatisSummaryTaskStateStore.listUnmergedMiniMessageIds()】;
+    note right
+      SELECT message_id
+      FROM tb_memory_summary_task
+      WHERE scene_id = 当前场景ID
+        AND summary_type = 'mini'
+        AND memory_summarized = false
+        AND status IN ('COMPLETED', 'FAILED_DEGRADED')
+      ORDER BY created_at ASC
+      LIMIT 5
+
+      模拟：tb_memory_summary_task 中已有 5 条 mini 记录：
+      ─────────────────────────────────────────
+      polar_batch_003  memory_summarized=false
+      polar_batch_004  memory_summarized=false
+      polar_batch_005  memory_summarized=false
+      polar_batch_006  memory_summarized=false
+      polar_batch_007  memory_summarized=false  ← 本轮刚写入
+    end note
+
+    if (未合并记录数 >= miniMergeThreshold (5)？) then (否)
+      :数量不足，本次跳过;
+    else (是)
+
+      :构造合并请求\n【MemorySummaryProcessor.buildMergeRequest()】;
+      note right
+        MergeMemoriesRequest {
+          messageIds : [
+            "polar_batch_003",
+            "polar_batch_004",
+            "polar_batch_005",
+            "polar_batch_006",
+            "polar_batch_007"
+          ]
+          deleteOld  : true
+          prompt: {
+            "FACT_RETRIEVAL_PROMPT" : "STAR_DREAM_EVENT_SUMMARY",
+            "MERGE_MEMORY_PROMPT"   : "MERGE_MEMORY_PROMPT"
+          }
+        }
+      end note
+
+      :POST /v1/memories/merge\n【PolarDB Memory API】;
+
+      :PolarDB 按 messageId 取回 5 批全部事实;
+      note right
+        5 批次累积的事实（跨多次对话）：
+        批次003："林夏是一名设计师"
+        批次004："林夏喜欢喝奶茶"
+        批次005："林夏从事 UI 设计工作"
+        批次006："林夏喜欢在夜晚聊天"
+        批次007："用户名叫林夏，职业是产品设计师"
+                 "林夏喜欢芋泥波波奶茶，经常用来解压"
+                 "今天加班到晚上九点"
+                 "UI 大改版，设计稿反复被推翻"
+                 "林夏倾向夜晚找祁深倾诉工作压力"
+      end note
+
+      :【LLM #6 — 跨批次融合（星梦）】PolarDB 内部\nLLM 统一审阅 5 批事实做融合决策\nPrompt: MERGE_MEMORY_PROMPT;
+      note right
+        融合决策：
+        ① "林夏是一名设计师"
+           "林夏从事 UI 设计工作"
+           "用户名叫林夏，职业是产品设计师"
+           → 合并为："林夏是产品设计师（UI方向）" ← 保留最具体版本
+
+        ② "林夏喜欢喝奶茶"
+           "林夏喜欢芋泥波波奶茶，经常用来解压"
+           → 合并为："林夏喜欢芋泥波波奶茶解压" ← 合并语义重叠
+
+        ③ "林夏喜欢在夜晚聊天"
+           "林夏倾向夜晚找祁深倾诉工作压力"
+           → 合并为："林夏习惯夜晚向祁深倾诉压力" ← 合并语义重叠
+
+        ④ "今天加班到晚上九点" → 保留（时效性事实）
+        ⑤ "UI 大改版，设计稿反复被推翻" → 保留
+
+        5 批次 ~9 条事实 → 融合后 5 条精华事实
+      end note
+
+      :删除 5 条原始记忆向量记录\ndeleteOld=true;
+
+      :写入融合后记忆\n返回 mergedMessageId;
+      note right
+        MergeMemoriesResponse {
+          mergedCount     : 5
+          mergeType       : "update"
+          mergedMessageId : "polar_merged_001"
+          deleteFailures  : []
+        }
+
+        PolarDB 向量库状态变化：
+        删除：polar_batch_003 ~ 007 共 5 条原始记录
+        新增：polar_merged_001（5 条精华事实）
+      end note
+
+      :更新 PostgreSQL 任务记录\n【MemoryAddSuccessRecordAsyncWriter.recordMergeMemoriesAsync()\n→ MybatisSummaryTaskStateStore.markMemoriesMerged()】;
+      note right
+        操作一：标记 5 条旧记录已合并
+        UPDATE tb_memory_summary_task
+        SET memory_summarized = true
+        WHERE message_id IN (
+          'polar_batch_003','polar_batch_004',
+          'polar_batch_005','polar_batch_006','polar_batch_007'
+        )
+
+        操作二：插入合并结果记录
+        INSERT INTO tb_memory_summary_task
+        ─────────────────────────────────
+        summary_type     : "merged"
+        message_id       : "polar_merged_001"
+        memory_summarized: false   ← 继续参与下一轮合并
+        status           : "COMPLETED"
+
+        滚动收敛机制：
+        第1轮：[003,004,005,006,007] → merged_001
+        第2轮：[merged_001, 008,009,010,011] → merged_002
+        第3轮：[merged_002, 012,...] → merged_003
+        最终收敛为一条高质量长期记忆
+      end note
+
+    endif
+  endif
+
+}
+
+partition "阶段九  下次对话  三路记忆并行注入  Agent 调用" {
+
+  :用户发起第 41 轮对话\n"祁深，我最近工作压力好大哦";
+
+  split
+    :读取短期记忆\n【MCP: getAppShortChatMessage()】;
+    note right
+      参数：userId=10086, characterId=5201, batchSize=40
+
+      等效 SQL：
+      SELECT * FROM tb_short_chat_message
+      WHERE session_id = '当前会话'
+      ORDER BY send_time DESC
+      LIMIT 80   ← 40轮×2条
+
+      返回：第 41 轮起的新消息（原文）
+      → 第 1~40 轮已走过总结，不再出现在结果中
+      → "滑出窗口"的本质：已总结的轮次不再被查到
+    end note
+  split again
+    :检索长期记忆\n【MCP: queryLongTermMemory()】;
+    note right
+      将"我最近工作压力好大"向量化后检索
+      runId="10086__5201"，TopK=5：
+
+      ① 相似度 0.93  "林夏是产品设计师，赶 UI 改版项目"
+      ② 相似度 0.89  "今天加班到晚上九点"
+      ③ 相似度 0.83  "林夏倾向夜晚找祁深倾诉工作压力"
+      ④ 相似度 0.76  "UI 大改版，设计稿反复被推翻"
+      ⑤ 相似度 0.64  "林夏喜欢芋泥波波奶茶解压"
+    end note
+  split again
+    :读取用户画像\n【MCP: getUserProfile()】;
+    note right
+      返回：
+      {
+        "nickname": "林夏",
+        "profile" : "产品设计师，工作压力大，
+                     喜欢夜聊和奶茶"
+      }
+    end note
+  end split
+
+  :拼接 Prompt 注入 LLM;
+  note right
+    最终 Prompt 结构：
+    ──────────────────────────────────────
+    [角色人设：祁深 — 温柔体贴，善于倾听]
+
+    <用户画像>
+    用户林夏是产品设计师，工作压力大，喜欢夜聊和奶茶
+    </用户画像>
+
+    <长期记忆>
+    林夏是产品设计师，正赶 UI 改版项目（设计稿反复被推翻）；
+    最近加班频繁（加班到晚上九点）；
+    倾向在夜晚找祁深倾诉压力；
+    喜欢芋泥波波奶茶解压
+    </长期记忆>
+
+    <近期对话>
+    [第 41 轮开始的未总结对话原文，最多 40 轮]
+    </近期对话>
+
+    用户：我最近工作压力好大哦
+  end note
+
+  :【LLM #7 — 带记忆的对话回复生成】\nLLM 输出带记忆的回复;
+  note right
+    AI（祁深）回复：
+    "UI 改版还没结束吗？上次你说设计稿被推翻了，
+    这次又熬到这么晚……
+    今天买芋泥波波了没，
+    先喝一杯，边喝边跟我说说"
+
+    ✅ 记住了工作内容（UI 改版项目）
+    ✅ 记住了加班习惯
+    ✅ 记住了奶茶偏好（芋泥波波）
+    ✅ 用户无需重复自我介绍
+  end note
+
+}
+
+stop
+
+@enduml

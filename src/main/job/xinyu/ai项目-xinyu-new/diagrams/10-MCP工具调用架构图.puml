@@ -1,0 +1,120 @@
+@startuml mcp-tool-call-architecture
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam componentStyle rectangle
+skinparam NoteBackgroundColor #FFFDE7
+skinparam ComponentBackgroundColor #E3F2FD
+
+title xinyu-agents — MCP (Model Context Protocol) 工具调用架构图\n各 Agent 与 MCP 服务群的集成关系
+
+' ========== Agent 层 ==========
+rectangle "xinyu-agents (Python)" #FFF8E1 {
+
+  rectangle "stranger-feed-initial-library" #FFE0B2 {
+    component "MultiServerMCPClient\n{ transport: streamable_http,\n  url: stranger-feed-prefab-mcp }" as SFA_MCP
+    component "LangChain Agent\n(qwen3-max)" as SFA_AGENT
+    SFA_AGENT --> SFA_MCP
+  }
+
+  rectangle "acquaintance-feed-initial-library" #FFF9C4 {
+    component "无 MCP 落库\n(Java Core 负责)" as AFA_NONE #EEEEEE
+    note bottom of AFA_NONE
+      仅调用 LLM 生成
+      不集成任何 MCP
+    end note
+  }
+
+  rectangle "xingmeng-content-generation-library" #FFCCBC {
+    component "MultiServerMCPClient\n全局单例 (6 个服务)" as XCA_MCP
+    component "4 种 Agent\n(改写/单人/多人/星事)" as XCA_AGENT
+    XCA_AGENT --> XCA_MCP
+  }
+
+  rectangle "xingmeng-opening-rewrite-library" #F8BBD9 {
+    component "MultiServerMCPClient\n(4 个服务)" as XOR_MCP
+    component "实时改写 Agent\n(qwen3-max 快模型)" as XOR_AGENT
+    XOR_AGENT --> XOR_MCP
+  }
+}
+
+' ========== MCP 服务层 ==========
+rectangle "MCP 服务群 (HTTP Streamable Transport)" #E8F5E9 {
+
+  component "xinyu-core-stranger-feed-prefab-service\n─────────────────────────────\n工具: batchSaveStrangerFeedPrefabs\n写入模式: APPEND / REPLACE_ALL\n入参: { characterId, items[], metadata }" as MCP_FEED #4CAF50
+
+  component "soul-haven-character-service-mcp\n─────────────────────────────\n工具: getCharacterInfo / listCharacters\n     getCharacterPersona / getBondList\n查询角色人设、羁绊列表" as MCP_CHAR #2196F3
+
+  component "soul-haven-user-service-mcp\n─────────────────────────────\n工具: getUserInfo / getUserProfile\n查询用户基础信息" as MCP_USER #2196F3
+
+  component "soul-haven-short-service-mcp\n─────────────────────────────\n工具: queryRecentDialogue\n参数: { userId, characterId, limit=40 }\n返回: 最近 N 轮对话" as MCP_SHORT #03A9F4
+
+  component "xmc-pub-sub-dream-service-mcp\n─────────────────────────────\n写工具: writeProducedDreamsBatch\n        batchWriteDailyPlan\n        batchSoftDeleteDailyPlanItems\n读工具: queryDreamInventory\n        queryDailyPlan\n        queryStarEvents\n日志: log_opening_rewrite" as MCP_DREAM #FF5722
+
+  component "soul-haven-memory-service-mcp\n─────────────────────────────\n工具: getUserMemory\n     getLongTermMemory\n查询用户画像 & 长期记忆" as MCP_MEM #9C27B0
+
+  component "xinyu-core-planet-world-overview\n─────────────────────────────\n工具: getPlanetWorldOverview\n查询星球/区域/地点树" as MCP_PLANET #607D8B
+}
+
+' ========== Java Core (MCP 服务实现层) ==========
+rectangle "Java Core (MCP 服务实现)" #F3E5F5 {
+  component "soul-haven-core-service\nPostgreSQL → MyBatis-Plus" as JAVA_CORE #8E24AA
+  component "soul-haven-character-service\n角色数据查询" as JAVA_CHAR #9C27B0
+  component "soul-haven-short-chat-service\n对话历史查询" as JAVA_SHORT #AB47BC
+  component "soul-haven-star-dream-service\n星梦库存&日计划写入" as JAVA_DREAM #CE93D8
+  component "soul-haven-memory-service\n记忆&向量查询" as JAVA_MEM #BA68C8
+}
+
+database "PostgreSQL" as PG #336791
+
+' ========== 连线 ==========
+SFA_MCP --> MCP_FEED : HTTP Streamable\nbatchSaveStrangerFeedPrefabs
+
+XCA_MCP --> MCP_CHAR  : getCharacterInfo
+XCA_MCP --> MCP_USER  : getUserInfo
+XCA_MCP --> MCP_SHORT : queryRecentDialogue
+XCA_MCP --> MCP_DREAM : write/query
+XCA_MCP --> MCP_MEM   : getUserMemory
+XCA_MCP --> MCP_PLANET: getPlanetWorldOverview
+
+XOR_MCP --> MCP_CHAR  : getCharacterInfo
+XOR_MCP --> MCP_SHORT : queryRecentDialogue
+XOR_MCP --> MCP_DREAM : log opening rewrite
+XOR_MCP --> MCP_MEM   : getUserMemory
+
+MCP_FEED  --> JAVA_CORE  : Dubbo RPC
+MCP_CHAR  --> JAVA_CHAR  : Dubbo RPC
+MCP_SHORT --> JAVA_SHORT : Dubbo RPC
+MCP_DREAM --> JAVA_DREAM : Dubbo RPC
+MCP_MEM   --> JAVA_MEM   : Dubbo RPC
+MCP_USER  --> JAVA_CORE  : Dubbo RPC
+MCP_PLANET--> JAVA_CORE  : Dubbo RPC
+
+JAVA_CORE  --> PG : MyBatis-Plus
+JAVA_CHAR  --> PG : MyBatis-Plus
+JAVA_SHORT --> PG : MyBatis-Plus
+JAVA_DREAM --> PG : MyBatis-Plus
+JAVA_MEM   --> PG : MyBatis-Plus
+
+note bottom of MCP_DREAM
+  主要数据表:
+  tb_soul_haven_generation_dream_inventory
+  tb_soul_haven_generation_daily_plan
+  tb_soul_haven_generation_star_event
+  tb_soul_haven_star_dream (主任务表)
+end note
+
+note right of SFA_MCP
+  MCP 客户端初始化:
+  ──────────────────
+  MultiServerMCPClient({
+    "server_key": {
+      transport: "streamable_http",
+      url: "http://mcp.xxx/mcp-servers/..."
+    }
+  })
+  tools = await client.get_tools()
+  agent = create_react_agent(llm, tools)
+end note
+
+@enduml
