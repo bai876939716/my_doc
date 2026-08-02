@@ -70,64 +70,17 @@
 
 ## 【简历第3条】LangGraph 构建 Agent 工作流 & MCP 工具集成
 
+> 技术细节、代码、图表详见：[xinyu-diagrams/第3条/技术解析.md](./xinyu-diagrams/第3条/技术解析.md)
+
 ### Q: 为什么用 StateGraph + add_conditional_edges 实现节点级错误路由与短路退出？
 
 > 每个节点出错时把 error 写进共享 State 数据包中，add_conditional_edges（条件边）在每个节点后检查 State 有没有 error，有就跳到 END，没有就继续下一个节点。这样有三个好处：
-> 
+>
 > 1、每个节点只管自己，出错只写自己的 error，不影响其他节点的代码；
-> 
+>
 > 2、路由逻辑集中在一个 _route_on_error 函数里，所有节点共用；
-> 
+>
 > 3、哪个节点出错、出什么错，State 里都有记录，可观测。
-
-**三个组成部分：**
-
-**1. 每个节点出错写 error，不抛异常**
-
-```python
-async def node_generate(state, *, agent):
-    try:
-        raw = await invoke_feed_llm_raw(...)
-        return {"llm_raw": raw}                      # 正常：只写业务字段
-    except Exception as e:
-        return {"error": f"模型调用失败: {e}",       # 出错：写 error 到 State
-                "error_code": "LLM_FAILED"}
-```
-
-**2. 路由函数检查 State**
-
-```python
-def _route_on_error(state) -> Literal["end", "continue"]:
-    return "end" if state.get("error") else "continue"
-```
-
-**3. 条件边挂在每个节点后面**
-
-```python
-g.add_conditional_edges(
-    "generate",
-    _route_on_error,
-    {"end": END, "continue": "translate"},
-)
-```
-
-**执行路径（陌生角色 Feed）：**
-
-```
-正常：validate_params → generate → translate → persist → END
-
-LLM 超时（generate 写 error）：
-validate_params → generate ─(error)→ END
-translate 和 persist 都不会跑，不会把脏数据写进库
-
-入参错误（validate_params 写 error）：
-validate_params ─(error)→ END
-LLM 根本没被调用
-```
-
-**注：星梦批处理的差异**
-
-星梦出错跳到 `assemble_result` 而不是 END。批处理是离线任务，即使中途某阶段失败，也要汇总前几个阶段的执行结果返回给调用方，不能什么都不返回。
 
 ---
 
@@ -135,98 +88,37 @@ LLM 根本没被调用
 
 > AI 层不能直接碰数据库，所有数据操作都通过 MCP 工具调 Java 接口完成。具体来说，Java 侧把各个微服务的核心接口包装成 MCP Server，比如角色信息、用户画像、短期对话、星梦库存这几类，Python 侧封装了一个统一的 MCPClient，内部有一张工具名路由表，工具名到服务名的映射，调用时按工具名自动找到对应的 MCP Server 发请求。Agent 层只需要知道工具名和参数，完全不感知背后是哪个 Java 服务、走的哪个接口。
 
-**整体架构：多服务分散注册**
+---
 
-不是一个 MCP Server 包所有接口，而是 6 个独立服务，每个服务维护自己的 URL 和连接：
+### Q: 简历里说「统一封装 MCPClient，工具名路由表自动调度，Semaphore 统一限制 LLM 与 MCP 并发」，能展开说说吗？
 
-| 服务 | 覆盖能力 |
-|------|---------|
-| user-service | 角色信息、羁绊等级、角色列表 |
-| soul-user-service | 用户基础信息（昵称、性别） |
-| dream-service | 星梦库存、日计划、星事 |
-| profile-service | 用户画像 |
-| short-service | 短期对话记录 |
-| core-service | 星球世界观、地点信息 |
+> 这句简历其实是两件事合在一起说的。
+>
+> 第一件是 MCPClient 统一封装。项目有 6 个独立的 Java MCP 服务，对应角色信息、用户画像、星梦库存这些不同的业务域，加起来暴露了 25 个以上的工具接口。如果让 Agent 自己管这 6 个服务的连接和路由，耦合很重，每次增减工具都要改 Agent 代码。所以封装了一个全局单例 McpClient，内部维护一张静态路由表，工具名到服务名的映射，Agent 调工具只需要给工具名和参数，McpClient 按路由表自动找对应的 Java 服务发请求，Agent 对路由细节完全透明。
+>
+> 第二件是 Semaphore 限并发。批处理要给大量角色生产内容，如果直接全部并发，比如 100 个 LLM 请求同时发出，100 份 Prompt 加响应缓冲同时在内存里，4GB 的 Serverless 实例直接 OOM。实际上有两个独立的 Semaphore 分开控制，LLM 侧用 gather_bounded 每次批量调用新建一个 Semaphore(12)，最多 12 个 LLM 请求同时在内存里，超出的协程挂起、零开销等待，某个完成了才放下一个进来滚动执行；MCP 侧是全局单例 Semaphore(8)，所有 Phase 共用一个令牌池，最多 8 个 HTTP 连接同时打向 Java，防止 Java 连接池被打满。简历里说统一限制是概括，两个 Semaphore 目标不同，LLM 的限内存，MCP 的限连接数。
 
-**工具名路由表（`_TOOL_ROUTING`）**
+---
 
-一张静态字典，工具名映射到服务名，25+ 个工具全部在这里注册：
+### Q: asyncio.Semaphore 是怎么设计的？
 
-```python
-_TOOL_ROUTING = {
-    "characterDetail":     "user-service",
-    "queryDailyPlan":      "dream-service",
-    "getUserProfile":      "profile-service",
-    "getAppShortChatMessage": "short-service",
-    # ...共 25+ 个工具
-}
-```
-
-**初始化过程：启动时连接全部服务**
-
-`McpClient` 是全局单例，第一次调用 `get_mcp_client()` 触发 `load_tools()`，对每个已配置 URL 的服务创建 `MultiServerMCPClient`，拉取该服务暴露的工具列表，构建 `_tool_map`（工具名 → 工具对象）和 `_tool_registry`（工具名 → 服务名）：
-
-```python
-client = MultiServerMCPClient(
-    {server_key: {"transport": "streamable_http", "url": url}},
-    tool_name_prefix=False,
-)
-tools = await client.get_tools()   # 拉取该服务的工具列表
-```
-
-**调用过程：`_invoke(tool_name, args)`**
-
-Agent 调用任何一个工具都走这一个方法：
-
-```
-_find_tool(tool_name)          # 从 _tool_map 按名查找工具对象
-↓
-_get_mcp_invoke_semaphore()    # 拿 Semaphore，控制并发上限（默认 8）
-↓
-tool.ainvoke(args)             # 异步发 HTTP 请求到 Java MCP Server
-↓
-_coerce_mcp_result(raw)        # 解包响应（LangChain 把响应包成 text 格式）
-```
-
-**响应解包：`_coerce_mcp_result`**
-
-LangChain MCP 适配层把 Java 返回的 JSON 包成了这样的格式：
-
-```
-[{"type": "text", "text": "## Original Response\n{\"code\":0,\"data\":{...}}"}]
-```
-
-所以需要先从 `"## Original Response"` 后面切出来，再做 JSON 解析。
-
-**可靠性：重试 + Session 自动重连**
-
-MCP 是长连接，Serverless 实例在空闲后 Session 可能过期。遇到连接类瞬时错误（`connection reset`、`session terminated`、`timed out` 等），会指数退避重试（0.5s → 1s）；如果是 Session 失效，先触发 `reload_tools()` 重新建连，再重试：
-
-```python
-if _needs_mcp_reconnect(e):
-    await self.reload_tools()   # 丢弃旧连接，重新连接全部服务
-tool = self._find_tool(tool_name)
-# 再重试
-```
-
-**并发控制**
-
-`asyncio.Semaphore(8)` 懒初始化，全局共用，限制同时在飞的 MCP HTTP 连接数，防止 Serverless 实例打出去的并发请求把 Java 服务打满，也防止本实例内存撑爆。
-
-**流程图：** [MCP 初始化 & 调用序列图](./xinyu-mcp-sequence.md)
+> 简历里说"统一限制"，实际是两个独立的 Semaphore，分别管 LLM 和 MCP，目的相同但限的东西不一样。LLM 侧用 gather_bounded，每次批量调用新建一个 Semaphore(12)，前 12 个任务立即拿到令牌，超出的协程挂起等待，始终保持内存里不超过 12 份 Prompt 和响应缓冲。MCP 侧是全局单例 Semaphore(8)，整个实例所有 Phase 共用一个，限制同时打向 Java 的 HTTP 连接数，防止 Java 服务端连接池被打满。
 
 ---
 
 ## 【简历第4条】五阶段星梦批处理流水线 & 成本控制
 
+> 技术细节、场景图详见：[xinyu-diagrams/第4条/技术解析.md](./xinyu-diagrams/第4条/技术解析.md)
+
+### Q: 批处理任务是怎么分发到机器上的？
+
+> 分发链路是三层。最上面是 XXL-Job 每天早上六点触发一次，Java Handler 拿到信号后扫描数据库找出所有需要生产内容的活跃用户，把每个用户的任务封装成消息发到 RocketMQ。然后是 Java 的 Consumer，多个实例并行消费，每个 Consumer 拿到一条消息就去调一次 AgentRun 的 HTTP 接口，把这个用户的任务参数传过去。AgentRun 是阿里云的 Serverless 平台，每收到一个 HTTP 请求就分配一个独立的 Python 实例来处理，实例之间完全隔离，各自有独立的内存和 Semaphore。所以最终的效果是，有多少用户并发就有多少 Python 实例同时跑，AgentRun 自动扩容，不需要手动管机器。
+
+---
+
 ### Q: Token 成本怎么控制的？
 
 > 主要是三个思路。第一是库存优先，先看当前时间窗有没有现成内容，有就复用，没有才调 LLM 生成，存量复用率 60% 以上。第二是改写而不是全量生成，旧内容拿来改写比从头生成 Token 消耗小得多，单用户每日成本降了 40% 左右。第三是模型分级，批处理用 DeepSeek-V4-Flash，成本低速度快；实时对话才用高质量模型。
-
-**其他手段：**
-
-- Prompt 缓存：系统 Prompt 内容固定，利用 prefix cache，批处理场景下重复前缀不重复计费
-- 精简上下文：三层记忆只注入 Top5 向量召回和最近 40 轮原文，不是全量历史
 
 ---
 

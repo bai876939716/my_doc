@@ -1,0 +1,144 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName Microsoft YaHei
+skinparam componentStyle rectangle
+skinparam packageBorderColor #888888
+skinparam noteBorderColor #AAAAAA
+skinparam ArrowColor #666666
+skinparam ComponentBorderColor #888888
+skinparam DatabaseBorderColor #888888
+skinparam QueueBorderColor #888888
+
+title Serverless 实例并发控制全貌\n（任务分发 + 扩容机制 + LLM/MCP 双限流）
+
+'─────────────────────────────────────────
+' 第一层：触发链路
+'─────────────────────────────────────────
+actor       "XXL-Job\n06:00 定时" as JOB
+component   "Java\nContentService" as SVC  #FFFDE7
+database    "PostgreSQL\n活跃用户" as DB   #FFFDE7
+queue       "RocketMQ\n消息队列\n（1w 条）" as MQ  #FFE0B2
+
+JOB -down-> SVC : 触发
+SVC -down-> DB  : 扫描活跃用户
+DB  -down-> SVC : List<UserId>
+SVC -down-> MQ  : 每用户发 1 条消息\nAt-Least-Once
+
+note right of MQ
+  RocketMQ 只是缓冲层
+  消息全部入队是瞬间完成的
+  真正控制并发的是下面的 Consumer
+end note
+
+'─────────────────────────────────────────
+' 第二层：Consumer 线程池 ← 真正的并发控制器
+'─────────────────────────────────────────
+package "Java Consumer 线程池  ← 并发调节阀" #FFF3E0 {
+  component "Thread-1\n取消息→调AgentRun→阻塞等待→取下一条" as T1
+  component "Thread-2" as T2
+  component "Thread-C\n（C = 配置的线程数，例：50）" as TC
+}
+
+note right of TC
+  每线程行为：
+  1. 从 RocketMQ 取一条消息
+  2. HTTP 调 AgentRun（同步阻塞）
+  3. 等 3~5 分钟（任务跑完）
+  4. 回到第 1 步
+
+  ⇒ 任意时刻：并发 AgentRun 请求数 = C（线程数）
+  ⇒ 这个 C 是整个系统的吞吐调节阀
+end note
+
+MQ -down-> T1
+MQ -down-> T2
+MQ -down-> TC
+
+'─────────────────────────────────────────
+' 第三层：AgentRun Serverless 平台
+'─────────────────────────────────────────
+cloud "阿里云 AgentRun Serverless 平台\ninstanceConcurrency=10  /  规格：2vCPU · 4GB" as Platform {
+
+  package "实例 1（同时处理 10 个任务）" #E8F4FD {
+    component "LangGraph\nAgent ×10" as A1  #FFFFFF
+    component "LLM Semaphore\nlimit=8\n每批次新建" as LS1  #C8E6C9
+    component "MCP Semaphore\nlimit=8\n实例内全局共享" as MS1  #FFF9C4
+    A1 -right-> LS1
+    A1 -right-> MS1
+  }
+
+  package "实例 2（同时处理 10 个任务）" #E8F4FD {
+    component "LangGraph\nAgent ×10" as A2  #FFFFFF
+    component "LLM Semaphore\nlimit=8" as LS2  #C8E6C9
+    component "MCP Semaphore\nlimit=8" as MS2  #FFF9C4
+    A2 -right-> LS2
+    A2 -right-> MS2
+  }
+
+  package "实例 N\nN = ceil(C ÷ 10)" #E8F4FD {
+    component "LangGraph\nAgent ×10" as AN  #FFFFFF
+    component "LLM Semaphore\nlimit=8" as LSN  #C8E6C9
+    component "MCP Semaphore\nlimit=8" as MSN  #FFF9C4
+    AN -right-> LSN
+    AN -right-> MSN
+  }
+
+  note as NoteInst
+    实例间完全隔离，不共享内存
+    各自独立的 Semaphore 计数器
+    ─────────────────────────────────
+    MCP Semaphore 是实例内全局单例：
+    10 个任务竞争同一个令牌池(8)
+    ❌ 误解：10任务 × 8 = 80 路 MCP
+    ✅ 正确：1个Semaphore(8) 共享
+       该实例最多 8 路 MCP 并发
+  end note
+}
+
+T1 -down-> Platform : C 个并发 HTTP 请求
+T2 -down-> Platform
+TC -down-> Platform
+
+note right of Platform
+  实例数 = ceil(C ÷ 10)
+  C=50  → 5 个实例
+  C=200 → 20 个实例
+  C=500 → 50 个实例
+  AgentRun 自动扩容，无需手动管理
+end note
+
+'─────────────────────────────────────────
+' 第四层：外部服务
+'─────────────────────────────────────────
+cloud "外部服务" {
+  component "LLM API\n(DeepSeek-Flash / Qwen)" as LLM
+  component "Java MCP Servers\n× 6 服务集群" as JavaMCP
+}
+
+LS1 -down-> LLM : ≤8 路
+LS2 -down-> LLM : ≤8 路
+LSN -down-> LLM : ≤8 路
+
+MS1 -down-> JavaMCP : ≤8 路
+MS2 -down-> JavaMCP : ≤8 路
+MSN -down-> JavaMCP : ≤8 路
+
+note bottom of LLM
+  LLM 总并发 = 实例数N × 8
+  各实例 LLM Semaphore 独立计数
+  超出 API QPS 限制则 429 → 重试
+end note
+
+note bottom of JavaMCP
+  MCP 总并发 = 实例数N × 8
+  ────────────────────────────────
+  C=50  → N=5  → MCP=40路  → 耗时~10h
+  C=200 → N=20 → MCP=160路 → 耗时~2.5h
+  C=500 → N=50 → MCP=400路 → 耗时~1h
+  ────────────────────────────────
+  Java 连接池上限需 ≥ N × 8
+  Java MCP 集群多节点，压力分摊到各节点
+end note
+
+@enduml

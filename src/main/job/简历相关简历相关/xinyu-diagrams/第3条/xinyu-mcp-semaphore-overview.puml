@@ -1,0 +1,123 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName Microsoft YaHei
+skinparam componentStyle rectangle
+skinparam packageBorderColor #888888
+skinparam noteBorderColor #AAAAAA
+skinparam ArrowColor #666666
+
+title asyncio.Semaphore 并发控制全貌\n场景：Phase 3 批量生产 20 条星梦（单 Serverless 实例内）
+
+'─────────────────────────────────────────
+' 场景入口
+'─────────────────────────────────────────
+package "LangGraph Phase 3 — gather_bounded(20 个生产任务, limit=8)" #FFFDE7 {
+
+  note as ScenNote
+    小明有 20 条星梦缺口需要生产
+    直接 asyncio.gather(全部 20 个) → OOM
+    用 gather_bounded(limit=8) 限流
+  end note
+
+  component "Task 1~8\n立即 acquire()\n同时进入执行" as TRUN  #A5D6A7
+  component "Task 9~20\nacquire() 阻塞\n协程挂起\n0 内存 · 0 CPU" as TWAIT  #FFCDD2
+}
+
+'─────────────────────────────────────────
+' LLM 并发控制层
+'─────────────────────────────────────────
+package "LLM 并发控制\ngather_bounded 内部新建" #E8F5E9 {
+
+  component "asyncio.Semaphore\nlimit = 8\n每次 gather_bounded 独立新建\n生命周期 = 本批次完成即销毁" as LLMSEM  #66BB6A
+
+  note right of LLMSEM
+    令牌机制：
+    acquire(): 令牌 > 0 → 立即 -1 进入
+               令牌 = 0 → 协程挂起进等待队列
+    release(): 令牌 +1 → 唤醒队首协程
+
+    Task1 完成 release() → Task9 立即 unblock
+    滚动执行，内存中始终只有 8 份 Prompt
+  end note
+}
+
+'─────────────────────────────────────────
+' LLM API
+'─────────────────────────────────────────
+component "LLM API\n(DeepSeek-Flash)" as LLM  #BBDEFB
+
+note bottom of LLM
+  ❌ 无 Semaphore：20 任务全并发
+     20 份 Prompt × ~50KB = 1GB+
+     + 20 个流式响应缓冲区 → OOM
+
+  ✅ 有 Semaphore(8)：
+     内存中始终 ≤ 8 份 Prompt
+     ≤ 8 个响应缓冲区 → 安全可控
+end note
+
+'─────────────────────────────────────────
+' MCP 调用层（LLM 完成后写库）
+'─────────────────────────────────────────
+package "MCP 调用层" #FFFDE7 {
+
+  component "McpClient\n全局单例\n_tool_map（工具名→对象）\n_TOOL_ROUTING（工具名→服务名）\nAgent 只传工具名，路由透明" as MCPCLIENT  #FFF9C4
+
+  component "asyncio.Semaphore\nlimit = 8\n全局单例 · 懒初始化\n实例生命周期\nPhase1 / 2 / 3 / 4 / 5 全部共用" as MCPSEM  #FFD54F
+
+  note right of MCPSEM
+    与 LLM Semaphore 独立存在
+    限制的目标不同：
+    · LLM Sem → 防内存溢出
+    · MCP Sem → 防 Java 连接池被打满
+
+    Phase 3 的 20 次写库请求
+    共同竞争这 1 个令牌池(8)
+    最多 8 路 HTTP 同时打向 Java
+  end note
+}
+
+'─────────────────────────────────────────
+' Java MCP 集群
+'─────────────────────────────────────────
+component "Java MCP Servers\n× 6 服务\ndream / user / profile\nshort / soul-user / core" as JavaMCP  #FFCDD2
+
+note bottom of JavaMCP
+  ❌ 无 Semaphore：20 路 MCP 同时打出
+     Java 连接池瞬间耗尽 → 请求堆积
+
+  ✅ 有 Semaphore(8)：
+     ≤ 8 路 HTTP 并发
+     Java 连接池稳定，不被打爆
+end note
+
+'─────────────────────────────────────────
+' 连接关系
+'─────────────────────────────────────────
+TRUN  -down-> LLMSEM : acquire()
+TWAIT -[#CC0000]-> LLMSEM : acquire() 阻塞
+
+LLMSEM -down-> LLM : ≤ 8 路并发
+
+TRUN -right-> MCPCLIENT : LLM 完成后\n_invoke(tool_name, args)
+MCPCLIENT -down-> MCPSEM : acquire()
+MCPSEM -down-> JavaMCP : ≤ 8 路 HTTP 并发
+
+'─────────────────────────────────────────
+' 整体说明
+'─────────────────────────────────────────
+note as SumNote
+  两个 Semaphore 协同工作：
+  ┌─────────────────┬──────────────────────┬──────────────────────┐
+  │                 │ LLM Semaphore        │ MCP Semaphore        │
+  ├─────────────────┼──────────────────────┼──────────────────────┤
+  │ 上限            │ 8                    │ 8                    │
+  │ 创建方式        │ gather_bounded 新建  │ 全局懒初始化单例      │
+  │ 生命周期        │ 本批次               │ 实例生命周期          │
+  │ 防护目标        │ 内存（Prompt+缓冲）  │ 连接数（HTTP socket） │
+  │ 作用范围        │ 单次批量调用         │ 所有 Phase           │
+  └─────────────────┴──────────────────────┴──────────────────────┘
+end note
+
+@enduml
