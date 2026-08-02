@@ -4,10 +4,10 @@
 
 | 层级 | 技术 |
 |------|------|
-| **AI 层** | LangGraph、LangChain、MCP、Pydantic、Qwen3-Max / DeepSeek-V4-Flash / MiniMax-M2.7 |
-| **后端** | Spring Boot、MyBatis-Plus、RocketMQ、Redisson 分布式锁、XXL-Job |
-| **存储** | PostgreSQL、PolarDB 向量引擎（Memory API）、Redis |
-| **基础设施** | 阿里云 AgentRun（Serverless）、Nacos 配置中心、Hermes 长连接推送 |
+| **AI 层** | LangGraph、LangChain、MCP、多模型（Qwen3-Max / DeepSeek-V4-Flash / MiniMax-M2.7） |
+| **后端** | Spring Boot、MyBatis-Plus、RocketMQ、分布式锁、XXL-Job |
+| **存储** | PostgreSQL、PolarDB 向量引擎（mem0）、Redis |
+| **基础设施** | 阿里云 AgentRun（Serverless）、Nacos 配置中心、自研长连接框架 |
 
 ## 项目介绍
 
@@ -18,16 +18,16 @@
 系统采用 **Java 微服务 + Python AI Agent 双层分工**架构：
 
 - **Java 层**：承担业务逻辑、状态管理与数据持久化
-- **Python 层**：LangGraph 状态图 + 5 个 Agent，承担 LLM 推理与内容生成
+- **Python 层**：LangGraph 状态图 + Agent，承担 LLM 推理与内容生成
 - 两层通过 **OpenAI 兼容 HTTP 协议**解耦，Java 调用 Agent 不感知内部 LangGraph 细节
-- Agent 不直接操作数据库，所有数据读写通过 **6 个 MCP 服务**（封装 Java Core 接口）完成，AI 层与业务层可独立扩缩容
+- Agent 不直接操作数据库，所有数据读写通过 **MCP 服务**（封装 Java Core 接口）完成，AI 层与业务层可独立扩缩容
 
 ## 核心工作内容
 
 **1. 设计三层分级记忆架构，解决跨会话事实连贯问题**
 
 - 短期（最近 40 轮原文，PostgreSQL）+ 长期（PolarDB 向量引擎 TopK 语义检索）+ 用户画像，三层分级注入上下文
-- 以 `userId`、`characterId`、`roleId` 等结构化字符串作为 PolarDB `runId` 命名空间，将短对话 / 群聊 / 星梦等 **7 种场景**彻底隔离，消除跨场景记忆污染
+- 以 `userId`、`characterId`、`roleId` 等结构化字符串作为 PolarDB `runId` 命名空间，将短对话 / 群聊 / 星梦等**多种场景**彻底隔离，消除跨场景记忆污染
 
 **2. 实现 LLM 驱动的记忆事实提取与两级去重合并**
 
@@ -39,10 +39,10 @@
 
 - 5 类业务场景各设独立 Agent（陌生角色 Feed / 熟人 Feed / 星梦批量生产 / 开场白改写 / 意图识别）
 - `StateGraph + add_conditional_edges` 实现节点级错误路由与短路退出
-- 统一封装 MCPClient，6 个 MCP 服务通过工具名路由表自动调度
+- 统一封装 MCPClient，MCP 服务通过工具名路由表自动调度
 - `asyncio.Semaphore` 统一限制 LLM 与 MCP 并发，防止 Serverless 实例内存溢出
 
-**4. 设计五阶段星梦日内容批处理流水线，实现每日千级内容自动生产**
+**4. 设计五阶段星梦日内容批处理流水线，实现每日内容自动生产**
 
 - 5 阶段流水线：扫描升级角色 → 批量改写旧内容 → 时间窗缺口分析 → 全覆盖补漏 → 星事钩子补充，保障全天 **12 个时间窗**内容全覆盖
 - 采用「**库存优先、LLM 兜底**」策略，存量复用率 **60%+**，单用户每日 Token 成本降低约 **40%**
