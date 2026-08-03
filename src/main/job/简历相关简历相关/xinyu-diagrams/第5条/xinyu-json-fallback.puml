@@ -1,0 +1,78 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName Microsoft YaHei
+skinparam ArrowColor #555555
+skinparam ActivityBorderColor #888888
+skinparam ActivityBackgroundColor #FFFFFF
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #AAAAAA
+
+title 六层 JSON 解析容错机制\n初始失败率 ~8%  ->  上线后 <0.5%
+
+start
+
+:LLM 返回原始输出 raw_text;
+
+note right
+  常见失败原因：
+  · DeepSeek 在 JSON 前输出思维链推理块
+  · LLM 用 Markdown 代码围栏包裹结果
+  · 尾逗号：最后一个字段后多一个逗号
+  · 输出被截断，JSON 结构不完整
+  · 引号不匹配或内容嵌套错误
+end note
+
+if (含 DeepSeek 思维链块？) then (是)
+  :第 1 层 - 思维链剥离\n截取思维链结束标记之后的内容;
+else (否)
+  :跳过第 1 层;
+endif
+
+note right: 第 1 层  DeepSeek 思维链剥离
+
+if (含 Markdown 代码围栏？) then (是)
+  :第 2 层 - 围栏处理\n提取围栏内部文本，去除标记;
+else (否)
+  :跳过第 2 层;
+endif
+
+note right: 第 2 层  Markdown 围栏处理
+
+:第 3 层 - JSON 边界定位\n从左找第一个左大括号\n从右找最后一个右大括号\n截取中间内容;
+
+note right: 第 3 层  边界定位
+
+if (json.loads() 成功？) then (是)
+  :第 4 层 - 标准解析通过\n返回解析结果 dict;
+  stop
+else (否)
+  :标准解析失败，进入第 5 层;
+endif
+
+note right: 第 4 层  标准解析
+
+:第 5 层 - 尾逗号修复\n正则去除右括号前的多余逗号\n再次尝试 json.loads();
+
+note right: 第 5 层  尾逗号修复
+
+if (修复后 json.loads() 成功？) then (是)
+  :尾逗号修复通过\n返回解析结果 dict;
+  stop
+else (否)
+  :进入第 6 层;
+endif
+
+:第 6 层 - json-repair 兜底\n处理截断、引号不匹配等复杂损坏;
+
+note right: 第 6 层  json-repair
+
+if (json-repair 修复成功？) then (是)
+  :返回修复后的解析结果 dict;
+  stop
+else (否)
+  :六层全部失败\n返回兜底话术\n记录原始输出日志，打标人工 review;
+  stop
+endif
+
+@enduml

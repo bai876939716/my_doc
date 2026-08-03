@@ -1,0 +1,189 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName Microsoft YaHei
+skinparam sequenceArrowThickness 1.5
+skinparam sequenceGroupBorderColor #888888
+skinparam sequenceGroupBodyBackgroundColor transparent
+skinparam noteBackgroundColor #FFFDE7
+skinparam noteBorderColor #AAAAAA
+skinparam ParticipantBorderColor #888888
+skinparam ParticipantBackgroundColor #FFFFFF
+
+title 20 条星梦生产：完整任务流转过程\n（服务归属 · 数据流转 · 并发控制）
+
+'─────────────────────────────────────────
+' 参与方（按服务归属分组标注）
+'─────────────────────────────────────────
+participant "XXL-Job\n[调度平台]" as JOB #FFFDE7
+participant "ContentService\n[Java 微服务]" as SVC #FFFDE7
+database "PostgreSQL\n[Java DB]" as DB #FFFDE7
+queue "RocketMQ\n[消息队列]" as MQ #FFE0B2
+participant "Consumer Thread\n[Java 消费者]" as CON #FFE0B2
+participant "AgentRun\n[阿里云 Serverless]" as PLATFORM #E8F4FD
+participant "LangGraph Agent\n[Python 实例内]" as AGENT #E8F4FD
+participant "McpClient\n[Python 进程级单例]" as MCPC #E8F4FD
+participant "LLM API\n[DeepSeek-Flash]" as LLM #BBDEFB
+participant "dream-service\n[Java MCP Server]" as DREAM #FFCDD2
+
+'═══════════════════════════════════════
+' Step 1：定时触发（Java 调度层）
+'═══════════════════════════════════════
+== Step 1  定时触发 — 服务：XXL-Job + ContentService + PostgreSQL ==
+
+JOB -> SVC : 06:00 定时触发
+SVC -> DB : SELECT uid FROM active_users
+DB --> SVC : [uid_A, uid_小明, uid_B, ...]\n共 1w 个活跃用户
+SVC -> MQ : 循环发消息：每个 uid 发 1 条\n（1w 条消息批量入队，瞬间完成）
+
+note over MQ
+  RocketMQ 只是缓冲层
+  消息全部入队 ≠ 任务开始处理
+  真正控制处理速度的是下面的 Consumer 线程数
+end note
+
+'═══════════════════════════════════════
+' Step 2：Consumer 消费（Java 消费者，并发调节阀）
+'═══════════════════════════════════════
+== Step 2  Consumer 消费 — 服务：Java Consumer（C=50 个线程） ==
+
+MQ --> CON : 取出消息：uid=小明
+CON -> PLATFORM : HTTP POST /run {"uid":"小明"}\n**同步阻塞：等 Python 实例跑完才取下一条**
+
+note over CON
+  C=50 个 Consumer 线程
+  → 同时最多 50 个 HTTP 请求打向 AgentRun
+  → AgentRun 自动扩容 ceil(50÷10) = 5 个实例
+  → 每实例最多处理 10 个并发任务
+  C 是整条链路吞吐的调节阀
+end note
+
+'═══════════════════════════════════════
+' Step 3：Python 实例启动 + McpClient 初始化
+'═══════════════════════════════════════
+== Step 3  实例启动 — 服务：AgentRun Serverless + Python ==
+
+PLATFORM -> AGENT : 分配 Python 实例（小明专属）\n2vCPU · 4GB · instanceConcurrency=10
+
+AGENT -> MCPC : get_mcp_client()（首次调用触发初始化）
+MCPC -> DREAM : MultiServerMCPClient.get_tools()\n连接 6 个 Java MCP Server（含 dream-service）
+DREAM --> MCPC : 工具定义列表（25+ 个工具）
+
+note over MCPC
+  构建两张内存表：
+  _tool_map:     工具名 → tool 对象（用于 ainvoke）
+  _TOOL_ROUTING: 工具名 → 服务名（用于路由）
+  后续所有调用直接复用，不重新建连
+  作用域：当前 Python 进程（本实例），不跨机器
+end note
+
+'═══════════════════════════════════════
+' Step 4：Phase 1 — 扫描升级角色
+'═══════════════════════════════════════
+== Step 4  Phase 1：扫描升级角色 — Python Agent → McpClient → dream-service ==
+
+AGENT -> MCPC : _invoke("queryUpgradePendingRoles", {uid:"小明"})
+
+note over MCPC
+  ① _TOOL_ROUTING 查表：queryUpgradePendingRoles → dream-service
+  ② _get_mcp_invoke_semaphore()：拿全局 MCP Semaphore(8)
+  ③ acquire()：令牌 8→7，拿到锁
+end note
+
+MCPC -> DREAM : HTTP tool call\ntool=queryUpgradePendingRoles
+DREAM --> MCPC : [{char:"林诗雨", oldLv:1, newLv:2}]
+MCPC -> MCPC : release()，令牌 7→8
+MCPC --> AGENT : [{林诗雨, Lv1→Lv2}]
+
+AGENT -> MCPC : _invoke("markOldDreamsConsumed", {char:"林诗雨"})
+MCPC -> DREAM : HTTP → 清除林诗雨 Lv1 旧库存 5 条
+DREAM --> MCPC : OK
+MCPC --> AGENT : 完成
+
+note over AGENT, DREAM
+  Phase 1 全程：纯 MCP 调用，0 LLM，0 Token 成本
+end note
+
+'═══════════════════════════════════════
+' Step 5：Phase 3 — 20 条星梦生产（LLM Semaphore 控流）
+'═══════════════════════════════════════
+== Step 5  Phase 3：20 条星梦生产 — LLM Semaphore 防内存溢出 ==
+
+note over AGENT
+  gather_bounded(20 个生产任务, limit=8)
+  在本函数内新建 asyncio.Semaphore(8)
+  这个 Semaphore 只属于本次 gather_bounded 调用
+end note
+
+group LLM Semaphore(8) — 限制同时在内存的 Prompt 数量
+
+  AGENT -> LLM : Task1 acquire()→成功，令牌8→7\n发 Prompt(~50KB)+ HTTP 请求
+  AGENT -> LLM : Task2 acquire()→成功，令牌7→6\n发 Prompt
+  AGENT -> LLM : Task3~8 acquire()→成功\n令牌 6→5→4→3→2→1→0
+
+  note over AGENT, LLM
+    Task1~8 同时飞向 LLM API
+    内存：8 份 Prompt(50KB×8=400KB) + 8 个流式响应缓冲区
+  end note
+
+  AGENT -> AGENT : Task9 acquire()→令牌=0，**协程挂起**\nTask10~20 同样挂起\n（不占 CPU，内存仅协程栈帧，字节级）
+
+  LLM --> AGENT : Task1 返回生成内容（星梦文本）
+  AGENT -> AGENT : Task1 release()，令牌 0→1\nTask9 立即从挂起唤醒
+  AGENT -> LLM : Task9 acquire()→成功，令牌 1→0\n接着发下一个 Prompt
+
+  note over AGENT, LLM
+    滚动执行：Task1完成→Task9进入→Task2完成→Task10进入→...
+    任意时刻内存中始终只有 ≤8 份 Prompt + 响应缓冲
+    避免 20 份同时在内存 → 超 4GB 实例上限 → OOM
+  end note
+
+  LLM --> AGENT : Task2 返回内容
+  LLM --> AGENT : ... (Task3~20 陆续返回)
+end
+
+'═══════════════════════════════════════
+' Step 6：Phase 3 — 写库（MCP Semaphore 控流）
+'═══════════════════════════════════════
+== Step 6  Phase 3：写库 — MCP Semaphore 防 Java 连接池耗尽 ==
+
+group MCP Semaphore(8) — 全局单例，限制同时打向 Java 的 HTTP 连接数
+
+  note over MCPC
+    _mcp_invoke_semaphore：模块级全局变量
+    Python 进程内唯一，Phase1/2/3/4/5 所有 MCP 调用共用
+    保证本实例任意时刻 ≤8 路 HTTP 打向 Java
+  end note
+
+  AGENT -> MCPC : Task1 完成 → _invoke("saveDream", {content1})
+  MCPC -> MCPC : acquire() MCP Semaphore，令牌 8→7
+  MCPC -> DREAM : HTTP POST → dream-service 写库
+  DREAM --> MCPC : OK（content1 入库）
+  MCPC -> MCPC : release()，令牌 7→8
+
+  AGENT -> MCPC : Task2 完成 → _invoke("saveDream", {content2})
+  MCPC -> MCPC : acquire()，令牌 8→7
+  MCPC -> DREAM : HTTP POST → dream-service 写库
+  DREAM --> MCPC : OK
+  MCPC -> MCPC : release()，令牌 7→8
+
+  note over AGENT, DREAM
+    若多个 Task 同时写库（Task1~8 可能几乎同时完成）
+    最多 8 路 HTTP 同时打向 dream-service
+    超过 8 路的写库请求在 acquire() 处挂起等待
+    Java 连接池不会被瞬间耗尽
+  end note
+
+end
+
+'═══════════════════════════════════════
+' Step 7：汇总返回
+'═══════════════════════════════════════
+== Step 7  汇总返回 — Python → AgentRun → Java Consumer ==
+
+AGENT --> PLATFORM : 汇总结果\nphase1_upgraded:1 · phase3_produced:20 · elapsed:~180s
+PLATFORM --> CON : HTTP 200 响应（任务完成）
+CON -> MQ : ACK 当前消息（消息从队列删除）
+CON -> MQ : 取下一条消息，继续处理下一个用户
+
+@enduml

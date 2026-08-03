@@ -1,0 +1,109 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName Microsoft YaHei
+skinparam componentStyle rectangle
+skinparam packageBorderColor #888888
+skinparam noteBorderColor #AAAAAA
+skinparam ArrowColor #666666
+skinparam ComponentBorderColor #888888
+
+title 高可靠 Agent 调度体系\n（幂等 + 限流 + 并发安全 + 异步解耦）
+
+'─────────────────────────────────────────
+' 入口：星梦三级限流
+'─────────────────────────────────────────
+package "星梦入口三级限流  （Redis 计数器）" #FFF9C4 {
+
+  component "第 1 级\n10 分钟冷却\n同一用户两次进入间隔 < 10min 拒绝\n防误操作重复触发" as L1  #FFFDE7
+
+  component "第 2 级\n每日 8 次上限\n单用户当天累计超 8 次拒绝\n防日累计滥用" as L2  #FFFDE7
+
+  component "第 3 级\n拒绝后 5 分钟冻结\n被拒绝后继续尝试，追加冻结\n防脚本自动重试" as L3  #FFCDD2
+
+  L1 -right-> L2 : 通过
+  L2 -right-> L3 : 通过
+}
+
+note right of L3
+  三级覆盖不同攻击模式：
+  L1 -> 用户手抖或页面抖动
+  L2 -> 正常用户的日上限保障
+  L3 -> 脚本/机器人快速重试
+end note
+
+'─────────────────────────────────────────
+' 并发安全：Redisson 分布式锁
+'─────────────────────────────────────────
+package "Redisson 分布式锁  （防并发创建）" #E8F5E9 {
+
+  component "lock key = xingmeng:session:{uid}\nWatch Dog 每 10s 自动续期 TTL\n获锁才能创建星梦会话" as LOCK  #C8E6C9
+
+  note right of LOCK
+    Watch Dog 机制：
+    不需要预估任务耗时，
+    锁持有期间自动续期
+    持有方崩溃 -> Watch Dog 停止
+    -> TTL 自然到期 -> 锁自动释放
+    防止同一用户并发创建多个会话
+  end note
+}
+
+'─────────────────────────────────────────
+' 主链路：Agent 处理
+'─────────────────────────────────────────
+component "LangGraph Agent\n主链路处理\n（LLM 推理 + MCP 写库）" as AGENT  #BBDEFB
+
+'─────────────────────────────────────────
+' 异步解耦：后处理任务
+'─────────────────────────────────────────
+package "RocketMQ 异步解耦  （主链路响应 <30ms）" #FFF3E0 {
+
+  queue "RocketMQ\n异步消息" as MQ  #FFE0B2
+
+  component "记忆写入\n（mem0 事实提取）" as T1
+  component "用户画像更新\n（Profile Service）" as T2
+  component "统计埋点\n（Analytics）" as T3
+
+  MQ -down-> T1
+  MQ -down-> T2
+  MQ -down-> T3
+}
+
+note right of MQ
+  主链路只等 LLM 推理返回
+  其余后处理任务全部
+  发消息异步消费，不阻塞响应
+  用户感知延迟 <30ms
+end note
+
+'─────────────────────────────────────────
+' 批处理幂等：Redis SET NX
+'─────────────────────────────────────────
+package "批处理消费幂等  （Redis SET NX）" #E8F4FD {
+
+  queue "RocketMQ\n（At-Least-Once）" as BMQ  #FFE0B2
+
+  component "Consumer 消费前\nSET NX key=batch:{uid}:{date}\nTTL = 7天\n拿到锁才执行，已跑过直接 ACK" as IDEMPOTENT  #BBDEFB
+
+  note right of IDEMPOTENT
+    At-Least-Once 三类重投场景：
+    1. Rebalance 窗口期
+    2. ACK 超时未确认
+    3. Consumer 实例崩溃重启
+    SET NX 保证每条消息只处理一次
+    TTL 7天覆盖所有重投窗口
+  end note
+}
+
+'─────────────────────────────────────────
+' 连接关系
+'─────────────────────────────────────────
+L3 -down-> LOCK : 通过限流
+LOCK -down-> AGENT : 获锁成功，创建会话
+AGENT -right-> MQ : 发异步消息（非阻塞）
+AGENT -down-> BMQ : 批处理场景
+
+BMQ -down-> IDEMPOTENT
+
+@enduml
