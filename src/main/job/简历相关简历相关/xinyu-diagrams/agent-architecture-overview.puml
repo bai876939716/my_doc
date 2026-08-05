@@ -1,0 +1,194 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName Microsoft YaHei
+skinparam componentStyle rectangle
+skinparam ArrowColor #666666
+skinparam PackageBorderColor #AAAAAA
+skinparam ComponentBorderColor #999999
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #BBBBBB
+
+title Agent 系统架构全景（业内共识）
+
+'──────────────────────────────────────────
+' 接入层
+'──────────────────────────────────────────
+package "接入层" #FFF9C4 {
+  component "API Gateway\n限流 / 鉴权 / 路由 / 负载均衡" as GW
+}
+
+'──────────────────────────────────────────
+' Agent 运行时
+'──────────────────────────────────────────
+package "Agent 运行时  (LangGraph / AutoGen / CrewAI)" #DDEEFF {
+  component "Orchestrator\n状态机 / 执行循环\n节点调度 / 条件路由" as Orch
+
+  component "Planner\nReAct / CoT / ToT\n任务分解 + 推理链生成" as Plan
+
+  component "Tool Caller\nFunction Calling / MCP\n工具选择 + 参数生成" as TC
+
+  component "Output Parser\n格式校验 / 多层容错\n结果标准化" as OP
+
+  component "Error Router\n节点级错误捕获\n短路退出 / 降级兜底" as ER
+}
+
+note right of Orch
+  核心执行循环 ReAct：
+  Think -> Action -> Observation
+  循环直到任务完成或达到轮次上限
+  每轮结果写回 State 供下节点读取
+end note
+
+'──────────────────────────────────────────
+' LLM 层
+'──────────────────────────────────────────
+package "LLM 层" #E8F5E9 {
+  component "Prompt Builder\n上下文组装 / 模板渲染\nToken 预算控制 / 截断策略" as PB
+
+  component "LLM Client\nStreaming / 非流式\n重试 / 超时 / 首 Token 计时" as LC
+
+  component "Model Router\n高质量模型 - 实时对话\n快速模型 - 工具调用\n低成本模型 - 批量生产" as MR
+}
+
+note right of MR
+  模型分级：
+  按场景匹配能力与成本
+  支持 Fallback 切备用模型
+  支持 A/B 灰度路由
+end note
+
+'──────────────────────────────────────────
+' 记忆层
+'──────────────────────────────────────────
+package "记忆层  (Memory System)" #FFF3E0 {
+  component "Working Memory\n当前对话上下文\n滑动窗口 / In-Process" as WM
+
+  component "Episodic Memory\n历史对话摘要\nLLM 事实提取 + 向量化\n去重 / 合并压缩" as EM
+
+  component "Semantic Memory\n领域知识 / 文档库\nRAG 检索增强" as SM
+
+  component "Procedural Memory\nFew-shot 示例\n工具使用经验 / 操作模式" as PM
+
+  component "User Profile\n用户画像 / 状态\n结构化偏好 / 情绪" as UP
+}
+
+note right of EM
+  写入：对话原文 -> LLM 提取事实
+  -> 向量化 -> ADD/UPDATE/NONE 决策
+  -> 存向量库 + 定期合并压缩
+  召回：语义相似度 Top-K
+  -> 重要性加权 Rerank -> 注入 Prompt
+end note
+
+'──────────────────────────────────────────
+' 工具层
+'──────────────────────────────────────────
+package "工具层  (Tool Layer / MCP Server)" #FCE4EC {
+  component "Tool Registry\n工具注册 / 描述维护\n名称到服务的路由表" as TR
+
+  component "内部工具\n业务 API / 数据库操作\n内部微服务接口" as IT
+
+  component "外部工具\nWeb Search / 代码执行\n邮件 / 日历 / 第三方 API" as ET
+}
+
+'──────────────────────────────────────────
+' 存储层
+'──────────────────────────────────────────
+package "存储层" #F3E5F5 {
+  database "向量数据库\nPinecone / Chroma\nPolarDB / Milvus" as VDB
+  database "关系型数据库\nPostgreSQL / MySQL" as RDB
+  database "缓存\nRedis" as Cache
+  database "文件存储\nS3 / OSS" as FS
+}
+
+'──────────────────────────────────────────
+' 异步解耦
+'──────────────────────────────────────────
+package "异步解耦层" #E0F7FA {
+  queue "消息队列\nKafka / RocketMQ" as MQ
+  component "后台 Consumer\n记忆写入 / 画像更新\n行为埋点 / 推送通知" as Cons
+}
+
+note right of MQ
+  主链路只等 LLM 推理返回
+  其余操作全部异步消费
+  At-Least-Once + 幂等保障
+end note
+
+'──────────────────────────────────────────
+' 可观测性
+'──────────────────────────────────────────
+package "可观测性层  (Observability)" #EFEBE9 {
+  component "链路追踪\nLangSmith / Langfuse\nOpenTelemetry" as OT
+
+  component "指标监控\n成功率 / P99 延迟\nToken 成本 / 错误率" as OMet
+
+  component "评测体系\nLLM-as-Judge / 黄金测试集\n灰度 A/B 评分对比" as OEval
+}
+
+note right of OT
+  Agent 可观测三要素：
+  1. 每节点耗时 + 入参出参
+  2. LLM 完整 Prompt + 原始输出
+  3. 工具调用序列 + 返回值
+  全部串成 trace 与 uid 关联
+end note
+
+'──────────────────────────────────────────
+' 主链路连接
+'──────────────────────────────────────────
+GW -down-> Orch
+
+Orch -down-> Plan
+Orch -right-> TC
+Orch -right-> OP
+Orch -right-> ER
+
+Plan -down-> PB
+PB -down-> LC
+LC -right-> MR
+
+'──────────────────────────────────────────
+' 记忆注入主链路
+'──────────────────────────────────────────
+WM -right-> Orch
+EM -right-> Orch
+SM -right-> Orch
+PM -right-> Orch
+UP -right-> Orch
+
+'──────────────────────────────────────────
+' 工具调用
+'──────────────────────────────────────────
+TC -down-> TR
+TR -down-> IT
+TR -down-> ET
+
+'──────────────────────────────────────────
+' 存储读写
+'──────────────────────────────────────────
+WM --> RDB
+EM --> VDB
+SM --> VDB
+SM --> FS
+UP --> RDB
+IT --> RDB
+IT --> Cache
+
+'──────────────────────────────────────────
+' 异步
+'──────────────────────────────────────────
+Orch -down-> MQ
+MQ -down-> Cons
+Cons -up-> EM
+Cons -up-> UP
+
+'──────────────────────────────────────────
+' 可观测性（虚线）
+'──────────────────────────────────────────
+Orch ..> OT
+LC ..> OMet
+OP ..> OEval
+
+@enduml
