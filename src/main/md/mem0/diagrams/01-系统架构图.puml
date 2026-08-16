@@ -1,0 +1,49 @@
+@startuml mem0-system-architecture
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam componentStyle rectangle
+skinparam ComponentBackgroundColor #EBF5FB
+skinparam ComponentBorderColor #90A4AE
+skinparam ArrowColor #78909C
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #F9A825
+skinparam InterfaceBackgroundColor #E8F5E9
+
+title Mem0 — 整体组件架构图
+
+component "上层应用 / Agent" as App #D1F7FF
+
+interface "SDK / HTTP API" as API
+
+component "Memory 核心调度器" as Core #B3D9FF
+
+component "LLM 引擎层\n（事实提取 / 决策 / 摘要）" as LLM #E8F5E9
+component "Embedding 嵌入层\n（文本向量化）" as Emb #E8F5E9
+component "重排器 Reranker\n（结果精排）" as Rerank #E8F5E9
+
+component "向量存储 VectorStore\n（语义检索）" as VectorDB #FFF8E1
+component "实体图谱 GraphStore\n（实体与关系）" as GraphDB #FFF8E1
+component "元数据库 SQLite\n（会话 / 标签 / TTL / 日志）" as MetaDB #FFF8E1
+
+App --> API : 调用
+API --> Core : 统一入口
+Core --> LLM : 调用大模型能力
+Core --> Emb : 文本向量化
+Core --> Rerank : 检索结果重排序
+Core --> VectorDB : 向量增删改查
+Core --> GraphDB : 实体关系读写
+Core --> MetaDB : 元数据持久化
+
+note right of Core
+  核心调度器 Memory 串联所有模块
+  控制写入 / 检索 全流程流转
+end note
+
+note bottom of VectorDB
+  向量库：语义检索
+  图谱库：实体关联推理
+  SQLite：轻量内置，存元数据 / 权限 / TTL
+end note
+
+@enduml

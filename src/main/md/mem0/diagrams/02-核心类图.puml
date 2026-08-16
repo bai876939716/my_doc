@@ -1,0 +1,82 @@
+@startuml mem0-core-class-diagram
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam ClassBackgroundColor #EBF5FB
+skinparam ClassBorderColor #90A4AE
+skinparam ClassHeaderBackgroundColor #B3D9FF
+skinparam ArrowColor #78909C
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #F9A825
+
+title Mem0 — 核心类结构设计
+
+abstract class BaseLLM {
+  +generate(prompt: str): str
+}
+
+abstract class BaseEmbedding {
+  +embed(text: str): List[float]
+}
+
+abstract class BaseVectorStore {
+  +add(vectors, metadata): void
+  +search(vector, top_k): List[Dict]
+  +delete(ids): void
+}
+
+abstract class BaseGraphStore {
+  +add_entity(entity): void
+  +query_relation(entity): List[Entity]
+}
+
+class OpenAILLM
+class OpenAIEmbedding
+class QdrantStore
+class Neo4jGraph
+
+class MemoryConfig {
+  +llm: str
+  +embedder: str
+  +vector_store: str
+  +history_db_path: str
+  +enable_graph: bool
+}
+
+class Memory {
+  -config: MemoryConfig
+  -llm: BaseLLM
+  -embedding: BaseEmbedding
+  -vector_store: BaseVectorStore
+  -graph_store: BaseGraphStore
+  -meta_db: SQLite
+  +__init__(config: MemoryConfig)
+  +add(messages, user_id, agent_id): void
+  +search(query, user_id, limit): List[Dict]
+  +delete(memory_id, user_id): void
+  +get_all(user_id): List[Dict]
+}
+
+OpenAILLM --|> BaseLLM
+OpenAIEmbedding --|> BaseEmbedding
+QdrantStore --|> BaseVectorStore
+Neo4jGraph --|> BaseGraphStore
+
+Memory *-- MemoryConfig : 包含配置
+Memory *-- BaseLLM : 组合
+Memory *-- BaseEmbedding : 组合
+Memory *-- BaseVectorStore : 组合
+Memory *-- BaseGraphStore : 组合
+
+note right of Memory
+  对外唯一入口
+  封装所有记忆增删改查逻辑
+  内部协调各组件
+end note
+
+note bottom of BaseLLM
+  抽象基类 + 工厂模式
+  所有底层组件可无缝替换（开闭原则）
+end note
+
+@enduml

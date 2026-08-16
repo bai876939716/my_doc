@@ -1,0 +1,65 @@
+@startuml mem0-memory-search-sequence
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam SequenceArrowColor #78909C
+skinparam ParticipantBackgroundColor #EBF5FB
+skinparam ParticipantBorderColor #90A4AE
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #F9A825
+skinparam ActivationBackgroundColor #E3F2FD
+skinparam SequenceGroupBackgroundColor #F8F9FA
+skinparam SequenceGroupBorderColor #90A4AE
+
+title Mem0 — 记忆检索 search 时序图
+
+actor "上层应用 / Agent" as App
+participant "Memory 核心" as Mem
+participant "Embedding" as Emb
+participant "VectorStore" as VecDB
+participant "GraphStore" as GraphDB
+participant "Reranker" as Rk
+
+App -> Mem : search(query, user_id, limit)
+
+Mem -> Emb : 用户 Query 向量化
+Emb --> Mem : 返回查询向量
+
+Mem -> VecDB : 按 user_id 做语义检索（粗召回）
+note right of VecDB
+  user_id / agent_id 租户隔离
+  向量相似度匹配，返回候选记忆列表
+end note
+VecDB --> Mem : 原始召回记忆列表
+
+Mem -> GraphDB : 补充实体关联记忆
+note right of GraphDB
+  弥补纯语义检索短板
+  例：查"餐厅推荐"可关联到
+      "用户是素食者"这类实体关联记忆
+end note
+GraphDB --> Mem : 实体关联结果
+
+Mem -> Rk : 多维度重排序
+note right of Rk
+  四大打分维度：
+  ① 语义相似度（向量余弦距离）
+  ② 时间衰减（新记忆权重更高）
+  ③ 重要性标记（人工 / 模型标注）
+  ④ 实体关联度（图谱关联强度）
+  → 综合打分，输出 Top-K 结果
+end note
+Rk --> Mem : 排序后 Top-K 记忆
+
+Mem --> App : 返回结构化记忆列表
+note right of App
+  返回格式：
+  [
+    {content: "用户是素食者", score: 0.95},
+    {content: "用户对坚果过敏", score: 0.87},
+    ...
+  ]
+  调用方拼接为 Prompt 上下文注入 LLM
+end note
+
+@enduml

@@ -1,0 +1,21 @@
+@startuml
+title MCP 工具调用时序图（Git 提交示例）
+
+actor "用户 User" as U
+participant "宿主应用 Host_App\n(如 Cursor 或 Claude Desktop)" as HA
+participant "大语言模型 LLM\n(如 Claude 3.7)" as LLM
+participant "MCP 客户端 MCP_Client\n(内置在宿主应用中)" as MCP_C
+participant "MCP 服务器 Github MCP" as MCP_S
+
+U -> HA: 说"把这个修改保存到 Git 上"
+HA -> LLM: 转发请求 / Forward request
+LLM -> MCP_C: 请求调用工具 git_commit(message, files)
+MCP_C -> U: 请求确认是否执行 Git 保存 / Ask user to confirm git save
+U --> MCP_C: 确认执行 / User confirms
+MCP_C -> MCP_S: tools/call → git_commit({message, files})
+MCP_S --> MCP_C: 返回执行结果（成功/失败） / Return result (e.g. success)
+MCP_C -> LLM: 注入执行反馈 / Inject result
+LLM -> HA: 回复执行结果 / Generate response
+HA -> U: 告知保存成功 / Inform user save succeeded
+
+@enduml

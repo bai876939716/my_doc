@@ -1,0 +1,72 @@
+@startuml mem0-memory-add-sequence
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam SequenceArrowColor #78909C
+skinparam ParticipantBackgroundColor #EBF5FB
+skinparam ParticipantBorderColor #90A4AE
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #F9A825
+skinparam ActivationBackgroundColor #E3F2FD
+skinparam SequenceGroupBackgroundColor #F8F9FA
+skinparam SequenceGroupBorderColor #90A4AE
+
+title Mem0 — 记忆写入 add 时序图
+
+actor "上层应用 / Agent" as App
+participant "Memory 核心" as Mem
+participant "LLM 引擎" as Llm
+participant "Embedding" as Emb
+participant "VectorStore" as VecDB
+participant "GraphStore" as GraphDB
+participant "SQLite 元数据" as MetaDB
+
+App -> Mem : add(messages, user_id, agent_id)
+
+note over Mem
+  写入流程共 4 个阶段：
+  事实提取 → 相似匹配 → 决策写入 → 持久化
+end note
+
+Mem -> Llm : 【LLM #1 事实提取】\n调用事实提取 Prompt\n从对话中抽取结构化记忆
+note right of Llm
+  输入：历史摘要 + 当前对话窗口
+  输出：候选记忆列表
+  例：["用户是素食者", "用户对坚果过敏"]
+end note
+Llm --> Mem : 返回候选记忆列表
+
+Mem -> Emb : 候选记忆文本向量化
+Emb --> Mem : 返回向量数组
+
+Mem -> VecDB : 按 user_id 检索相似历史记忆
+note right of VecDB
+  租户隔离：user_id / agent_id 过滤
+  返回语义相近的已有记忆候选
+end note
+VecDB --> Mem : 返回相似记忆集
+
+Mem -> Llm : 【LLM #2 冲突决策】\n对比新旧记忆，决策执行动作
+note right of Llm
+  四元决策：
+  ADD    → 全新事实，无相似内容，直接新增
+  UPDATE → 旧信息过时，用新内容覆盖
+  DELETE → 内容互相矛盾，删除旧记忆
+  NOOP   → 完全重复内容，跳过不处理
+end note
+Llm --> Mem : 输出最终执行动作列表
+
+Mem -> VecDB : 按决策结果执行向量数据增改删
+Mem -> GraphDB : 同步实体与关系数据
+Mem -> MetaDB : 写入元数据 / 标签 / 时间戳 / TTL
+
+Mem --> App : 写入完成（默认异步非阻塞）
+
+note over App, MetaDB
+  存储分工：
+  VectorStore → 向量 + 检索索引（语义检索用）
+  GraphStore  → 实体关系（多跳推理用）
+  SQLite      → 元数据，创建时间，TTL，所属 user / agent
+end note
+
+@enduml
