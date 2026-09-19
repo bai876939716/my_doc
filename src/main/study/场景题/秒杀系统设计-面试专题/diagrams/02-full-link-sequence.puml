@@ -1,0 +1,65 @@
+@startuml 02-full-link-sequence
+title 秒杀下单全链路时序图（从请求到支付到超时回滚）
+
+autonumber
+
+actor 用户 as User
+participant "网关\n限流鉴权" as GW
+participant "秒杀服务" as Seckill
+database "Redis" as Redis
+queue "MQ" as MQ
+participant "订单服务" as OrderSvc
+database "MySQL" as DB
+participant "支付服务" as Pay
+participant "延迟任务\n超时扫描" as Delay
+
+== 活动预热阶段 ==
+Seckill -> DB : 读取商品库存
+Seckill -> Redis : 预热库存 seckill:stock:goodsId
+Seckill -> Redis : 生成秒杀令牌池 防URL暴露
+
+== 用户下单阶段 ==
+User -> GW : 携带秒杀令牌发起抢购请求
+GW -> GW : 令牌桶限流校验
+GW -> Redis : 校验用户请求频率(防刷)
+
+alt 限流未通过
+    GW --> User : 返回请求过于频繁
+else 限流通过
+    GW -> Seckill : 转发抢购请求
+    Seckill -> Redis : 校验活动状态与本地缓存
+    Seckill -> Redis : Lua脚本原子操作\n1 校验并扣减库存\n2 校验并标记用户限购
+
+    alt 库存不足或用户已购买过
+        Redis --> Seckill : 返回失败标识
+        Seckill --> User : 返回已售罄或您已参与过
+    else 扣减与限购标记均成功
+        Redis --> Seckill : 返回成功
+        Seckill -> MQ : 投递下单消息(幂等ID 用户ID 商品ID)
+        Seckill --> User : 返回排队中 请稍后查询结果
+
+        MQ -> OrderSvc : 异步消费下单消息
+        OrderSvc -> Redis : 幂等校验 消息是否已处理
+        alt 消息已处理过
+            OrderSvc -> OrderSvc : 直接丢弃 保证幂等
+        else 消息首次处理
+            OrderSvc -> DB : 乐观锁扣减库存\nupdate stock set count=count-1\nwhere id=x and count>0
+            OrderSvc -> DB : 插入订单记录\n唯一索引(user_id goods_id activity_id)
+            OrderSvc -> Redis : 标记消息已处理
+            OrderSvc -> User : 推送下单成功通知(长轮询/WebSocket)
+        end
+
+        User -> Pay : 发起支付(限时15分钟)
+        Pay -> OrderSvc : 支付成功回调
+        OrderSvc -> DB : 更新订单状态为已支付
+    end
+end
+
+== 超时兜底阶段 ==
+Delay -> DB : 定时扫描超过15分钟未支付订单
+Delay -> OrderSvc : 触发订单超时关闭
+OrderSvc -> DB : 更新订单状态为已取消
+OrderSvc -> Redis : 回滚Redis库存 释放限购标记
+OrderSvc -> DB : 回滚数据库库存
+
+@enduml

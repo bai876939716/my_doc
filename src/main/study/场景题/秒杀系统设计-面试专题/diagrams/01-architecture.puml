@@ -1,0 +1,76 @@
+@startuml 01-architecture
+title 秒杀系统全链路架构图（组件视角）
+
+skinparam componentStyle rectangle
+skinparam wrapWidth 200
+skinparam defaultTextAlignment left
+
+actor "用户/浏览器" as User
+
+package "接入层" {
+  [CDN 静态资源] as CDN
+  [Nginx 反向代理] as Nginx
+  [API 网关\n限流 鉴权 令牌校验] as Gateway
+}
+
+package "应用服务层" {
+  [秒杀服务 SeckillService\n库存预扣 资格校验] as Seckill
+  [订单服务 OrderService\n创建订单 幂等处理] as OrderSvc
+  [支付服务 PaymentService] as PaySvc
+  [库存服务 InventoryService\n库存管理 对账] as InvSvc
+}
+
+package "缓存与中间件层" {
+  database "Redis 集群\n库存 令牌 限购标记" as Redis
+  queue "消息队列 MQ\n下单消息 削峰解耦" as MQ
+  [延迟队列/定时任务\n订单超时关单] as DelayJob
+}
+
+package "存储层" {
+  database "MySQL 主从/分库分表\n订单表 库存表" as MySQL
+}
+
+package "风控与运维" {
+  [风控服务\n验证码 黑名单 设备指纹] as Risk
+  [监控告警\n库存对账 链路追踪] as Monitor
+}
+
+User --> CDN : 请求页面静态资源
+User --> Nginx : 发起秒杀请求
+Nginx --> Gateway : 转发
+Gateway --> Risk : 请求校验
+Gateway --> Seckill : 通过校验后转发
+
+Seckill --> Redis : 原子扣库存/限购标记(Lua脚本)
+Seckill --> MQ : 扣减成功后投递下单消息
+Seckill --> User : 返回结果(排队中/失败)
+
+MQ --> OrderSvc : 异步消费下单消息
+OrderSvc --> MySQL : 乐观锁扣库存 写订单(唯一索引)
+OrderSvc --> Redis : 幂等去重校验
+
+User --> PaySvc : 发起支付
+PaySvc --> OrderSvc : 支付结果回调
+
+DelayJob --> OrderSvc : 扫描超时未支付订单
+OrderSvc --> Redis : 回滚库存
+OrderSvc --> MySQL : 关闭订单
+
+InvSvc --> Redis : 库存预热/对账
+InvSvc --> MySQL : 库存对账
+Monitor --> Redis : 监控库存水位
+Monitor --> MySQL : 监控订单/库存一致性
+
+note right of Redis
+  Redis为第一道防线：
+  库存预扣与用户限购标记
+  均通过Lua脚本保证原子性
+end note
+
+note right of MQ
+  MQ承担削峰与解耦：
+  将瞬时高并发写请求
+  转化为可控速率的串行消费
+end note
+
+@enduml

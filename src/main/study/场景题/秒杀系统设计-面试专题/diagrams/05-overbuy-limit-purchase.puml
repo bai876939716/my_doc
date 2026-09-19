@@ -1,0 +1,99 @@
+@startuml 05a-overbuy-problem
+title 超买问题场景：限购校验非原子导致同一用户多次下单
+
+participant "用户U的请求1(手抖多点)" as R1
+participant "用户U的请求2(前端未防抖)" as R2
+participant "订单服务" as Svc
+database "数据库\n未加唯一索引" as DB
+
+note over R1, R2
+  该活动规则为每用户限购1件
+  用户因网络重试或重复点击
+  几乎同时发出两个下单请求
+end note
+
+R1 -> Svc : 下单请求1(userId=U)
+R2 -> Svc : 下单请求2(userId=U)
+
+Svc -> DB : 查询用户U是否已购买
+DB --> Svc : 未查到购买记录
+Svc -> DB : 查询用户U是否已购买
+DB --> Svc : 未查到购买记录
+
+note over Svc
+  两个请求都查询到未购买
+  校验环节与写入环节非原子
+  都通过了限购校验
+end note
+
+Svc -> DB : 插入订单1
+DB --> Svc : 插入成功
+Svc -> DB : 插入订单2
+DB --> Svc : 插入成功
+
+note over DB
+  用户U实际购买了2件
+  超过限购数量1件
+  这就是超买
+end note
+
+@enduml
+
+@startuml 05b-overbuy-solution
+title 超买问题解决方案：原子标记加幂等令牌加唯一索引三重防线
+
+participant "用户U的请求1" as R1
+participant "用户U的请求2" as R2
+participant "前端" as FE
+participant "秒杀服务" as Svc
+database "Redis" as Redis
+database "MySQL" as DB
+
+note over FE
+  第一道防线 前端体验层
+  按钮点击后立即置灰防抖
+  减少无效重复请求 但不可信 需后端兜底
+end note
+
+R1 -> FE : 点击抢购
+FE -> FE : 按钮置灰
+FE -> Svc : 提交请求(携带幂等令牌token)
+
+note over Svc, Redis
+  第二道防线 幂等令牌
+  进入页面时下发唯一token
+  提交时用SETNX消费token
+  同一token只能成功消费一次
+end note
+
+Svc -> Redis : SETNX idempotent:token 消费幂等令牌
+Redis --> Svc : 消费成功(首次)
+
+note over Svc, Redis
+  第三道防线 用户维度限购原子标记
+  SETNX seckill:limit:userId:goodsId
+  天然分布式原子操作
+  未命中才允许继续下单
+end note
+
+Svc -> Redis : SETNX seckill:limit:U:goodsId
+Redis --> Svc : 标记成功 允许继续
+
+R2 -> FE : 用户重复点击或脚本重放
+FE -> Svc : 提交请求2(同一token或复用请求)
+Svc -> Redis : SETNX idempotent:token 消费幂等令牌
+Redis --> Svc : 已被消费 直接拒绝
+
+Svc --> R2 : 拒绝重复提交
+
+Svc -> DB : 插入订单(user_id goods_id activity_id唯一索引)
+DB --> Svc : 插入成功
+
+note over DB
+  第四道防线 数据库唯一索引兜底
+  即使前三道防线都被绕过
+  唯一索引冲突会使第二条插入直接失败
+  从存储层面保证同用户同活动只有一条订单
+end note
+
+@enduml

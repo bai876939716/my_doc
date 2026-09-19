@@ -1,0 +1,46 @@
+@startuml Hermes记忆机制嫁接xinyu架构图
+title Hermes记忆机制嫁接xinyu架构图（实线为现有，虚线为设计提案）
+
+skinparam componentStyle rectangle
+skinparam linetype ortho
+
+component "Agent\n例如xingmeng-content-agent" as Agent
+component "MCP工具层" as MCP
+
+package "xinyu现有记忆架构" {
+  component "短期记忆\nPostgreSQL 40轮原文" as ShortMem
+  component "长期记忆\nPolarDB向量引擎" as LongMem
+  component "用户画像\nPolarDB Profile" as Profile
+  component "MemorySummaryProcessor\n被动总结与合并" as Summarizer
+}
+
+package "嫁接提案 借鉴Hermes Agent 尚未实现" {
+  component "记忆快照锁定机制\n嫁接点1" as Snapshot
+  component "角色记忆自主策展\n嫁接点2" as Curator
+  component "写入读取双重安全扫描\n嫁接点3" as SecurityScan
+  component "mem0图谱记忆后端\n嫁接点4" as GraphBackend
+}
+
+Agent --> MCP : 现有
+MCP --> ShortMem : 现有
+MCP --> LongMem : 现有
+MCP --> Profile : 现有
+Summarizer --> LongMem : 现有 定时写入
+
+Snapshot ..> MCP : 提案 会话开始时锁定读取快照
+Curator ..> Agent : 提案 生成前主动整理记忆
+SecurityScan ..> Summarizer : 提案 写入前扫描
+SecurityScan ..> MCP : 提案 读取前扫描
+GraphBackend ..> MCP : 提案 作为第二记忆后端接入
+
+note right of Snapshot
+  借鉴Hermes记忆延迟生效设计
+  保护Prompt Cache命中率
+end note
+
+note right of GraphBackend
+  借鉴Hermes可插拔记忆Provider生态
+  用mem0图谱能力补齐多人关系推理短板
+end note
+
+@enduml

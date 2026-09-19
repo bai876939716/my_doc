@@ -1,0 +1,34 @@
+@startuml MCP调用与空结果处理流程图
+title MCP调用失败与空结果处理流程图
+
+start
+:Agent发起MCP工具调用;
+
+if (调用是否成功返回?) then (否)
+  :按错误类型分类\n超时或服务端错误或未配置;
+  :记录错误码MCP_FAILED或MCP_NOT_CONFIGURED;
+  :LangGraph条件边路由到END;
+  if (是否处于批处理场景?) then (是)
+    :记录该Phase失败\n尝试继续执行后续Phase;
+    stop
+  else (否)
+    :本次调用终止并返回错误;
+    stop
+  endif
+else (是，调用成功)
+  if (返回结果是否为空?) then (是)
+    if (是否为已知的天然场景\n例如新用户无历史记忆?) then (是)
+      :视为合法状态\nPrompt该段落省略或替换占位说明;
+      stop
+    else (否，理论上应有数据却为空)
+      :记录空召回异常指标\n用于故障排查告警;
+      :仍按合法空结果处理\n不阻塞主流程;
+      stop
+    endif
+  else (否，正常返回数据)
+    :正常注入Prompt继续主流程;
+    stop
+  endif
+endif
+
+@enduml

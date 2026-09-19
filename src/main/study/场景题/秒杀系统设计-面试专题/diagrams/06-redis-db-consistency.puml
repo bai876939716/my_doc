@@ -1,0 +1,93 @@
+@startuml 06a-forward-sync-and-compensation
+title 正向扣减链路一致性：Redis扣减成功后如何保证数据库跟上
+
+participant "秒杀服务" as Svc
+database "Redis" as Redis
+queue "MQ" as MQ
+participant "订单服务(消费者)" as Consumer
+database "MySQL" as DB
+participant "对账补偿任务" as Reconcile
+
+Svc -> Redis : Lua脚本原子扣减库存
+Redis --> Svc : 扣减成功
+
+Svc -> MQ : 投递下单消息(生产者开启发送确认)
+MQ --> Svc : 消息落盘确认
+
+MQ -> Consumer : 推送下单消息
+
+alt 消费处理成功
+    Consumer -> DB : 本地事务 扣减库存并插入订单
+    DB --> Consumer : 提交成功
+    Consumer -> MQ : 手动ACK确认消费
+else 消费处理失败或消费者宕机
+    Consumer -> MQ : 不ACK 触发重试
+    MQ -> Consumer : 按重试策略重新投递
+    alt 重试超过最大次数
+        MQ -> MQ : 转入死信队列
+        Reconcile -> MQ : 扫描死信队列
+        Reconcile -> Redis : 回滚该笔预扣库存
+        Reconcile -> Redis : 释放该用户限购标记
+        note right of Reconcile
+          消费彻底失败
+          说明这次预扣没有对应订单落地
+          必须把Redis库存还回去
+          否则会出现幽灵库存
+        end note
+    end
+end
+
+== 定时对账 ==
+Reconcile -> Redis : 读取当前剩余库存
+Reconcile -> DB : 统计有效订单数(待支付加已支付)
+Reconcile -> Reconcile : 校验 剩余库存加有效订单数 是否等于预热总库存
+
+alt 数据一致
+    Reconcile -> Reconcile : 无需处理
+else DB扣得比Redis多(超卖风险)
+    Reconcile -> Reconcile : 告警并转人工处理超卖订单
+else Redis扣得比DB多(幽灵库存)
+    Reconcile -> Redis : 回滚多余的预扣库存
+end
+
+@enduml
+
+@startuml 06b-rollback-consistency
+title 逆向回滚链路一致性：订单取消或超时如何同步回滚Redis
+
+participant "延迟任务/支付回调" as Trigger
+participant "订单服务" as OrderSvc
+database "MySQL" as DB
+queue "MQ" as MQ
+database "Redis" as Redis
+
+Trigger -> OrderSvc : 触发订单取消(超时未支付或用户取消)
+
+OrderSvc -> DB : 开启本地事务
+OrderSvc -> DB : 校验订单状态为待支付(乐观锁CAS)
+alt 状态已变为已支付
+    OrderSvc -> DB : 放弃回滚 直接返回
+else 状态确为待支付
+    OrderSvc -> DB : 更新订单状态为已取消
+    OrderSvc -> DB : 数据库库存加回
+    OrderSvc -> DB : 提交本地事务
+    OrderSvc -> MQ : 发送库存回滚事件(携带订单ID)
+
+    MQ -> Redis : 消费者处理回滚事件
+    Redis -> Redis : 校验该订单ID是否已回滚过(幂等表)
+    alt 已回滚过
+        Redis -> Redis : 直接忽略 防止重复回滚
+    else 首次回滚
+        Redis -> Redis : 库存计数加回
+        Redis -> Redis : 删除该用户限购标记
+        Redis -> Redis : 记录该订单ID已回滚
+    end
+end
+
+note over OrderSvc, Redis
+  数据库先完成状态流转和库存回滚(本地事务保证原子)
+  再异步通知Redis回滚 并用订单ID做幂等
+  避免重复消费导致库存被多次加回
+end note
+
+@enduml

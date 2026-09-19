@@ -1,0 +1,35 @@
+@startuml Agent权限判定架构图
+title Agent 权限判定架构图（纵深防御五层）
+
+skinparam componentStyle rectangle
+skinparam linetype ortho
+
+actor "模型/Agent" as Model
+
+component "第一层\n工具白名单\n预注册工具集合" as Whitelist
+component "第二层\n参数Schema校验" as Schema
+component "第三层\n操作分级与权限模式判定\ndeny优先于allow" as Perm
+component "第四层\n沙盒隔离执行环境" as Sandbox
+component "第五层\n业务规则引擎硬校验\n资金或高风险动作最终把关" as RuleEngine
+component "真正执行\n数据库或外部系统" as Execute
+
+Model --> Whitelist : 发起工具调用请求
+Whitelist --> Schema : 工具在白名单内
+Schema --> Perm : 参数校验通过
+Perm --> Sandbox : 判定放行
+Sandbox --> RuleEngine : 沙盒内准备执行
+RuleEngine --> Execute : 规则引擎校验通过
+
+note right of Whitelist
+  不在白名单直接拒绝
+  模型无法调用未注册的工具
+end note
+
+note right of RuleEngine
+  即使前面四层都通过
+  资金或高风险动作仍需规则引擎
+  重新校验一遍才真正执行
+  这一层不信任模型的任何输出
+end note
+
+@enduml

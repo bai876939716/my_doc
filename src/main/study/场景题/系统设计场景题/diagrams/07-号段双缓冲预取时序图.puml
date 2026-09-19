@@ -1,0 +1,36 @@
+@startuml 号段双缓冲预取时序图
+title 短链发号器：号段双缓冲预取时序图
+
+participant "短链生成服务实例" as App
+participant "本地号段缓冲区\ncurrent加next" as Buffer
+participant "发号器服务" as IdGen
+database "tb_id_segment" as DB
+
+App -> Buffer : 请求下一个可用ID
+Buffer -> Buffer : current缓冲区本地自增消费
+
+alt current缓冲区消耗过半且next缓冲区为空
+  Buffer ->> IdGen : 异步预取下一号段 不阻塞当前请求
+  IdGen -> DB : UPDATE max_id 原子递增 拿到新区间
+  DB --> IdGen : 返回新号段区间
+  IdGen --> Buffer : 填充next缓冲区
+end
+
+alt current缓冲区已耗尽
+  Buffer -> Buffer : 切换next缓冲区为current
+  Buffer -> IdGen : 同步请求新号段 兜底场景会有等待
+  IdGen -> DB : UPDATE max_id 原子递增
+  DB --> IdGen : 返回新号段区间
+  IdGen --> Buffer : 填充next缓冲区
+end
+
+Buffer --> App : 返回可用ID
+
+note over Buffer
+  双缓冲预取的意义是
+  让号段耗尽发生在后台异步阶段
+  避免请求主链路同步等待发号器
+  造成的延迟毛刺
+end note
+
+@enduml

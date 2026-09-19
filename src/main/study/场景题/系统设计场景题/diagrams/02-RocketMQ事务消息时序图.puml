@@ -1,0 +1,31 @@
+@startuml RocketMQ事务消息时序图
+title 方案二：RocketMQ事务消息时序图
+
+actor 用户
+participant "order-service" as Order
+participant "RocketMQ Broker" as Broker
+database "订单库" as DB
+participant "inventory-service" as Inventory
+
+用户 -> Order : 提交下单请求
+Order -> Broker : 发送half消息 半消息不可投递
+Broker --> Order : half消息接收确认
+Order -> DB : 执行本地事务插入订单记录
+
+alt 本地事务成功
+  Order -> Broker : commit 标记消息为可投递
+else 本地事务失败
+  Order -> Broker : rollback 丢弃half消息
+end
+
+alt commit或rollback指令因网络或宕机丢失
+  Broker -> Order : 定期主动回查本地事务状态
+  Order -> DB : 查询订单是否已创建
+  Order --> Broker : 返回commit或rollback
+end
+
+Broker -> Inventory : 消息状态为可投递后正常投递
+Inventory -> Inventory : 执行扣库存并做幂等处理
+Inventory --> Broker : ack确认
+
+@enduml

@@ -1,0 +1,56 @@
+@startuml Agent工具调用决策流程图
+title Agent 工具调用决策流程图
+
+start
+:模型发起工具调用请求;
+
+if (工具是否在白名单内?) then (否)
+  :直接拒绝;
+  stop
+else (是)
+endif
+
+if (参数是否通过Schema校验?) then (否)
+  :拒绝并将错误信息回填要求模型自纠;
+  stop
+else (是)
+endif
+
+if (是否命中deny名单?) then (是)
+  :直接拒绝;
+  stop
+else (否)
+endif
+
+if (是否命中allow名单?) then (是)
+  :直接放行;
+else (否)
+  if (操作是否有副作用或高风险?) then (是)
+    :转人工审批;
+    if (人工是否批准?) then (否)
+      :拒绝;
+      stop
+    else (是)
+    endif
+  else (否，只读操作)
+    :自动放行;
+  endif
+endif
+
+:在沙盒环境中准备执行;
+
+if (是否涉及资金或高风险写操作?) then (是)
+  :业务规则引擎重新校验一遍;
+  if (规则引擎是否通过?) then (否)
+    :拒绝执行并记录审计日志;
+    stop
+  else (是)
+  endif
+else (否)
+endif
+
+:真正执行工具调用;
+:记录审计日志;
+stop
+
+@enduml

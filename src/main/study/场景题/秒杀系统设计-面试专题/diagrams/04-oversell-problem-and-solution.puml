@@ -1,0 +1,81 @@
+@startuml 04a-oversell-problem
+title 超卖问题场景：非原子的先查后扣（有并发漏洞）
+
+participant "线程A(用户A请求)" as A
+participant "线程B(用户B请求)" as B
+database "库存缓存/数据库\n当前库存=1" as Store
+
+note over A, B
+  库存仅剩1件 两个请求几乎同时到达
+  查询与扣减分成两步 不是原子操作
+end note
+
+A -> Store : select stock 查询库存
+Store --> A : 返回库存=1
+B -> Store : select stock 查询库存
+Store --> B : 返回库存=1
+
+note over A, B
+  A与B都读到库存为1
+  都判断大于0 都认为可以购买
+end note
+
+A -> Store : update stock=stock-1
+Store --> A : 更新成功 库存变为0
+B -> Store : update stock=stock-1
+Store --> B : 更新成功 库存变为-1
+
+note over Store
+  最终库存变为负数
+  实际卖出2件 但库存只有1件
+  这就是超卖
+end note
+
+@enduml
+
+@startuml 04b-oversell-solution
+title 超卖问题解决方案：多层原子化防线
+
+participant "线程A(用户A请求)" as A
+participant "线程B(用户B请求)" as B
+participant "秒杀服务" as Svc
+database "Redis\n当前库存=1" as Redis
+queue "MQ" as MQ
+database "MySQL\n乐观锁兜底" as DB
+
+note over Redis
+  第一道防线
+  Lua脚本封装 判断加扣减 为原子操作
+  if stock大于0 then stock减1 return成功
+  else return失败
+end note
+
+A -> Svc : 抢购请求
+B -> Svc : 抢购请求
+Svc -> Redis : 执行Lua原子扣减脚本(A)
+Redis --> Svc : 扣减成功 库存变为0
+Svc -> Redis : 执行Lua原子扣减脚本(B)
+Redis --> Svc : 库存不足 扣减失败
+
+Svc --> A : 抢购成功 进入下单队列
+Svc --> B : 很遗憾 已被抢完
+
+note over MQ
+  第二道防线
+  仅扣减成功的请求才会投递到MQ
+  MQ单一消费者串行处理 天然避免并发写
+end note
+
+Svc -> MQ : 投递用户A的下单消息(仅一条)
+MQ -> DB : 消费并创建订单
+
+note over DB
+  第三道防线 数据库层兜底
+  update stock set count=count-1
+  where id=goodsId and count大于0
+  即使有请求绕过Redis直达数据库
+  该条件更新语句本身具备原子性
+  受影响行数为0则代表扣减失败
+end note
+
+@enduml

@@ -1,0 +1,28 @@
+@startuml CDC监听binlog时序图
+title 方案三：CDC监听binlog时序图
+
+actor 用户
+participant "order-service" as Order
+database "订单库" as DB
+participant "canal或Debezium" as CDC
+participant "MQ" as MQ
+participant "inventory-service" as Inventory
+
+用户 -> Order : 提交下单请求
+Order -> DB : 执行本地事务插入订单记录\n不写任何发消息代码
+DB --> Order : 事务提交成功
+Order --> 用户 : 下单成功
+
+DB -> CDC : binlog产生INSERT日志
+CDC -> CDC : 解析binlog转换为业务消息
+CDC -> MQ : 发送order.created消息
+MQ -> Inventory : 投递消息
+Inventory -> Inventory : 执行扣库存并做幂等处理
+Inventory --> MQ : ack确认
+
+note over CDC
+  业务代码完全不用关心发消息这件事
+  只要数据落库binlog就一定会产生
+end note
+
+@enduml

@@ -1,0 +1,40 @@
+@startuml Agent生成SQL安全校验流程图
+title Agent生成SQL安全校验流程图
+
+start
+:自然语言查询输入;
+:结合Schema白名单和历史优秀SQL样例生成SQL;
+:对生成的SQL做AST静态解析;
+
+if (是否为允许的语句类型 仅SELECT?) then (否)
+  :直接拒绝并记录审计日志;
+  stop
+else (是)
+endif
+
+if (是否引用了白名单外的表或字段?) then (是)
+  :直接拒绝并记录审计日志;
+  stop
+else (否)
+endif
+
+:执行层强制注入租户隔离条件和软删除过滤条件;
+:自动补齐必要字段限定和LIMIT上限;
+:执行EXPLAIN预估扫描行数;
+
+if (预估扫描行数是否超过阈值?) then (是)
+  :转人工审批或要求缩小查询范围;
+  if (人工是否批准?) then (否)
+    :拒绝执行并记录审计日志;
+    stop
+  else (是)
+  endif
+else (否)
+endif
+
+:在只读账号和只读副本上执行\n设置查询超时和结果行数上限;
+:记录审计日志\n自然语言输入加生成SQL加执行结果;
+:返回结果;
+stop
+
+@enduml

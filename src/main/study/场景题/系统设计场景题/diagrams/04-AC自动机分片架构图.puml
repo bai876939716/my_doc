@@ -1,0 +1,35 @@
+@startuml AC自动机分片架构图
+title 亿级敏感词库 AC自动机分片架构图
+
+skinparam componentStyle rectangle
+skinparam linetype ortho
+
+actor "客户端" as Client
+component "网关\n请求广播与结果汇总" as Gateway
+component "敏感词过滤节点1\nAC自动机分片1 约300万词" as Node1
+component "敏感词过滤节点2\nAC自动机分片2 约300万词" as Node2
+component "敏感词过滤节点N\nAC自动机分片N 约300万词" as NodeN
+component "离线构建任务" as Builder
+database "词库源数据" as Source
+
+Client -> Gateway : 提交待检测文本
+Gateway -> Node1 : 并行广播
+Gateway -> Node2 : 并行广播
+Gateway -> NodeN : 并行广播
+Node1 --> Gateway : 返回命中结果
+Node2 --> Gateway : 返回命中结果
+NodeN --> Gateway : 返回命中结果
+Gateway --> Client : 汇总命中结果
+
+Source --> Builder : 词库变更触发离线构建
+Builder --> Node1 : 定时拉取新版本并原子替换
+Builder --> Node2 : 定时拉取新版本并原子替换
+Builder --> NodeN : 定时拉取新版本并原子替换
+
+note right of Gateway
+  必须广播到所有分片
+  因为敏感词可能分布在任意分片
+  这是分片存储换内存必须付出的代价
+end note
+
+@enduml

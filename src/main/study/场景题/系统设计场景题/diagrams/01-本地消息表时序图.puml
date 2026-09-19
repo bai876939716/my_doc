@@ -1,0 +1,33 @@
+@startuml 本地消息表时序图
+title 方案一：本地消息表时序图
+
+actor 用户
+participant "order-service" as Order
+database "订单库\n含本地消息表" as DB
+participant "消息投递任务" as Relay
+participant "MQ" as MQ
+participant "inventory-service" as Inventory
+
+用户 -> Order : 提交下单请求
+Order -> DB : 同一事务内插入订单记录\n和本地消息记录 status等于PENDING
+DB --> Order : 事务提交成功
+Order --> 用户 : 下单成功
+
+Order ->> Relay : 提交成功后触发一次异步投递尝试 快速路径
+Relay -> MQ : 发送order.created消息
+MQ --> Relay : 发送成功
+Relay -> DB : 更新本地消息状态为SENT
+
+alt 快速路径发送失败或服务重启中断
+  Relay -> DB : 定时轮询扫描PENDING记录 慢路径兜底
+  Relay -> MQ : 重新尝试发送
+  MQ --> Relay : 发送成功
+  Relay -> DB : 更新状态为SENT
+end
+
+MQ -> Inventory : 投递order.created消息
+Inventory -> Inventory : 查本地已处理表判断是否重复消费
+Inventory -> Inventory : 未处理过则执行扣库存并记录已处理
+Inventory --> MQ : ack确认消费成功
+
+@enduml

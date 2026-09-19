@@ -1,0 +1,29 @@
+@startuml 记忆三层架构图
+title 心屿记忆系统三层架构图
+
+skinparam componentStyle rectangle
+skinparam linetype ortho
+
+actor Agent
+
+component "短期记忆\nPostgreSQL 最近40轮原文" as ShortMem
+component "长期记忆\nPolarDB向量引擎 TopK检索" as LongMem
+component "用户画像\nPolarDB Profile 全量注入" as Profile
+component "MCP工具层" as MCP
+component "Prompt组装" as Prompt
+
+Agent --> MCP : 并行发起三次查询
+MCP --> ShortMem
+MCP --> LongMem
+MCP --> Profile
+ShortMem --> Prompt : 原文直接注入
+LongMem --> Prompt : TopK按相关性注入
+Profile --> Prompt : 全量注入
+
+note right of Prompt
+  三层各自独立注入
+  某一层为空不阻塞其他两层
+  这是空召回天然被容忍的架构基础
+end note
+
+@enduml

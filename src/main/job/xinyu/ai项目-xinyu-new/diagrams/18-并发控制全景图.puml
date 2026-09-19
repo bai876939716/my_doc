@@ -1,0 +1,44 @@
+@startuml concurrency-control-dataflow
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam defaultFontSize 11
+skinparam ArrowColor #78909C
+skinparam ArrowThickness 1.5
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #F9A825
+skinparam NoteFontSize 10
+skinparam RectangleBorderThickness 1.5
+skinparam RectangleBorderColor #90A4AE
+
+title 心屿 — 并发控制全景图（数据流视角）\n跟着一条消息从入口到落库，每个阶段的风险与对应保护机制
+
+rectangle "① 消息接入   Hermes 长连接\n──────────────────────────────────────────────────────────────────────────────────────\n<b>Lua 原子频控脚本</b>   maxSendsPerMinute = 60  /  windowTtlSeconds = 60\nKey: short_chat:rate_count:{userId}:{saveId}\nINCR + 判断 + EXPIRE 原子执行，超限返回 COUNT_EXCEEDED 拒绝入队\n\n<color:#C62828>风险</color>：用户快速连点大量消息  ·  <color:#2E7D32>机制</color>：Lua 保证原子性（GET+INCR 两步有竞态）" as S1 #FFF8E1
+
+rectangle "② Java 短对话主链路   同会话单路 AI 任务\n──────────────────────────────────────────────────────────────────────────────────────\n<b>Rolling 锁</b>   Key: short_chat:rolling_lock:{saveId}:{sessionId}   同会话同时只允许一个 AI 任务在跑\n<b>AI 运行租约</b>   Key: short_chat:ai_running_lease:{saveId}:{sessionId}:{batchId}\n                租约超时未续 → 判定任务死亡 → 允许新任务接入\n\n<color:#C62828>风险</color>：用户在等回复时又发一条，两个 AI 并发输出顺序会乱  ·  <color:#2E7D32>机制</color>：Rolling锁+租约联合保护" as S2 #FFF8E1
+
+rectangle "③ Python Agent 内部   AgentRun Serverless 单实例\n──────────────────────────────────────────────────────────────────────────────────────\n<b>LLM Semaphore(12)</b>   每次 gather_bounded() 调用时新建（非全局单例）\n                      同批次最多 12 个协程并发 LLM 推理，防单实例内存 OOM\n<b>MCP Semaphore(8)</b>    模块级单例，实例内全局共享\n                      同时在途 MCP 请求不超过 8 个，防 HTTP 连接池耗尽\n<b>MCP 客户端单例</b>      6 个服务冷启动初始化一次，热实例复用，查询耗时 900ms → 200ms\n\n<color:#C62828>风险</color>：批处理十几个协程并发，OOM / 连接池耗尽  ·  两个 Semaphore 数字不同：LLM 瓶颈→内存  /  MCP 瓶颈→连接数" as S3 #E3F2FD
+
+rectangle "④ 异步后处理   RocketMQ 消费端（记忆写入链路）\n──────────────────────────────────────────────────────────────────────────────────────\n<b>Redis SET NX   TTL = 7 天</b>\nKey: memory:summary:idempotency:{userId}:{charId}:{sessionId}:{snowflakeId}\nAt-Least-Once：Rebalance / ACK丢失 / 超时 三类场景必然重投 → SET NX 拿到才处理否则 ACK 跳过\n<b>asyncDispatch 专属线程池</b>   rocketmq-memory-summary-async-consume\n超时 consumerAsyncAwaitTimeoutMs → RECONSUME_LATER，不阻塞 MQ 主消费线程\n\n<color:#C62828>风险</color>：同批 40 轮被消费两次 → 向量库重复事实  ·  TTL=7天：MQ 最长重投延迟约 1-2 天，7天是安全缓冲" as S4 #E8F5E9
+
+rectangle "⑤ 星梦入口   高并发下的会话状态安全\n──────────────────────────────────────────────────────────────────────────────────────\n<b>Redisson 分布式锁   Watch Dog 自动续期</b>\nKey: stardream:accept_lock:{userId}\nwaitSeconds=3（超时快速失败）  /  leaseSeconds=15（Watch Dog 防业务执行慢时锁过期）\n<b>三级频控</b>   StarDreamInviteRateLimitService\n① stardream:complete_cooldown:{userId}:{charId}   TTL≈600s   完成后10分钟  →  防误操作连点\n② 每日 8 次上限   DB 持久化（Redis 缓存淘汰不可靠不能用）   →  防累计滥用\n③ stardream:reject_cooldown:{userId}:{charId}    TTL≈300s   拒绝后5分钟   →  防脚本重试\n\n<color:#C62828>风险</color>：用户双击并发创建两个会话，计费/存档状态错乱  ·  三级限流针对三类不同性质的行为" as S5 #FCE4EC
+
+rectangle "⑥ 批处理链路   与实时链路完全隔离（XXL-Job 独立调度）\n──────────────────────────────────────────────────────────────────────────────────────\n<b>独立 ThreadPoolExecutor</b>   stardream-content-generation-batch\n并发度 batchParallelism（Nacos 热配置），CompletableFuture.allOf().join() 收敛，最长 1 小时\nXXL-Job Cron: 0 0 6 * * ?\n<b>独立 LLM 路由</b>   批处理走网宿内网低成本通道，与实时对话 qwen3-max 完全分离，不共享配额\n\n<color:#C62828>风险</color>：早高峰批处理占满 LLM 配额，实时 P99 飙高（上线初期踩过）\n<color:#2E7D32>解法</color>：线程池 + LLM 路由全链路隔离，两条链路不共享任何资源" as S6 #F3E5F5
+
+S1 -down-> S2 : 通过频控
+S2 -down-> S3 : 调起 Agent
+S3 -down-> S4 : 推理后触发记忆 MQ
+S4 -down-> S5
+S5 -down-> S6
+
+note bottom
+  <b>设计原则：每个阶段的并发保护针对该阶段特有的风险，不是堆机制而是各司其职</b>
+  ① Lua 原子性 → 防接入超发计数竞态
+  ② Rolling锁+租约 → 防同会话 AI 输出乱序
+  ③ Semaphore(12/8) → 防 Serverless 实例 OOM 与连接池耗尽
+  ④ SET NX TTL=7天 → 防 MQ 重投导致记忆重复写入
+  ⑤ Redisson+三级限流 → 防并发创建会话与三类滥用
+  ⑥ 批处理全链路隔离 → 防批处理占满实时 LLM 配额
+end note
+
+@enduml

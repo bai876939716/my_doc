@@ -1,0 +1,32 @@
+@startuml mem0图谱构建流程图
+title mem0 实体图谱构建流程图
+
+start
+:新对话输入;
+:LLM抽取实体列表;
+:LLM抽取关系三元组;
+:对新实体名做embedding\n并在图库中检索相似节点;
+
+if (是否存在语义相近的已有节点?) then (是)
+  :复用已有节点;
+else (否)
+  :创建新节点;
+endif
+
+:取出该实体已有的相关边;
+:LLM综合新三元组和已有边做冲突判定;
+
+if (判定结果?) then (全新关系)
+  :ADD 新增边;
+elseif (更新旧关系) then (更新)
+  :UPDATE 修改已有边属性;
+elseif (相互矛盾) then (矛盾)
+  :DELETE 删除旧边;
+else (完全重复)
+  :NOOP 不做任何操作;
+endif
+
+:执行Cypher MERGE落库;
+stop
+
+@enduml
