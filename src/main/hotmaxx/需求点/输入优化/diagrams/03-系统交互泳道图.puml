@@ -46,7 +46,7 @@ else 分支A 自由描述
   AG -> SM : 事件 text
   SM -> LLM : 类别识别 prompt
   activate LLM
-  LLM --> SM : Top3 候选 + 置信度
+  LLM --> SM : Top3 候选（按相关性排序）
   deactivate LLM
   SM --> U : 枚举单选卡（AI 预选）
   U -> AG : 点选确认

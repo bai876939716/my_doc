@@ -38,8 +38,8 @@ state "DONE\n提交成功\n单号 + 已提交/待派单" as DONE #C5E1A5
 INIT --> A_WAIT : 用户发文字
 INIT --> B_LOCK : 点高频卡片
 
-A_WAIT --> A_ENUM : 置信度 >= 0.4
-A_WAIT --> FALLBACK : 置信度 < 0.4
+A_WAIT --> A_ENUM : 识别有效 (Top3)
+A_WAIT --> FALLBACK : 识别失败 / 候选为空
 A_ENUM --> DETAIL : 用户点选确认
 B_LOCK --> DETAIL : 类别即锁定
 FALLBACK --> DETAIL : 全量列表点选

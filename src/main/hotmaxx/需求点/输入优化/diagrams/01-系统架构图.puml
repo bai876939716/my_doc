@@ -36,18 +36,22 @@ rectangle "MCP Server\n(独立进程 · fastmcp · 与业务解耦)" #ECEFF1 {
 }
 
 ' ========== 存储层 ==========
-rectangle "存储" #F5F5F5 {
-  database "Redis\n会话/草稿 TTL 7天" as RD #FFCDD2
+rectangle "数据存储" #F5F5F5 {
+  database "Redis\n会话/草稿/配额 TTL 7天" as RD #FFCDD2
   database "MySQL\n归档 / 埋点" as MY #CFD8DC
 }
 
-' ========== 后端依赖层 ==========
-rectangle "后端依赖 (TODO 接口确认)" #FFF9C4 {
+' ========== 后端服务层（MCP 数据源） ==========
+rectangle "后端服务 · MCP 数据源 (TODO 接口确认)" #FFF9C4 {
   component "员工档案" as HR #FFE082
   component "门店主数据 MDM" as MDM #FFE082
   component "类别字典\n配置表" as DICT #FFE082
   component "对象存储 OSS" as OSS #FFE082
-  component "明道云 API" as MDY #FFCC80
+}
+
+' ========== 明道云 ==========
+rectangle "明道云" #FFF3E0 {
+  component "明道云 API\n建单 / 工单流转" as MDY #FFCC80
 }
 
 ' ========== 关系连线 ==========

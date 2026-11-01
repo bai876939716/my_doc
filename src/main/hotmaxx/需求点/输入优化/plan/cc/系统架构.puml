@@ -29,12 +29,20 @@ rectangle "MCP Server · 独立进程" as MCPG #ECEFF1 {
   component "draft_save / draft_get" as T7 #B0BEC5
 }
 
-rectangle "后端依赖" #FFF9C4 {
+rectangle "数据存储" #F5F5F5 {
+  database "Redis\n会话 / 草稿 / 配额\nTTL 7 天" as RD #FFCDD2
+  database "MySQL\n归档 / 埋点" as MY #CFD8DC
+}
+
+rectangle "后端服务 · MCP 数据源" #FFF9C4 {
   component "员工档案" as HR #FFE082
   component "门店主数据" as MDM #FFE082
   component "类别字典 · 配置表" as DICT #FFE082
   component "对象存储" as OSS #FFE082
-  component "明道云 API" as MDY #FFCC80
+}
+
+rectangle "明道云" #FFF3E0 {
+  component "明道云 API\n建单 / 工单流转" as MDY #FFCC80
 }
 
 H5 -down-> API : HTTPS + SSE
@@ -49,6 +57,8 @@ T2 --> MDM
 T3 --> DICT
 T4 --> DICT
 T5 --> OSS
-T6 --> MDY
+T6 --> MDY : 提交报修单
+T7 --> RD : 会话草稿读写
+TR --> MY : 埋点落库
 
 @enduml
