@@ -8,7 +8,7 @@
 |---|---|---|
 | Agent 服务 | Python 3.11 + FastAPI + SSE | 独立部署，无状态横向扩 |
 | 编排 | 自研状态机（主）+ LangChain（LLM 调用封装） | 状态转移由规则驱动，LLM 只做理解/抽取，不做流程决策 |
-| 模型 | 智谱 GLM-5.3（识别/抽取）+ GLM-Flash（分类/改写） | TODO：确认账号与配额 |
+| 模型 | **LLM-XXX（待定）**：主力模型做识别/抽取，轻量模型做分类/改写 | TODO：选型评测后确定厂商、型号与配额 |
 | 工具层 | MCP Server（fastmcp，独立进程） | 工具与 Agent 解耦，报销等业务可复用 |
 | 存储 | Redis（会话/草稿，TTL 7 天）+ MySQL（会话归档/埋点） | |
 | 前端 | App 内 H5 聊天页，消息协议与原型对齐 | |
@@ -31,7 +31,7 @@
 | 前后端通信 | SSE / WebSocket / 轮询 | 本场景用户消息走 POST、服务端单向下推——SSE 刚好够且过网关/代理最省事；WebSocket 双向能力浪费且运维复杂；轮询延迟高 | SSE ✓ |
 | 工具层 | MCP / REST 客户端内嵌 / LangChain Tool 装饰器 | MCP 与框架解耦、跨业务跨 Agent 复用、行业生态标准；REST 内嵌则换业务要改 Agent 代码；LangChain Tool 与框架绑死 | MCP ✓ |
 | 会话存储 | Redis / MySQL / 前端 localStorage | Redis TTL 原生、亚毫秒读写；MySQL 要自管过期；localStorage 换端即丢、不可信 | Redis ✓（MySQL 归档兜底） |
-| 模型接入 | 直连智谱 SDK / LLM 网关 / 开源自部署 | 本期直连最快；网关留二期做多模型路由（识别/抽取/校验分档）；自部署 GPU+运维成本不匹配门店场景 | 直连 ✓（网关预留） |
+| 模型接入 | 直连厂商 SDK / LLM 网关 / 开源自部署 | 本期直连最快；网关留二期做多模型路由（识别/抽取/校验分档）；自部署 GPU+运维成本不匹配门店场景 | 直连 ✓（网关预留） |
 
 ---
 
@@ -91,7 +91,7 @@
 【风格】口语、简短、每次只处理一件事。所有输出按 reply_schema 返回 JSON。
 ```
 
-### 4.2 类别识别（A_WAIT，GLM-5.3）
+### 4.2 类别识别（A_WAIT，LLM-XXX）
 
 ```text
 ## 任务
@@ -114,7 +114,7 @@
 
 **不做置信度分流**：识别成功一律出 Top3 单选卡（首位为 AI 预选项），识别失败或候选全被白名单过滤才进 `FALLBACK` 全量点选；识别是否准确由 `enum_first_pick` 埋点观测（AI 首位被直接点选的比例）。
 
-### 4.3 三要素抽取与润色（DETAIL，GLM-5.3）
+### 4.3 三要素抽取与润色（DETAIL，LLM-XXX）
 
 ```text
 ## 任务
@@ -132,7 +132,7 @@
 
 | 环节 | 机制 |
 |---|---|
-| 输出格式 | GLM response_format=json_object，解析失败重试 1 次，再失败进降级 |
+| 输出格式 | LLM JSON mode（response_format），解析失败重试 1 次，再失败进降级 |
 | 枚举校验 | LLM 候选逐个与字典比对：不在字典内 → 直接丢弃；丢弃后为空 → `FALLBACK` |
 | 候选排序 | Top3 按相关性排序、首位预选，仅影响卡片顺序，不作为跳过用户确认的依据——**A 分支必须点选** |
 | 详情校验 | 三要素 schema 校验；润色结果进确认单前与原文一并展示（✏️ 可改） |
@@ -142,24 +142,11 @@
 
 ## 6. 会话与草稿
 
-Redis 结构（Key 前缀 `rp:{session_id}`，TTL 7 天）：
-
-```json
-{
-  "session_id": "s_xxx", "user_id": "u_1001", "store_no": "SH0021",
-  "state": "PHOTO", "branch": "B",
-  "collected_fields": {
-    "category": "收银设备 - 收银机/扫码枪故障",
-    "detail": {"表现": "…", "原因": "…", "后果": "…"},
-    "photos": ["m_001", "m_002"],
-    "contact": {"name": "王芳", "phone": "+86139****0000"},
-    "brought": {"region": "华东大区", "store": "…", "addr": "…", "hours": "…"}
-  },
-  "updated_at": "2026-10-31T12:00:00Z"
-}
-```
+存储结构（Key、字段、TTL 策略）：见 [详细点/关键代码骨架.md](./详细点/关键代码骨架.md)。
 
 断点续填：每次状态变更即 `draft_save`；重进会话 `draft_get` 恢复到上次状态。与老表单草稿**不同 Key 空间**，天然隔离、互不覆盖；切老表单时不回写（本期），仅在确认单展示带出字段。
+
+> 💻 存储结构 JSON 与关键代码骨架（状态机 / MCP / 类别识别）：[详细点/关键代码骨架.md](./详细点/关键代码骨架.md)
 
 ---
 
@@ -189,20 +176,45 @@ Redis 结构（Key 前缀 `rp:{session_id}`，TTL 7 天）：
 
 ---
 
-## 8. 埋点清单（对应度量指标）
 
-| 事件 | 触发点 | 支撑指标 |
+---
+
+## 8. 演进设计与待定项
+
+### 8.1 阶段规划
+
+| 阶段 | 形态 | 复用点 |
 |---|---|---|
-| `session_start` / `session_end` | 建会话 / 提交或退出 | 填报时长（end-start）、步数（用户消息计数） |
-| `branch_a_input` / `branch_b_card_click` | 两个分支入口 | 分支占比、渗透率分母 |
-| `enum_first_pick` | A 分支：AI 预选项是否被直接点选 | **类别识别准确率**（first_pick=true 占比） |
-| `fallback_enter` / `switch_to_form` | 降级 / 切老表单 | 兜底率、转老表单率 |
-| `photo_reject` | 拍摄清单缺项 | 防驳回前置拦截量 |
-| `contact_change` | 修改联系人 | 代报占比 |
-| `submit_success` / `submit_fail` | 明道云返回 | 完成成功率、卡壳定位 |
-| 上线前 | 导出老表单 2 周数据 | 时长/驳回率基线 |
+| 本期 | 单体 Agent + 状态机（报修） | 工具层 MCP 与业务解耦 |
+| 二期 | + 报销模块（接入清单见 §8.3） | 状态机框架、消息协议、MCP 设施全部复用 |
+| 终态 | 多 Agent：意图路由 / 抽取 / 质检审核（驳回侧） | 每个状态 = 未来 LangGraph 节点候选；工具已全 MCP 化，天然可被多 Agent 共享 |
 
-> 对账口径：AI 单量渗透率 = `submit_success` 数 / 明道云总报修单量（后台取数）。
+**为演进预留的三件事**：状态机转移表配置化（不写死 if-else）；Prompt 版本化管理；LLM 调用与业务字段解耦（输入输出全部 schema 化）。
+
+### 8.2 待定项（原 next_todo 归纳）
+
+| 待定项 | 建议 | 决策时点 |
+|---|---|---|
+| AI → 老表单回填 | 二期做单向回填（协议上只差字段映射函数） | 二期排期时 |
+| 多模态照片质检（自动判断拍摄是否合规） | 先上线规则清单校验，看 `photo_reject` 埋点量再决定是否投入 | 上线 2 周后看数据 |
+| 明道云提交幂等 | 网络超时重试可能产生重复单——**升级为上线前必须确认**：明道云 API 是否支持业务幂等键；不支持则服务端先落本地单号再提交（已列入文末 TODO） | 11.4 评审前 |
+| 语音输入 | 本期依赖输入法自带"语音转文字"；统一 ASR 体验留二期 | 二期排期时 |
+
+### 8.3 报销模块接入清单（二期）
+
+同一套框架（状态机 / 消息协议 / MCP 设施 / H5 聊天页）不动，按层接入以下内容：
+
+| 层 | 需要新增/接入的内容 | 工作量预估 |
+|---|---|---|
+| 字典配置 | 报销类型/费用科目枚举、高频报销卡片文案（等价于报修的类别字典） | 1d |
+| Prompt 组 | 发票要素抽取（金额/日期/抬头/税号）、费用事由润色（等价于报修的三要素抽取） | 2d |
+| MCP 工具 | `ocr_invoice`（发票识别）、`verify_invoice`（查验/防重）、`create_expense_order`（报销单提交 API） | 3~5d（依赖 OCR 选型） |
+| 状态机转移表 | 报销流程状态（发票上传 → 要素确认 → 事由补充 → 预填确认 → 提交），纯配置 | 1d |
+| 入口路由 | 同一 AI 助手按意图分流报修/报销，或独立入口并列卡片 | 1~2d |
+| 前端 | 消息协议复用，新增发票预览卡组件 | 1d |
+| **前置依赖** | **报销表单真实字段清单（截图/导出）尚未拿到——拿到前不设计字段映射** | 阻塞项 |
+
+合计约 9~12 人天（不含联调），框架层零改动。
 
 ---
 
@@ -233,61 +245,22 @@ LLM 是唯一按量计费项，限额在 **Agent 服务 LLM 调用层**统一拦
 
 ---
 
-## 10. 演进设计
-
-| 阶段 | 形态 | 复用点 |
-|---|---|---|
-| 本期 | 单体 Agent + 状态机（报修） | 工具层 MCP 与业务解耦 |
-| 二期 | + 报销业务 | 换 Prompt 组 + 字典 + 工具子集（OCR 发票抽取），状态机框架复用 |
-| 终态 | 多 Agent：意图路由 / 抽取 / 质检审核（驳回侧） | 本期即按 LangGraph 的 supervisor 模式约束状态边界：每个状态 = 未来一个节点的候选；工具已全部 MCP 化，天然可被多 Agent 共享 |
-
-**为拆分预留的三件事**：状态机转移表配置化（不写死 if-else）；Prompt 版本化管理（PM 层）；LLM 调用与业务字段解耦（输入输出全部 schema 化）。
-
-### 10.1 扩展性设计（面向后续工作）
-
-| 扩展方向 | 设计预留 | 接入成本 |
-|---|---|---|
-| 新表单业务（报销 / 巡店 / 台账） | 字典 + Prompt 组 + 转移表 三者皆配置化，换配置即上新业务；MCP 工具按业务挂子集（报销加 OCR 发票抽取） | 低（配置级，不改框架） |
-| 新增字段类型（定位、签收、多行明细） | 消息协议按 `type` 枚举扩展，状态机加状态/事件，前后端各改一处 | 中 |
-| 新入口端（小程序 / PC 网页） | 消息协议与端无关，SSE 为通用 HTTP 能力 | 低 |
-| 流量增长 | Agent 服务无状态水平扩；MCP Server 独立扩容；LLM 调用加限流队列 | 低（运维级） |
-| 换模型 / 多模型路由 | LangChain 封装 + 网关抽象位（§0.3），识别/抽取/校验可分档用不同模型 | 低 |
-| 多 Agent 终态（意图路由 / 抽取 / 质检） | 状态 = LangGraph 节点候选；工具全 MCP 化天然共享 | 中（架构已预留） |
-| 高频卡片运营 | Top6 由 `get_category_dict` 按门店/季节配置下发，改配置不改代码 | 低 |
 
 ---
 
-## 附：关键代码骨架
+## 10. 埋点清单（对应度量指标）
 
-```python
-# 1. 状态机引擎（转移表配置化）
-TRANSITIONS = {
-    "INIT":      {"text": "A_WAIT", "card": "B_LOCK"},
-    "A_WAIT":    {"hi_conf": "A_ENUM", "lo_conf": "FALLBACK"},
-    "A_ENUM":    {"pick": "DETAIL"},
-    "B_LOCK":    {"auto": "DETAIL"},
-    "DETAIL":    {"ok": "PHOTO", "missing": "DETAIL"},
-    "PHOTO":     {"pass": "CONTACT", "lack": "PHOTO"},
-    "CONTACT":   {"confirm": "CONFIRM"},
-    "CONFIRM":   {"submit": "DONE", "recat": "PHOTO"},
-}
-def step(state, event, ctx):
-    nxt = TRANSITIONS[state].get(event)
-    if nxt: run_state_handler(nxt, ctx); ctx.state = nxt; draft_save(ctx)
-    return nxt
+| 事件 | 触发点 | 支撑指标 |
+|---|---|---|
+| `session_start` / `session_end` | 建会话 / 提交或退出 | 填报时长（end-start）、步数（用户消息计数） |
+| `branch_a_input` / `branch_b_card_click` | 两个分支入口 | 分支占比、渗透率分母 |
+| `enum_first_pick` | A 分支：AI 预选项是否被直接点选 | **类别识别准确率**（first_pick=true 占比） |
+| `fallback_enter` / `switch_to_form` | 降级 / 切老表单 | 兜底率、转老表单率 |
+| `photo_reject` | 拍摄清单缺项 | 防驳回前置拦截量 |
+| `contact_change` | 修改联系人 | 代报占比 |
+| `submit_success` / `submit_fail` | 明道云返回 | 完成成功率、卡壳定位 |
+| 上线前 | 导出老表单 2 周数据 | 时长/驳回率基线 |
 
-# 2. MCP 工具注册（fastmcp）
-@mcp.tool()
-def get_category_dict(store_no: str = "") -> dict:
-    """返回类别树、Top6 高频卡片文案、各类别拍摄清单"""
-    return dict_repo.get(store_no)
+> 对账口径：AI 单量渗透率 = `submit_success` 数 / 明道云总报修单量（后台取数）。
 
-# 3. 类别识别 + 防幻觉校验
-def recognize(text, dict_list):
-    out = llm_json(CAT_PROMPT, user_text=text, category_dict=dict_list)   # GLM-5.3
-    valid = [c for c in out["candidates"] if c["name"] in set(dict_list)]  # 枚举白名单过滤
-    if not valid: return fallback_full_list(dict_list)
-    return valid[:3]
-```
-
-> **TODO（阻塞项，对应 11.4 评审前置依赖）**：① 真实报修类别枚举字典及"卡片文案↔枚举"映射表；② 明道云 API 文档与字段映射（13 字段 → 明道云表字段）；③ 员工档案 / 门店主数据接口权限。
+> **TODO（阻塞项，对应 11.4 评审前置依赖）**：① 真实报修类别枚举字典及"卡片文案↔枚举"映射表；② 明道云 API 文档与字段映射（13 字段 → 明道云表字段）；③ 员工档案 / 门店主数据接口权限；④ 明道云 API 幂等键支持确认（防重复单，见 §8.2）。

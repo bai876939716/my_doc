@@ -14,7 +14,7 @@ rectangle "客户端" #DDEEFF {
 rectangle "Agent 服务 · FastAPI 独立部署" #E8F5E9 {
   component "会话 API · SSE 流式" as API #C8E6C9
   component "状态机引擎" as SM #A5D6A7
-  component "LangChain 编排 · GLM-5.3 / Flash" as LC #C8E6C9
+  component "LangChain 编排 · LLM-XXX（待定）" as LC #C8E6C9
   component "Prompt 管理 · 版本化" as PM #DCEDC8
   component "埋点采集" as TR #DCEDC8
 }

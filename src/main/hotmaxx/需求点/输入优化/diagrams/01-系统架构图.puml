@@ -19,7 +19,7 @@ rectangle "客户端" #DDEEFF {
 rectangle "Agent 服务\n(Python 3.11 · FastAPI · 独立部署 · 无状态横向扩)" #E8F5E9 {
   component "会话 API\nSSE 流式" as API #C8E6C9
   component "状态机引擎\n转移表配置化" as SM #A5D6A7
-  component "LangChain 编排\nGLM-5.3 / GLM-Flash" as LC #C8E6C9
+  component "LangChain 编排\nLLM-XXX 待定" as LC #C8E6C9
   component "Prompt 管理\n版本化" as PM #DCEDC8
   component "埋点采集" as TR #DCEDC8
 }

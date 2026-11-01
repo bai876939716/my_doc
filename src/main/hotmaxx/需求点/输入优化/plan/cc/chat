@@ -1,11 +1,3 @@
-sse 如何实现  状态的保存怎么实现的 生成详细解读到/Users/harvey/Documents/projects/my/my_doc/src/main/hotmaxx/需求点/输入优化/plan/cc/详细点
-图中明道云和其他mcp提供的服务 、 数据库 redis 分开显示
-置信度这个就不加了
-成本考虑  做单人单天次数  或者单人单天token的限制  技术方案中加一下
-
-
-
-
 
 多模态之后再加 图片识别
 表单的提交数据库做区分 统计 和异常分析

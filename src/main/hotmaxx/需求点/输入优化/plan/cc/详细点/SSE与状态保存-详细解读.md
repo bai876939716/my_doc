@@ -1,226 +1,130 @@
-# SSE 与状态保存 · 详细解读
+# SSE 与状态保存 · 实现难度与工作量解读
 
-> 配套：[设备报修-AI填报Agent技术实现方案.md](../设备报修-AI填报Agent技术实现方案.md) §7（接口）、§6（会话与草稿）。本文把这两个"评审必问"的实现细节拆到代码级。
+> 回答两个问题：**这东西做起来难不难？要花多少人天？** 所有代码只是示意"长什么样"，不是要照抄的量——每个模块真正要写的代码都在 50 行以内。
+
+## 先说结论：总工作量
+
+| 模块 | 难度 | 工作量 | 为什么是这个量 |
+|---|---|---|---|
+| SSE 服务端推送 | ★☆☆ 低 | 1 人天 | 有现成库 `sse-starlette`，一个函数搞定，坑都在部署配置 |
+| SSE 前端接收 | ★☆☆ 低 | 1 人天 | 一个 fetch + 30 行解析函数，所有消息类型复用 |
+| 状态机引擎 | ★★☆ 中低 | 2 人天 | 核心就一个字典 + 一个 while，量不大但要写单测 |
+| Redis 会话保存 | ★☆☆ 低 | 1 人天 | 一个 Key 存一份 JSON，读写各一行代码 |
+| 断点恢复（读档重放） | ★☆☆ 低 | 0.5 人天 | 本质是"把存的 JSON 读出来按状态渲染对应界面" |
+| 联调 + 网关配置 | ★★☆ 中低 | 1 人天 | nginx 缓冲、超时这些环境坑主要在这消耗 |
+| **合计** | | **≈ 6.5 人天** | 全部用成熟组件，无自造轮子 |
+
+**没有一件事需要"研究"，全是"组装"**——这是这套设计刻意做到的：难的东西（LLM 编排的不确定性）已经被状态机消化掉了，剩下的都是十年以上的成熟技术。
 
 ---
 
-## 一、SSE 如何实现
+## 一、SSE 是什么：一个"不会挂断的 HTTP 响应"
 
-### 1.1 先弄清 SSE 是什么
+### 白话版
 
-SSE（Server-Sent Events）就是**一个不会主动断开的 HTTP 响应**：服务端把想要推送的消息一条条写进响应体，前端边收边处理。协议极简，本质是 `Content-Type: text/event-stream` 的长连接 + 固定文本格式：
+普通接口像**发短信**：你问一句，对方回一整条，结束。
+SSE 像**直播弹幕**：你发一条消息（普通 POST），对方回你时不是憋好一整条，而是**边想边说**——先推"正在输入…"，再推正文，再推几张卡片，最后推"说完了"。
 
-```
-HTTP/1.1 200 OK
-Content-Type: text/event-stream
-Cache-Control: no-cache
-X-Accel-Buffering: no          ← 告诉 nginx 别缓冲，收到就转发
+对用户的意义：AI 调用要 1~2 秒，普通接口这 1~2 秒页面是死的；SSE 让用户第 0.1 秒就看到"输入中"，体验完全不同。
 
-event: typing                   ← 消息类型（可选）
-data: {"msg_id":"m_01"}         ← 载荷（一行或多行 data）
+### 服务端怎么写（1 人天）
 
-event: text
-data: {"content":"报修类别已锁定"}
-
-event: quick_cards
-data: {"cards":[...]}
-```
-
-每条消息以**空行**分隔；`event` 是自定义类型，直接对应方案 §7 消息协议的 `type` 字段（text / quick_cards / enum_card / confirm_card…），前端按 type 分发渲染——**这就是"消息协议与原型组件一一对应"的落地方式**。
-
-### 1.2 服务端实现（FastAPI）
-
-核心是 `async generator`：函数里 `yield` 一条，连接就推一条。用 `sse-starlette` 库（自动处理格式、心跳、断连）：
+全部逻辑就一个 Python 函数，里面 `yield` 一次就推一条：
 
 ```python
-from sse_starlette import EventSourceResponse
-
 @app.post("/api/sessions/{sid}/messages")
-async def send_message(sid: str, msg: MessageIn, request: Request):
+async def send_message(sid, msg):
     async def gen():
-        # ① 立刻推 typing，前端马上出现"输入中"动画（覆盖 LLM 等待）
-        yield {"event": "typing", "data": "{}"}
-        # ② 状态机处理：转移状态 + 产出下一步消息序列
-        outputs = await engine.handle(sid, msg)     # 见第二章
-        for m in outputs:                            # 逐条推送
-            if await request.is_disconnected():      # 用户已断开则停止
-                break
-            yield {"event": m.type, "data": m.json()}
-        # ③ 收尾：本轮交互结束标记（前端关 loading）
-        yield {"event": "done", "data": "{}"}
-    return EventSourceResponse(gen(), ping=15)       # ping=15s 心跳保活
+        yield sse("typing")                    # ① 立刻推：正在输入
+        outputs = await engine.handle(sid, msg) # ② 处理（可能调 LLM）
+        for m in outputs:
+            yield sse(m.type, m.data)          # ③ 逐条推送
+        yield sse("done")                      # ④ 本轮结束
+    return EventSourceResponse(gen(), ping=15) # 库处理一切杂活
 ```
 
-三条实践要点：
+**为什么低难度**：`EventSourceResponse` 是现成库（`pip install sse-starlette`），消息格式、断连检测、心跳保活它全包了；你要写的只有"什么时机 yield 什么内容"这四行逻辑。
 
-- **typing 先行**：不等 LLM/工具返回，请求一进来就推 typing，用户感知零延迟
-- **心跳**：`ping=15` 每 15 秒发一行注释帧，防止 nginx / 负载均衡把"安静"的连接当超时掐掉
-- **断连检查**：每次 yield 前查 `request.is_disconnected()`，用户杀 App 后立即停止生成，不白烧 token
+工作量主要花在：把状态机的输出映射成消息序列（typing → text → 卡片 → done），加上联调。
 
-### 1.3 前端实现：为什么不能用 EventSource，用 fetch 流式读取
+### 前端怎么收（1 人天）
 
-浏览器原生 `EventSource` **只支持 GET**，而用户消息是 `POST /messages`。两种解法：
-
-| 方案 | 做法 | 取舍 |
-|---|---|---|
-| A. fetch + ReadableStream（**采用**） | `fetch POST` 后用 `response.body.getReader()` 手动读流、按空行切消息 | 一条连接搞定请求+流式响应，语义清晰 |
-| B. EventSource + GET 查询参数 | 消息内容放 URL 走 GET，EventSource 自动重连 | URL 长度/中文编码受限，语义别扭 |
-
-方案 A 前端核心代码：
+浏览器原生 `EventSource` 只支持 GET，而我们发消息是 POST——所以用 `fetch` 读流，核心 20 行：
 
 ```javascript
-async function sendMessage(sid, msg) {
-  const resp = await fetch(`/api/sessions/${sid}/messages`, {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify(msg),
-  });
-  const reader = resp.body.getReader();
-  const decoder = new TextDecoder();
-  let buf = "";
-  while (true) {
-    const {done, value} = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, {stream: true});
-    const frames = buf.split("\n\n");           // 空行分隔消息帧
-    buf = frames.pop();                          // 半截留到下一轮
-    frames.forEach(f => render(parseFrame(f)));  // 按 event 分发渲染
-  }
+const resp = await fetch(url, {method:"POST", body: JSON.stringify(msg)});
+const reader = resp.body.getReader();
+// 循环 read() → 按空行切帧 → 按 event 类型分发渲染
+```
+
+**为什么低难度**：不是自己发明协议，就是按 HTTP 分块传输读字节、按空行切段。写一个通用的 `render(type, data)` 分发函数后，八种消息类型（文本/卡片/枚举卡/确认单…）各自只是渲染函数，互不影响。
+
+### 唯一的坑：部署（包含在联调 1 人天里）
+
+- nginx 默认会把响应**攒够一批再发**（表现为消息一次全蹦出来）——加一行 `proxy_buffering off;` 解决
+- 网关超时默认 60s，调到 120s
+- 这两个坑所有人都踩过，搜索即得，属于"知道就没事"型
+
+---
+
+## 二、状态保存：本质是"游戏自动存档"
+
+### 白话版
+
+把整个填报过程想象成打一关游戏：**每通过一小关（答完一个问题、传完照片），系统立刻自动存档**。关掉游戏（杀 App、闪退、接电话）随便什么时候发生都无所谓——存档早就在了。重新打开 = 读档，从上次的关卡继续。
+
+### 存的是什么
+
+Redis 里的一个 Key，内容是一份 JSON：`现在玩到第几关（state）+ 已经拿到的装备（已采集字段）`。就这么多。
+
+### 怎么写（2 人天：状态机 1.5 + 保存 0.5）
+
+状态机全部逻辑 = **一个字典**：
+
+```python
+TRANSITIONS = {
+    "INIT":    {"文字": "A分支", "卡片": "B锁定"},
+    "B锁定":   {"自动": "详情"},
+    "详情":    {"齐了": "照片", "缺": "继续问"},
+    ...
 }
 ```
 
-### 1.4 断线与恢复
+来了一个用户动作 → 查这个字典 → 得到下一状态 → 执行对应处理函数。**没有框架、没有递归、没有魔法**，新同事看 5 分钟就懂，加状态就是加一行字典。
 
-SSE 断线（切后台、弱网）**不需要补消息**，因为我们存了状态：
+保存就两行：状态一变，`redis.set(key, json)` + `redis.expire(key, 7天)`。
 
-1. 前端监听流结束/报错 → 调 `GET /api/sessions/{sid}`
-2. 服务端从 Redis 读会话快照，返回当前状态 + 该步骤的完整 UI 消息（不是增量），前端整屏重放
-3. 用户从断点继续，不丢任何已答内容
+**为什么是中低难度而不是低**：字典本身 10 分钟写完，但"每个状态的处理函数"（组装消息、调 LLM、调工具）和**单元测试**要占主要时间——每个状态的进出条件写成测试用例，以后改流程跑一遍测试就知道有没有弄坏别的，这正是选状态机的最大回报。
 
-> 设计取舍：不做消息级补发（记录已推消息序号重放）——状态快照重放更简单，且天然覆盖"换手机继续填"的场景。
+### 断点恢复（0.5 人天）
 
-### 1.5 部署注意（上线前检查清单）
+用户重新打开 → 前端带着 session_id 问服务端 → 服务端把存的 JSON 读出来返回 → 前端看 `state` 是"照片"，直接渲染照片上传界面 + 已传的缩略图。**不回放聊天记录，直接跳到现场**，实现比"补发历史消息"简单一个数量级。
 
-- nginx 位置：`proxy_buffering off;` 或依赖响应头 `X-Accel-Buffering: no`，否则消息会被攒成一坨一次性吐出
-- 网关超时调到 ≥120s（一次 LLM 调用 + 推流总时长）
-- 单实例 SSE 连接数有限（uvicorn worker 数 × 每进程连接上限），Agent 服务无状态可横向扩，连接属于短生命周期（一次交互一条，推完即关），不存在长连接堆积
+### 有一个要设计的小点（已包含在上面工作量内）
+
+双端并发（手机和平板同时开着）：JSON 里放个 `ver` 版本号，旧的写入会被拒——两行代码，防止老屏幕覆盖新数据。
 
 ---
 
-## 二、状态的保存怎么实现
+## 三、哪些东西是"现成的"（不用发明）
 
-### 2.1 保存的到底是什么
+| 组件 | 来源 | 成熟度 |
+|---|---|---|
+| SSE 推送 | `sse-starlette` 库 | 社区标准，FastAPI 官方文档推荐方案 |
+| 流式读取 | 浏览器原生 `fetch` + `ReadableStream` | 所有现代浏览器支持 |
+| 存档 | `redis-py` 的 set/expire | 10 年+ 历史 |
+| 状态机 | Python 字典 + 查表 | 语言原生能力，无需框架 |
 
-一个会话在 Redis 里就是一个 JSON（Key：`rp:{session_id}`），内容=**状态机的全部现场**：
-
-```json
-{
-  "session_id": "s_9f2c",
-  "user_id": "u_1001",
-  "store_no": "SH0021",
-  "state": "PHOTO",
-  "branch": "B",
-  "ver": 23,
-  "collected_fields": {
-    "category": "收银设备 - 收银机/扫码枪故障",
-    "detail": {"表现": "…", "原因": "…", "后果": "…"},
-    "photos": ["m_001", "m_002"],
-    "contact": {"name": "王芳", "phone": "+86139****0000"},
-    "brought": {"region": "华东大区", "store": "…", "addr": "…", "hours": "…"}
-  },
-  "updated_at": "2026-11-01T10:00:00Z"
-}
-```
-
-有了这份快照，任何时候都能回答三个问题：**走到哪了（state）、已经采到什么（collected_fields）、下一步该干什么（转移表查 state）**。
-
-### 2.2 保存时机：跟着状态变更走，不跟"退出"走
-
-```python
-async def handle(sid: str, msg: MessageIn):
-    sess = await load_session(sid)              # ① Redis 读快照
-    event = classify(msg)                       # ② 消息→事件（card/text/pick/upload…）
-    nxt = TRANSITIONS[sess.state].get(event)    # ③ 查转移表（纯内存，微秒级）
-    if not nxt:
-        return [Msg("text", "请点击上方选项继续")]
-    outputs = await HANDLERS[nxt](sess, msg)    # ④ 执行状态处理器（可能调 LLM/MCP）
-    sess.state = nxt
-    await save_session(sess)                    # ⑤ ★ 每次状态变更后立刻落 Redis
-    return outputs                              # ⑥ 交给 SSE 逐条推送
-```
-
-第 ⑤ 步是关键：**保存发生在每个状态变更之后、推送之前**。所以杀 App、闪退、断网、任何形式的"中途退出"都不需要被感知——用户最后答完的那个字段一定已经写进 Redis 了。
-
-```python
-async def save_session(sess):
-    sess.ver += 1                               # 版本号：乐观锁
-    sess.updated_at = now_iso()
-    pipe = redis.pipeline()
-    pipe.set(f"rp:{sess.session_id}", json.dumps(sess))
-    pipe.expire(f"rp:{sess.session_id}", 7*86400)  # TTL 滑动续期：活跃会话永不过期
-    # 顺手续用户当日配额计数（见成本控制 §9.1）
-    await pipe.execute()
-```
-
-三个细节：
-
-- **TTL 滑动续期**：每次保存都重置 7 天倒计时——"7 天"指的是最后一次操作后 7 天，不是会话创建后 7 天
-- **版本号 ver（乐观锁）**：店员手机 + 平板同时开着同一会话时，后写入的版本号低会被拒绝，防止旧屏幕覆盖新数据
-- **MySQL 归档**：提交成功（DONE）后异步写一份到 MySQL `session_archive` 表用于分析，Redis 里的在 TTL 后自然消失
-
-### 2.3 恢复：断点续填的完整链路
-
-```
-用户打开 AI 入口
-  → 前端读本地 storage 里有没有 session_id
-    → 无：POST /api/sessions 新建（INIT，带出 9 字段）
-    → 有：GET /api/sessions/{sid}
-        → Redis 命中：返回 state=PHOTO + 快照 → 前端整屏重放到照片步骤，已答内容回显
-        → Redis 未命中（过期>7天）：提示"上次会话已过期"，引导新建
-```
-
-前端"重放"就是按状态直接渲染该步骤的 UI（照片指引卡 + 已传缩略图），**不回放历史聊天记录**——用户要的是继续办事，不是看聊天记录，这样实现也最简单。
-
-### 2.4 为什么这套设计经得起追问
-
-| 追问 | 回答 |
-|---|---|
-| Redis 挂了怎么办 | 会话退化为进程内存（牺牲断点续填），提交流程不受影响（§9 降级表） |
-| 会不会保存失败导致状态错乱 | save 在 push 之前：保存失败直接抛错、本轮消息不推，用户重试，不存在"看到了回复但没存上" |
-| 双端并发写 | ver 乐观锁，旧版本写入被拒 |
-| 和老表单草稿冲突 | Key 空间不同（`rp:` 前缀 vs 老表单自己的草稿），物理隔离互不覆盖 |
-| 7 天够吗 | 由埋点 `session_end - session_start` 分布决定，配置化可调 |
+自研的部分只有"业务规则"（什么时候问什么、字段怎么校验），这正是业务代码本该有的形态。
 
 ---
 
-## 三、一次交互的完整时序（串起 SSE + 状态保存）
+## 四、建议的阅读/排期顺序
 
-```
-店员点卡片
-  │ POST /messages {card_click}
-  ▼
-Agent 服务 ── Redis 读快照(state=INIT) ──► 转移表查得 → B_LOCK
-  │                                        │
-  │                              处理器：锁定类别、组装消息
-  │                                        │
-  │◄── save_session(state=B_LOCK, ver+1) ──┘   ★ 先保存
-  ▼
-SSE 推送：typing → text(类别已锁定) → done
-  ▼
-前端逐条渲染，本条连接关闭
-```
+1. **第 1 天**：状态机字典 + 各状态处理函数骨架（不接 LLM，用假数据跑通 INIT→DONE）
+2. **第 2 天**：接 Redis 存档 + 断点恢复，写单测
+3. **第 3 天**：SSE 服务端 + 前端读流，本地联调
+4. **第 4 天**：接真 LLM 和 MCP 工具，过 nginx 配置
+5. **第 5 天**：缓冲联调、异常场景（杀 App / 断网 / 双端）验证
 
-全程零 LLM 调用、一次 Redis 读 + 一次 Redis 写，P95 延迟可控制在 100ms 内。
-
----
-
-## 附：评审快问快答卡
-
-| 问 | 一句话答 |
-|---|---|
-| SSE 和 WebSocket 为啥选前者 | 消息是单向下推（用户消息走 POST），SSE 半个复杂度够用且过网关最省事 |
-| EventSource 为啥不用 | 只支持 GET，POST 场景用 fetch 流式读取 |
-| 断线消息丢吗 | 不补消息，GET 会话快照整屏重放，状态在 Redis |
-| 状态存哪 | Redis 单 Key JSON，TTL 7 天滑动续期，ver 乐观锁 |
-| 什么时候保存 | 每次状态变更后、推送前——退出动作无需感知 |
-| Redis 挂了 | 降级内存会话，报修不受影响，只丢断点续填 |
+每天产出物都可独立验证——这也是"先定态再组装"设计的好处：**任何一天卡住，都不影响其他模块**。

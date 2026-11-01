@@ -19,7 +19,7 @@ title 设备报修 AI 填报助手 — 系统交互时序（泳道）
 actor "店员\n(H5 聊天页)" as U #E3F2FD
 participant "Agent 服务\nFastAPI" as AG #C8E6C9
 participant "状态机引擎" as SM #A5D6A7
-participant "LLM\nGLM-5.3 / Flash" as LLM #FFE082
+participant "LLM\n模型待定" as LLM #FFE082
 participant "MCP Server" as MCP #B0BEC5
 database "明道云 / 主数据\n/ 字典 / OSS" as BACK #FFCC80
 
