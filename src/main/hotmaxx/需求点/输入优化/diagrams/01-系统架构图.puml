@@ -1,4 +1,5 @@
 @startuml 设备报修AI填报-整体系统架构
+!pragma layout smetana
 !theme plain
 skinparam backgroundColor #FAFAFA
 skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
@@ -10,43 +11,43 @@ actor "店员 / 督导\n(App · 网页)" as User #LightBlue
 
 ' ========== 客户端层 ==========
 rectangle "客户端" #DDEEFF {
-  component "H5 聊天页\nAI 填报助手\n(消息协议对齐原型)" as H5 #5D9ECC
-  component "传统报修表单\n(存量保留)" as OLD #90A4AE
+  component "H5 聊天页\nAI 填报助手\n(消息协议对齐原型)" as H5 #BBDEFB
+  component "传统报修表单\n(存量保留)" as OLD #CFD8DC
 }
 
 ' ========== Agent 服务层 ==========
 rectangle "Agent 服务\n(Python 3.11 · FastAPI · 独立部署 · 无状态横向扩)" #E8F5E9 {
-  component "会话 API\nSSE 流式" as API #66BB6A
-  component "状态机引擎\n转移表配置化" as SM #2E7D32
-  component "LangChain 编排\nGLM-5.3 / GLM-Flash" as LC #66BB6A
-  component "Prompt 管理\n版本化" as PM #A5D6A7
-  component "埋点采集" as TR #A5D6A7
+  component "会话 API\nSSE 流式" as API #C8E6C9
+  component "状态机引擎\n转移表配置化" as SM #A5D6A7
+  component "LangChain 编排\nGLM-5.3 / GLM-Flash" as LC #C8E6C9
+  component "Prompt 管理\n版本化" as PM #DCEDC8
+  component "埋点采集" as TR #DCEDC8
 }
 
 ' ========== MCP 工具层 ==========
 rectangle "MCP Server\n(独立进程 · fastmcp · 与业务解耦)" #ECEFF1 {
-  component "get_login_profile\n员工档案" as T1 #607D8B
-  component "get_store_master\n门店主数据" as T2 #607D8B
-  component "get_category_dict\n类别字典 / Top6" as T3 #607D8B
-  component "validate_photos\n拍摄清单校验" as T4 #607D8B
-  component "upload_media\n媒体上传" as T5 #607D8B
-  component "create_repair_order\n建单提交" as T6 #8D6E63
-  component "draft_save / draft_get\n会话草稿" as T7 #607D8B
+  component "get_login_profile\n员工档案" as T1 #B0BEC5
+  component "get_store_master\n门店主数据" as T2 #B0BEC5
+  component "get_category_dict\n类别字典 / Top6" as T3 #B0BEC5
+  component "validate_photos\n拍摄清单校验" as T4 #B0BEC5
+  component "upload_media\n媒体上传" as T5 #B0BEC5
+  component "create_repair_order\n建单提交" as T6 #D7CCC8
+  component "draft_save / draft_get\n会话草稿" as T7 #B0BEC5
 }
 
 ' ========== 存储层 ==========
 rectangle "存储" #F5F5F5 {
-  database "Redis\n会话/草稿 TTL 7天" as RD #D82C20
-  database "MySQL\n归档 / 埋点" as MY #336791
+  database "Redis\n会话/草稿 TTL 7天" as RD #FFCDD2
+  database "MySQL\n归档 / 埋点" as MY #CFD8DC
 }
 
 ' ========== 后端依赖层 ==========
 rectangle "后端依赖 (TODO 接口确认)" #FFF9C4 {
-  component "员工档案" as HR #F9A825
-  component "门店主数据 MDM" as MDM #F9A825
-  component "类别字典\n配置表" as DICT #F9A825
-  component "对象存储 OSS" as OSS #F9A825
-  component "明道云 API" as MDY #F57F17
+  component "员工档案" as HR #FFE082
+  component "门店主数据 MDM" as MDM #FFE082
+  component "类别字典\n配置表" as DICT #FFE082
+  component "对象存储 OSS" as OSS #FFE082
+  component "明道云 API" as MDY #FFCC80
 }
 
 ' ========== 关系连线 ==========

@@ -4,7 +4,7 @@ skinparam backgroundColor #FAFAFA
 skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
 skinparam state {
   BackgroundColor #E8F5E9
-  BorderColor #66BB6A
+  BorderColor #9CCC65
   ArrowColor #455A64
   FontSize 13
 }
@@ -30,7 +30,7 @@ state "DETAIL\n详情采集\n三要素：表现/原因/后果" as DETAIL #E8F5E9
 state "PHOTO\n照片上传\n按类别拍摄清单校验" as PHOTO #E8F5E9
 state "CONTACT\n联系人确认\n本人默认 · 可改店长" as CONTACT #E8F5E9
 state "CONFIRM\n预填确认单\n13字段全部可微调" as CONFIRM #E8F5E9
-state "DONE\n提交成功\n单号 + 已提交/待派单" as DONE #A5D6A7
+state "DONE\n提交成功\n单号 + 已提交/待派单" as DONE #C5E1A5
 
 ' ========== 转移 ==========
 [*] --> INIT : 建会话
