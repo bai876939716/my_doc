@@ -1,0 +1,104 @@
+@startuml 设备报修AI填报-系统交互泳道图
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam sequence {
+  ArrowColor #78909C
+  LifeLineBorderColor #B0BEC5
+  LifeLineBackgroundColor #ECEFF1
+  ParticipantBackgroundColor #ECEFF1
+  ParticipantBorderColor #90A4AE
+  ActorBackgroundColor #E3F2FD
+  ActorBorderColor #90A4AE
+  GroupBackgroundColor #F5F5F5
+  GroupBorderColor #B0BEC5
+  GroupHeaderFontColor #455A64
+}
+title 设备报修 AI 填报助手 — 系统交互时序（泳道）
+
+actor "店员\n(H5 聊天页)" as U #E3F2FD
+participant "Agent 服务\nFastAPI" as AG #C8E6C9
+participant "状态机引擎" as SM #A5D6A7
+participant "LLM\n模型待定" as LLM #FFE082
+participant "MCP Server" as MCP #B0BEC5
+database "明道云 / 主数据\n/ 字典 / OSS" as BACK #FFCC80
+
+== 1 建会话 INIT ==
+U -> AG : POST /api/sessions (token)
+activate AG
+AG -> SM : new session
+activate SM
+SM -> MCP : get_login_profile
+MCP -> BACK : 查员工档案 / 门店主数据
+SM -> MCP : get_category_dict
+MCP -> BACK : 查类别字典 + Top6
+SM --> AG : 9 字段带出 + 首屏消息
+AG --> U : SSE：定位状态条 + Top6 卡片
+deactivate AG
+
+group alt 分支B 点高频卡片
+  U -> AG : 点卡片 (POST messages)
+  AG -> SM : 事件 card
+  SM -> SM : B_LOCK 锁定类别
+  SM --> U : 类别已锁定，请描述三要素
+else 分支A 自由描述
+  U -> AG : 输入文字
+  AG -> SM : 事件 text
+  SM -> LLM : 类别识别 prompt
+  activate LLM
+  LLM --> SM : Top3 候选（按相关性排序）
+  deactivate LLM
+  SM --> U : 枚举单选卡（AI 预选）
+  U -> AG : 点选确认
+end
+
+== 2 详情采集 DETAIL ==
+U -> AG : 语音转文字描述
+AG -> SM : 事件 detail_text
+SM -> LLM : 三要素抽取 + 润色
+activate LLM
+LLM --> SM : 表现 / 原因 / 后果 (JSON)
+deactivate LLM
+alt 要素缺失
+  SM --> U : 仅针对缺失要素追问一轮
+  U -> AG : 补充描述
+end
+
+== 3 照片上传 PHOTO ==
+SM -> MCP : validate_photos 取拍摄清单
+MCP -> BACK : 查类别拍摄配置
+SM --> U : 拍摄指引（购物袋类红色警示）
+U -> AG : 上传照片 x2
+AG -> MCP : upload_media
+MCP -> BACK : 存 OSS
+SM -> SM : 清单逐项校验
+alt 缺项
+  SM --> U : 还差：袋底供应商标识
+  U -> AG : 补拍上传
+end
+
+== 4 联系人 CONTACT ==
+SM --> U : 默认本人信息，可修改
+alt 改为店长
+  U -> AG : 姓名 + 手机号
+  SM -> SM : 更新 contact
+end
+
+== 5 预填确认 CONFIRM ==
+SM --> U : 📋 13 字段确认单（可 ✏️）
+U -> AG : 确认提交 (POST submit)
+AG -> SM : 事件 submit
+SM -> MCP : create_repair_order
+activate MCP
+MCP -> BACK : 明道云建单
+BACK --> MCP : 单号
+deactivate MCP
+SM -> SM : DONE
+SM --> U : ✅ 单号 + 已提交/待派单
+deactivate SM
+
+note over U, BACK
+  断点续填：每次状态变更即 draft_save（Redis, TTL 7天）
+  中途退出后 GET /api/sessions/{id} 恢复到上次状态
+end note
+@enduml

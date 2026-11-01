@@ -2,12 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/src/main/tools/utils/ConcurrentLockHelper-漏斗限流/ConcurrentLockHelper-漏斗限流.iml" filepath="$PROJECT_DIR$/src/main/tools/utils/ConcurrentLockHelper-漏斗限流/ConcurrentLockHelper-漏斗限流.iml" />
-      <module fileurl="file://$PROJECT_DIR$/src/main/tools/utils/ListUtils-集合工具类/ListUtils-集合工具类.iml" filepath="$PROJECT_DIR$/src/main/tools/utils/ListUtils-集合工具类/ListUtils-集合工具类.iml" />
-      <module fileurl="file://$PROJECT_DIR$/src/main/tools/utils/MapUtil-Map工具类/MapUtil-Map工具类.iml" filepath="$PROJECT_DIR$/src/main/tools/utils/MapUtil-Map工具类/MapUtil-Map工具类.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/my_doc.iml" filepath="$PROJECT_DIR$/.idea/my_doc.iml" />
-      <module fileurl="file://$PROJECT_DIR$/src/main/tools/补偿任务执行器/补偿任务执行器.iml" filepath="$PROJECT_DIR$/src/main/tools/补偿任务执行器/补偿任务执行器.iml" />
-      <module fileurl="file://$PROJECT_DIR$/src/main/tools/补偿任务执行器/source/补偿任务执行器2.iml" filepath="$PROJECT_DIR$/src/main/tools/补偿任务执行器/source/补偿任务执行器2.iml" />
     </modules>
   </component>
 </project>
