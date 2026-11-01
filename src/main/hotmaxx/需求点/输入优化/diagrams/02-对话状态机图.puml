@@ -1,0 +1,72 @@
+@startuml 设备报修AI填报-对话状态机
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam state {
+  BackgroundColor #E8F5E9
+  BorderColor #66BB6A
+  ArrowColor #455A64
+  FontSize 13
+}
+
+title 设备报修 AI 填报助手 — 对话状态机
+
+' ========== 入口 ==========
+state "INIT\n静默建档 · 带出9字段\n下发 Top6 高频卡片" as INIT #FFF9C4
+
+' ========== 分支A：自由描述 ==========
+state "A_WAIT\n自由描述\nLLM 识别类别 Top3 + 三要素抽取" as A_WAIT #C8E6C9
+
+' ========== 分支B：高频卡片 ==========
+state "B_LOCK\n卡片即锁定报修类别\n(无二次选择)" as B_LOCK #BBDEFB
+
+state "A_ENUM\n枚举确认卡\nAI 识别项预选 · 仅限点选" as A_ENUM #C8E6C9
+
+' ========== 兜底 ==========
+state "FALLBACK\n全量类别树逐级点选\n仍无法定位则引导切老表单" as FALLBACK #FFCDD2
+
+' ========== 公共流程 ==========
+state "DETAIL\n详情采集\n三要素：表现/原因/后果" as DETAIL #E8F5E9
+state "PHOTO\n照片上传\n按类别拍摄清单校验" as PHOTO #E8F5E9
+state "CONTACT\n联系人确认\n本人默认 · 可改店长" as CONTACT #E8F5E9
+state "CONFIRM\n预填确认单\n13字段全部可微调" as CONFIRM #E8F5E9
+state "DONE\n提交成功\n单号 + 已提交/待派单" as DONE #A5D6A7
+
+' ========== 转移 ==========
+[*] --> INIT : 建会话
+
+INIT --> A_WAIT : 用户发文字
+INIT --> B_LOCK : 点高频卡片
+
+A_WAIT --> A_ENUM : 置信度 >= 0.4
+A_WAIT --> FALLBACK : 置信度 < 0.4
+A_ENUM --> DETAIL : 用户点选确认
+B_LOCK --> DETAIL : 类别即锁定
+FALLBACK --> DETAIL : 全量列表点选
+FALLBACK --> [*] : 引导切老表单
+
+DETAIL --> DETAIL : 缺要素追问一轮
+DETAIL --> PHOTO : 三要素齐
+
+PHOTO --> PHOTO : 缺项补拍
+PHOTO --> CONTACT : 清单校验通过
+
+CONTACT --> CONFIRM : 联系人确认
+CONFIRM --> DONE : 确认提交
+CONFIRM --> PHOTO : 重选类别重拍
+
+DONE --> [*] : 会话结束
+
+note right of B_LOCK
+  分支差异只在入口
+  B_LOCK：卡片即枚举，直接补详情
+  A_ENUM：AI 识别不入库，必须点选
+  汇合后流程完全一致
+end note
+
+note right of FALLBACK
+  兜底原则：永远有路可走
+  LLM 不可用降级卡片向导模式
+end note
+
+@enduml

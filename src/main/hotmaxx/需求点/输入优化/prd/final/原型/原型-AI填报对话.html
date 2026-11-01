@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>设备报修 · AI 填报助手原型</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif; background:#1b2030; min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px 12px; }
+  .caption { color:#8a93a8; font-size:13px; margin-bottom:14px; text-align:center; line-height:1.7; }
+  .caption b { color:#cdd6e8; }
+  .phone { width:390px; max-width:100%; height:800px; max-height:calc(100vh - 90px); background:#f5f6fa; border-radius:36px; box-shadow:0 24px 60px rgba(0,0,0,.5), 0 0 0 10px #0e111c, 0 0 0 12px #2a3145; overflow:hidden; position:relative; display:flex; flex-direction:column; }
+  .screen { position:absolute; inset:0; display:none; flex-direction:column; background:#f5f6fa; }
+  .screen.active { display:flex; }
+
+  /* ============ 传统表单页 ============ */
+  .fd-head { background:linear-gradient(135deg,#2b5cff,#1e3f8f); color:#fff; padding:38px 18px 16px; display:flex; align-items:center; gap:10px; }
+  .fd-head .back { font-size:20px; opacity:.85; }
+  .fd-head h1 { font-size:18px; font-weight:600; }
+  .fd-head .status-chip { margin-left:auto; background:rgba(255,255,255,.18); border-radius:20px; padding:4px 12px; font-size:12px; }
+  .fd-body { flex:1; overflow-y:auto; padding:14px 14px 90px; }
+  .fd-card { background:#fff; border-radius:12px; padding:14px 16px; margin-bottom:12px; box-shadow:0 1px 4px rgba(30,50,100,.06); }
+  .fd-row { display:flex; align-items:flex-start; padding:9px 0; border-bottom:1px dashed #eef0f5; }
+  .fd-row:last-child { border-bottom:none; }
+  .fd-label { width:104px; flex-shrink:0; font-size:14px; color:#333; padding-top:2px; }
+  .fd-label .req { color:#ff4d4f; margin-right:2px; }
+  .fd-label .opt { color:#bbb; font-size:12px; }
+  .fd-value { flex:1; font-size:14px; color:#333; min-height:20px; }
+  .fd-value.placeholder { color:#b9bfcc; }
+  .fd-value .dd { display:inline-flex; align-items:center; gap:4px; }
+  .fd-value .dd::after { content:"▾"; color:#999; font-size:11px; }
+  .fd-value.picker { color:#2b5cff; }
+  .upload-box { border:1.5px dashed #c3cbdc; border-radius:10px; width:66px; height:66px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#98a2b8; font-size:11px; gap:3px; }
+  .upload-box .cam { font-size:22px; }
+  .fd-textarea { width:100%; min-height:88px; border:1px solid #e3e7ef; border-radius:8px; padding:10px; font-size:13px; color:#b9bfcc; resize:none; background:#fafbfd; line-height:1.6; }
+  .chip-gray { display:inline-block; background:#eef1f7; color:#666; border-radius:6px; padding:2px 10px; font-size:12px; }
+  .fd-submit { position:absolute; left:14px; right:14px; bottom:22px; background:linear-gradient(90deg,#2b5cff,#4d8bff); color:#fff; border:none; border-radius:24px; height:48px; font-size:16px; font-weight:600; box-shadow:0 8px 20px rgba(43,92,255,.35); cursor:pointer; }
+
+  /* AI 悬浮入口 */
+  .fab { position:absolute; right:16px; bottom:86px; z-index:20; background:linear-gradient(135deg,#ff8a3d,#ff5f3d); color:#fff; border-radius:26px; padding:12px 16px; display:flex; align-items:center; gap:8px; font-size:14px; font-weight:600; box-shadow:0 10px 24px rgba(255,95,61,.45); cursor:pointer; animation:breath 2.4s ease-in-out infinite; border:none; }
+  .fab .robot { font-size:20px; }
+  @keyframes breath { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
+  .fab-arrow { position:absolute; right:18px; bottom:150px; z-index:20; background:rgba(20,24,38,.82); color:#fff; font-size:12px; border-radius:8px; padding:6px 10px; }
+  .fab-arrow::after { content:""; position:absolute; right:26px; bottom:-5px; border:5px solid transparent; border-top-color:rgba(20,24,38,.82); border-bottom:none; }
+
+  /* ============ AI 对话页 ============ */
+  .chat-top { background:#eaf1ff; padding:34px 14px 10px; font-size:12px; color:#3a4a6b; display:flex; align-items:center; gap:6px; flex-wrap:wrap; border-bottom:1px solid #dce6f8; }
+  .chat-top .loc { flex:1; min-width:200px; line-height:1.6; }
+  .chat-top .loc b { color:#1e3f8f; }
+  .chat-top .edit { color:#2b5cff; background:#fff; border-radius:12px; padding:1px 8px; border:1px solid #c9d8ff; font-size:11px; cursor:pointer; }
+  .btn-switch { background:#fff; border:1px solid #c9d8ff; color:#2b5cff; font-size:12px; border-radius:14px; padding:5px 10px; cursor:pointer; white-space:nowrap; }
+  .chat-body { flex:1; overflow-y:auto; padding:16px 14px 20px; display:flex; flex-direction:column; gap:14px; }
+  .msg { display:flex; gap:8px; max-width:100%; animation:fadein .35s ease; }
+  @keyframes fadein { from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;} }
+  .msg.user { justify-content:flex-end; }
+  .avatar { width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,#2b5cff,#6aa4ff); display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; }
+  .bubble { max-width:78%; border-radius:14px; padding:10px 13px; font-size:14px; line-height:1.65; }
+  .msg.ai .bubble { background:#fff; color:#2a2f3a; box-shadow:0 1px 3px rgba(30,50,100,.07); border-top-left-radius:4px; }
+  .msg.user .bubble { background:linear-gradient(135deg,#2b5cff,#4d8bff); color:#fff; border-top-right-radius:4px; white-space:pre-wrap; }
+  .bubble b { color:#1e3f8f; }
+  .msg.user .bubble b { color:#ffe9a8; }
+  .typing { display:inline-flex; gap:4px; padding:6px 2px; }
+  .typing i { width:6px; height:6px; background:#b7c0d4; border-radius:50%; animation:blink 1.2s infinite; }
+  .typing i:nth-child(2){ animation-delay:.2s } .typing i:nth-child(3){ animation-delay:.4s }
+  @keyframes blink { 0%,80%,100%{opacity:.25} 40%{opacity:1} }
+
+  .sys-tip { text-align:center; font-size:11px; color:#9aa3b8; background:#eef0f6; border-radius:20px; padding:4px 12px; align-self:center; }
+
+  .quick-cards { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+  .qcard { background:#f3f7ff; border:1px solid #cddcff; color:#2b5cff; border-radius:10px; padding:8px 10px; font-size:13px; cursor:pointer; transition:.15s; }
+  .qcard:hover { background:#e3edff; }
+  .qcard.picked { background:#2b5cff; color:#fff; border-color:#2b5cff; }
+  .qcard.disabled { pointer-events:none; opacity:.55; }
+
+  .enum-card { display:flex; align-items:center; gap:8px; border:1.5px solid #dbe3f5; border-radius:10px; padding:9px 11px; margin-top:8px; cursor:pointer; transition:.15s; font-size:13.5px; }
+  .enum-card .radio { width:16px; height:16px; border-radius:50%; border:2px solid #c2cbe0; flex-shrink:0; position:relative; }
+  .enum-card.ai-pick { border-color:#2b5cff; background:#f3f7ff; }
+  .enum-card.ai-pick .radio { border-color:#2b5cff; }
+  .enum-card.ai-pick .radio::after { content:""; position:absolute; inset:3px; background:#2b5cff; border-radius:50%; }
+  .enum-card .tag { font-size:11px; color:#ff8a3d; background:#fff3ea; border-radius:4px; padding:1px 6px; margin-left:auto; white-space:nowrap; }
+  .enum-card:hover { border-color:#2b5cff; }
+  .enum-card.disabled { pointer-events:none; }
+  .enum-card.picked { border-color:#2b5cff; background:#e9f0ff; }
+  .enum-card.picked .radio { border-color:#2b5cff; } .enum-card.picked .radio::after { content:""; position:absolute; inset:3px; background:#2b5cff; border-radius:50%; }
+
+  .act-row { display:flex; flex-wrap:wrap; gap:8px; margin-top:9px; }
+  .act-btn { border:1.5px solid #2b5cff; color:#2b5cff; background:#fff; border-radius:18px; padding:7px 14px; font-size:13px; cursor:pointer; transition:.15s; }
+  .act-btn.solid { background:linear-gradient(90deg,#2b5cff,#4d8bff); color:#fff; box-shadow:0 4px 12px rgba(43,92,255,.3); }
+  .act-btn.warn { border-color:#ff8a3d; color:#ff8a3d; }
+  .act-btn.big { width:100%; border-radius:12px; padding:11px; font-size:15px; font-weight:600; }
+  .act-btn.disabled { pointer-events:none; opacity:.5; }
+
+  .photo-guide { background:#fffaf0; border:1px dashed #ffce85; border-radius:10px; padding:9px 11px; margin-top:8px; font-size:12.5px; color:#8a6116; line-height:1.8; }
+  .photo-guide.alert { background:#fff2f0; border-color:#ffa39e; color:#a42116; }
+  .thumbs { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+  .thumb { width:62px; height:62px; border-radius:8px; background:#e8edf7; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:10px; color:#5b6b8c; gap:2px; overflow:hidden; padding:3px; text-align:center; }
+  .thumb .ic { font-size:20px; }
+
+  .confirm-card { background:#fff; border-radius:14px; padding:0; overflow:hidden; box-shadow:0 2px 8px rgba(30,50,100,.1); width:100%; max-width:92%; align-self:flex-start; margin-top:2px; animation:fadein .4s ease; }
+  .cc-head { background:linear-gradient(90deg,#2b5cff,#4d8dff); color:#fff; padding:11px 14px; font-size:14px; font-weight:600; display:flex; align-items:center; gap:6px; }
+  .cc-sec { padding:10px 14px 4px; }
+  .cc-sec h4 { font-size:12px; color:#8a93a8; font-weight:600; margin-bottom:6px; display:flex; align-items:center; }
+  .cc-sec h4 .mini { margin-left:auto; font-size:11px; color:#2b5cff; background:#f0f5ff; border-radius:4px; padding:1px 7px; font-weight:400; cursor:pointer; }
+  .cc-line { display:flex; font-size:13px; padding:3.5px 0; line-height:1.55; }
+  .cc-line .k { width:76px; color:#8a93a8; flex-shrink:0; }
+  .cc-line .v { color:#2a2f3a; flex:1; }
+  .cc-line .v .hl { color:#1e3f8f; font-weight:600; }
+  .cc-line .v .resel { color:#2b5cff; font-size:11px; cursor:pointer; margin-left:6px; }
+  .cc-detail { background:#f7f9fd; border-radius:8px; padding:8px 10px; font-size:12.5px; color:#3a4a6b; line-height:1.8; }
+  .cc-detail b { color:#1e3f8f; }
+  .cc-foot { padding:10px 14px 14px; }
+
+  .inline-form { background:#f7f9fd; border-radius:10px; padding:10px 12px; margin-top:8px; display:flex; flex-direction:column; gap:8px; }
+  .inline-form input { border:1px solid #d7deeb; border-radius:8px; height:36px; padding:0 10px; font-size:13px; outline:none; }
+  .inline-form input:focus { border-color:#2b5cff; }
+
+  .success-card { background:linear-gradient(135deg,#e9fbef,#d9f6e4); border:1px solid #9be3b8; }
+  .success-card .no { font-size:16px; font-weight:700; color:#0f7a37; letter-spacing:.5px; }
+
+  .chat-input { display:flex; gap:8px; padding:10px 12px 22px; background:#fff; border-top:1px solid #e8ebf2; align-items:center; }
+  .chat-input .mic { font-size:22px; cursor:pointer; }
+  .chat-input input { flex:1; border:none; background:#f2f4f9; border-radius:20px; height:40px; padding:0 15px; font-size:14px; outline:none; }
+  .chat-input .send { background:linear-gradient(135deg,#2b5cff,#4d8bff); color:#fff; border:none; width:42px; height:42px; border-radius:50%; font-size:17px; cursor:pointer; }
+  .chat-input .send:disabled { opacity:.4; }
+</style>
+</head>
+<body>
+<div class="caption">设备报修 · 对话式智能填报原型演示 —— <b>点击右下角悬浮按钮进入 AI 对话</b>；对话中 <b>点高频卡片 = 分支B（类别即锁定）</b>，<b>直接打字 = 分支A（AI 识别类别）</b></div>
+
+<div class="phone">
+  <!-- ================= 屏1：传统表单 ================= -->
+  <div class="screen active" id="screenForm">
+    <div class="fd-head">
+      <span class="back">‹</span><h1>设备报修</h1><span class="status-chip">待提交</span>
+    </div>
+    <div class="fd-body">
+      <div class="fd-card">
+        <div class="fd-row"><div class="fd-label">大区<span class="req">*</span></div><div class="fd-value dd">华东大区</div></div>
+        <div class="fd-row"><div class="fd-label">门店编号<span class="req">*</span></div><div class="fd-value">SH0021</div></div>
+        <div class="fd-row"><div class="fd-label">门店名<span class="opt">(选)</span></div><div class="fd-value">上海静安寺店</div></div>
+        <div class="fd-row"><div class="fd-label">门店属性<span class="opt">(选)</span></div><div class="fd-value">商场店</div></div>
+        <div class="fd-row"><div class="fd-label">门店地址<span class="req">*</span></div><div class="fd-value">上海市静安区南京西路 1618 号 B1 层</div></div>
+        <div class="fd-row"><div class="fd-label">营业时间<span class="opt">(选)</span></div><div class="fd-value">10:00 - 22:00</div></div>
+      </div>
+      <div class="fd-card">
+        <div class="fd-row"><div class="fd-label">联系人<span class="req">*</span></div><div class="fd-value">张伟</div></div>
+        <div class="fd-row"><div class="fd-label">手机号码<span class="req">*</span></div><div class="fd-value">+86 138****1234</div></div>
+        <div class="fd-row"><div class="fd-label">报修单编号<span class="opt">(选)</span></div><div class="fd-value placeholder">提交后自动生成</div></div>
+        <div class="fd-row"><div class="fd-label">报修类别<span class="req">*</span></div><div class="fd-value placeholder dd picker">请选择</div></div>
+      </div>
+      <div class="fd-card">
+        <div class="fd-row"><div class="fd-label">问题照片或视频<span class="req">*</span></div>
+          <div class="fd-value"><div class="upload-box"><span class="cam">📷</span>拍摄/上传</div></div>
+        </div>
+        <div class="fd-row" style="display:block">
+          <div class="fd-label" style="width:100%;margin-bottom:7px">报修详情<span class="req">*</span></div>
+          <div class="fd-textarea">描述故障表现、原因、后果…</div>
+        </div>
+      </div>
+      <div style="text-align:center;color:#aeb6c9;font-size:12px;margin-top:4px">共 13 个字段 · 必填 8 项</div>
+    </div>
+    <button class="fd-submit">提 交</button>
+    <div class="fab-arrow">新增入口，点我试试 →</div>
+    <button class="fab" id="btnFab"><span class="robot">🤖</span>AI 填报助手</button>
+  </div>
+
+  <!-- ================= 屏2：AI 对话 ================= -->
+  <div class="screen" id="screenChat">
+    <div class="chat-top">
+      <div class="loc">📍 已定位：<b>[华东大区] 上海静安寺店 (SH0021)</b><br>联系人：张伟 (138****1234)</div>
+      <span class="edit">✏️ 修改</span>
+      <button class="btn-switch" id="btnBack">⇄ 传统表单</button>
+    </div>
+    <div class="chat-body" id="chatBody"></div>
+    <div class="chat-input">
+      <span class="mic">🎤</span>
+      <input id="chatInput" type="text" placeholder="描述问题，或点击上方卡片…">
+      <button class="send" id="btnSend">➤</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============ 数据 ============ */
+const STORE = { region:'华东大区', shop:'上海静安寺店', no:'SH0021', attr:'商场店',
+  addr:'上海市静安区南京西路 1618 号 B1 层', hours:'10:00 - 22:00',
+  me:{name:'张伟', phone:'+86 138****1234'} };
+
+const CARDS = {
+  cold:   { emoji:'❄️', label:'冷柜/空调不制冷', cat:'制冷设备 - 冷柜/空调不制冷', order:'BX-20261031-1032',
+            say:'店里的冷藏风幕柜不制冷了，柜内温度显示 15 度，估计是压缩机坏了，里面的鲜奶不敢卖只好全下架了。',
+            guide:'建议拍摄：① 冷柜整体外观 ② 温控器温度显示特写',
+            photos:['整柜外观.jpg','温控器15度.jpg'],
+            d:['冷藏风幕柜不制冷，柜内温度显示 15℃','初步判断压缩机故障','柜内鲜奶已全线下架，无法正常销售'] },
+  pos:    { emoji:'💻', label:'收银机/扫码枪故障', cat:'收银设备 - 收银机/扫码枪故障', order:'BX-20261031-1058',
+            say:'2 号收银台的扫码枪扫不出码，灯光也不亮，估计是线摔松了坏了，现在结账只能手输条码，顾客排长队。',
+            guide:'建议拍摄：① 故障设备整体 ② 故障部位 / 指示灯特写',
+            photos:['扫码枪故障.jpg','收银台2号.jpg'],
+            d:['2 号收银台扫码枪无法扫码、灯光不亮','初步判断扫码枪线路松动或损坏','收银只能手动输入条码，结账效率低，顾客排队'] },
+  light:  { emoji:'💡', label:'照明/招牌灯不亮', cat:'电气照明 - 照明/招牌灯故障', order:'BX-20261031-1061',
+            say:'门口招牌灯有一截不亮了，估计是灯带烧了，晚上门头黑一块，顾客说找不到我们店。',
+            guide:'建议拍摄：① 门头整体（可见不亮区域）② 不亮部位特写',
+            photos:['招牌不亮.jpg','灯带特写.jpg'],
+            d:['门口招牌灯局部不亮','初步判断灯带烧毁','夜间门头标识不完整，影响顾客识别进店'] },
+  bag:    { emoji:'🛍️', label:'购物袋/物料质量问题', cat:'耗材与包装 - 购物袋破损/质量异常', order:'BX-20261031-1064', danger:true,
+            say:'这批大号购物袋一拎就破，底封线全裂开的，顾客投诉好几个了。',
+            guide:'⚠️ 该类别后台审核严，缺图必驳回！必拍清单：① 袋底供应商标识特写 ② 问题部位（底封开裂）特写',
+            photos:['袋底供应商标识.jpg','底封开裂特写.jpg'],
+            d:['大号购物袋底部封线开裂，一拎即破','供应商封边工艺不良','已引发多起顾客投诉，门店临时用中号袋替代'] },
+  water:  { emoji:'🚰', label:'水电/下水道堵塞', cat:'水电设施 - 下水道堵塞/漏水', order:'BX-20261031-1067',
+            say:'后仓洗手池下水堵了往外返水，估计是管道堵了，地面积水怕员工滑倒。',
+            guide:'建议拍摄：① 堵塞点整体 ② 返水/积水情况',
+            photos:['返水点.jpg','地面积水.jpg'],
+            d:['后仓洗手池下水道堵塞、往外返水','初步判断管道异物堵塞','地面积水存在滑倒风险，影响后仓作业'] },
+  shelf:  { emoji:'🔧', label:'货架/门锁损坏', cat:'门店设施 - 货架/门锁损坏', order:'BX-20261031-1070',
+            say:'3 排货架第二层托架断了塌了一角，估计是承重螺丝松脱，货都不敢往上摆了。',
+            guide:'建议拍摄：① 货架受损层整体 ② 托架断裂处特写',
+            photos:['货架受损.jpg','托架断裂.jpg'],
+            d:['3 排货架第二层托架断裂、层板塌陷一角','初步判断承重螺丝松脱导致托架断裂','该层商品无法陈列，暂挪他处'] }
+};
+
+/* 分支A：自由描述 → 枚举确认（冷柜场景） */
+const ENUMS = [
+  { name:'制冷设备 - 风幕柜/立式冷柜', ai:true,  note:'AI 识别' },
+  { name:'制冷设备 - 卧式冰柜',        ai:false, note:'' },
+  { name:'暖通设备 - 门店空调',        ai:false, note:'' }
+];
+
+/* ============ 工具 ============ */
+const $ = s => document.querySelector(s);
+const body = $('#chatBody');
+function scrollEnd(){ body.scrollTop = body.scrollHeight; }
+function addAI(html, after){
+  const m = document.createElement('div'); m.className = 'msg ai';
+  m.innerHTML = '<div class="avatar">🤖</div><div class="bubble"></div>';
+  const b = m.querySelector('.bubble');
+  b.innerHTML = '<span class="typing"><i></i><i></i><i></i></span>';
+  body.appendChild(m); scrollEnd();
+  setTimeout(()=>{ b.innerHTML = html; scrollEnd(); if(after) after(b); }, 700 + Math.random()*400);
+  return b;
+}
+function addUser(text, delay){
+  const m = document.createElement('div'); m.className='msg user';
+  m.innerHTML = '<div class="bubble"></div>';
+  m.querySelector('.bubble').textContent = text;
+  if(delay){ setTimeout(()=>{ body.appendChild(m); scrollEnd(); }, delay); } else { body.appendChild(m); scrollEnd(); }
+}
+function addTip(t){ const d=document.createElement('div'); d.className='sys-tip'; d.textContent=t; body.appendChild(d); scrollEnd(); }
+
+let state = 'welcome';   // welcome → b_details → photo → contact → confirm / a_enum → ...
+let ctx = {};            // 当前演示上下文
+
+/* ============ 流程 ============ */
+function welcome(){
+  addAI('张伟你好！门店信息已自动带出 📍<br>店里遇到了什么问题？<b>点击下方常见问题</b>，或直接<b>打字 / 语音</b>告诉我：' +
+    `<div class="quick-cards" id="qc"></div>`, (b)=>{
+    const qc = b.querySelector('#qc');
+    Object.entries(CARDS).forEach(([k,c])=>{
+      const btn = document.createElement('button'); btn.className='qcard';
+      btn.innerHTML = `${c.emoji} ${c.label}`;
+      btn.onclick = ()=> pickCard(k, btn);
+      qc.appendChild(btn);
+    });
+    addTip('演示提示：点卡片 = 分支B · 直接打字 = 分支A');
+    scrollEnd();
+  });
+}
+
+/* ---- 分支B：点卡片，类别即锁定 ---- */
+function pickCard(k, btn){
+  if(state!=='welcome') return;
+  state = 'b_details';
+  const c = CARDS[k]; ctx = { card:c, order:c.order, contact:{...STORE.me}, contactChanged:false, branch:'B' };
+  document.querySelectorAll('.qcard').forEach(x=>x.classList.add('disabled'));
+  btn.classList.remove('disabled'); btn.classList.add('picked');
+  addUser(`（点击了 [${c.emoji} ${c.label}] 卡片）`);
+  addAI(`<b>报修类别已锁定</b>：<b>${c.cat}</b><br>请描述：<b>具体表现、产生原因、导致后果</b>（可语音直接说）。` +
+    `<div class="act-row"><button class="act-btn" onclick="voiceDemo()">🎤 语音输入（示例）</button></div>`);
+}
+
+/* 语音示例：替用户发出该类别的标准描述 */
+function voiceDemo(){
+  if(state!=='b_details') return;
+  const say = ctx.card ? ctx.card.say : CARDS.cold.say;
+  sendUser(say);
+}
+
+/* ---- 分支A：自由描述 → 枚举确认 ---- */
+function freeDescribe(text){
+  state = 'a_enum';
+  ctx = { card:CARDS.cold, order:CARDS.cold.order, contact:{...STORE.me}, contactChanged:false, branch:'A' };
+  addAI('已从描述中识别故障设备。<b>【报修类别】</b>将登记为以下枚举（请点选确认，防止误报被驳回）：<div id="enums"></div>', (b)=>{
+    const box = b.querySelector('#enums');
+    ENUMS.forEach((e,i)=>{
+      const d = document.createElement('div'); d.className = 'enum-card' + (e.ai?' ai-pick':'');
+      d.innerHTML = `<span class="radio"></span><span>${e.name}</span>` + (e.note?`<span class="tag">${e.note}</span>`:'');
+      d.onclick = ()=> pickEnum(i, d, box);
+      box.appendChild(d);
+    });
+    scrollEnd();
+  });
+}
+function pickEnum(i, el, box){
+  box.querySelectorAll('.enum-card').forEach(x=>{ x.classList.add('disabled'); x.classList.remove('picked'); });
+  el.classList.add('picked');
+  addUser(`（点击确认 [${ENUMS[i].name}]）`);
+  ctx.card = i===0 ? CARDS.cold : (i===1 ? {...CARDS.cold, cat:ENUMS[i].name} : {...CARDS.cold, cat:ENUMS[i].name});
+  askPhoto();
+}
+
+/* ---- 照片上传（两分支共用） ---- */
+function askPhoto(){
+  state = 'photo';
+  const c = ctx.card;
+  addAI('请上传 <b>问题照片或短视频</b>（必填）：' +
+    `<div class="photo-guide${c.danger?' alert':''}">${c.guide}</div>` +
+    `<div class="act-row"><button class="act-btn" onclick="fakeUpload(this)">📷 拍照 / 上传（示例）</button></div>`);
+}
+function fakeUpload(btn){
+  if(state!=='photo') return;
+  btn.classList.add('disabled');
+  const c = ctx.card;
+  const thumbs = c.photos.map(p=>`<div class="thumb"><span class="ic">🖼️</span>${p}</div>`).join('');
+  const holder = btn.closest('.bubble');
+  const t = document.createElement('div'); t.className='thumbs'; t.innerHTML = thumbs;
+  holder.appendChild(t); scrollEnd();
+  setTimeout(()=> askContact(), 600);
+}
+
+/* ---- 联系人确认 ---- */
+function askContact(){
+  state = 'contact';
+  addAI(`<b>联系人 / 手机号码</b>默认使用本人信息：<b>${STORE.me.name}</b>（<b>${STORE.me.phone}</b>），如替他人报修可修改：` +
+    `<div class="act-row">
+       <button class="act-btn solid" onclick="useMe(this)">✅ 用本人信息</button>
+       <button class="act-btn" onclick="editContact(this)">✏️ 修改联系人</button>
+     </div>`);
+}
+function useMe(btn){
+  if(state!=='contact') return;
+  lockActs(btn); ctx.contact = {...STORE.me}; ctx.contactChanged=false;
+  addUser('（点击 [✅ 用本人信息]）');
+  setTimeout(showConfirm, 700);
+}
+function editContact(btn){
+  if(state!=='contact') return;
+  lockActs(btn);
+  const holder = btn.closest('.bubble');
+  const f = document.createElement('div'); f.className='inline-form';
+  f.innerHTML = `<input id="cName" placeholder="姓名" value="王芳"><input id="cPhone" placeholder="手机号" value="+86 139****0000">
+                 <button class="act-btn solid" style="align-self:flex-end">确 定</button>`;
+  f.querySelector('button').onclick = ()=>{
+    const n = $('#cName').value || '王芳', p = $('#cPhone').value || '+86 139****0000';
+    ctx.contact = {name:n, phone:p}; ctx.contactChanged=true;
+    addUser(`登记当班店长的电话：${n}，${p.replace('+86 ','')}。`);
+    addAI(`已更新联系人：<b>${n}</b>（<b>${p}</b>）。`, false);
+    setTimeout(showConfirm, 1300);
+  };
+  holder.appendChild(f); scrollEnd();
+}
+function lockActs(btn){ btn.closest('.act-row').querySelectorAll('.act-btn').forEach(x=>x.classList.add('disabled')); }
+
+/* ---- 预填确认单 ---- */
+function showConfirm(){
+  state = 'confirm';
+  const c = ctx.card, k = ctx.contact;
+  const card = document.createElement('div'); card.className='confirm-card';
+  card.innerHTML = `
+    <div class="cc-head">📋 设备报修预填确认单</div>
+    <div class="cc-sec">
+      <h4>基础信息（系统自动带出）<span class="mini">✏️ 修改基础信息</span></h4>
+      <div class="cc-line"><span class="k">大区 / 门店</span><span class="v"><span class="hl">${STORE.region} | ${STORE.shop}</span>（${STORE.no} · ${STORE.attr}）</span></div>
+      <div class="cc-line"><span class="k">门店地址</span><span class="v">${STORE.addr}</span></div>
+      <div class="cc-line"><span class="k">营业时间</span><span class="v">${STORE.hours}</span></div>
+      <div class="cc-line"><span class="k">联系人</span><span class="v"><span class="hl">${k.name}（${k.phone}）</span>${ctx.contactChanged?'<span class="resel" onclick="revertMe()">✏️ 改回本人</span>':''}</span></div>
+    </div>
+    <div class="cc-sec">
+      <h4>报修内容（${ctx.branch==='A'?'AI 识别 + 整理预填':'AI 整理预填'}）</h4>
+      <div class="cc-line"><span class="k">报修类别</span><span class="v"><span class="hl">${c.cat}</span>${ctx.branch==='B'?'（点击卡片锁定）':''}<span class="resel">重选</span></span></div>
+      <div class="cc-line"><span class="k">报修详情</span><span class="v"><div class="cc-detail">
+        <b>【故障表现】</b>${c.d[0]}；<br><b>【产生原因】</b>${c.d[1]}；<br><b>【导致后果】</b>${c.d[2]}。</div>
+        <span class="resel">✏️ 编辑文本</span></span></div>
+      <div class="cc-line"><span class="k">问题附件</span><span class="v">🖼️ ${c.photos.length} 张图片 <span class="resel">+ 继续添加</span></span></div>
+    </div>
+    <div class="cc-foot"><button class="act-btn solid big" onclick="submitOrder(this)">✅ 确认并提交报修单</button></div>`;
+  const wrap = document.createElement('div'); wrap.className='msg ai'; wrap.style.width='100%';
+  wrap.innerHTML = '<div class="avatar">🤖</div>';
+  wrap.appendChild(card);
+  body.appendChild(wrap); scrollEnd();
+  addTip('全部字段已就绪，扫一眼即可提交');
+}
+function revertMe(){
+  ctx.contact = {...STORE.me}; ctx.contactChanged=false;
+  addAI(`已改回本人：${STORE.me.name}（${STORE.me.phone}）。`);
+  setTimeout(()=>{ const cards=document.querySelectorAll('.confirm-card'); const last=cards[cards.length-1];
+    last.querySelectorAll('.cc-line .v')[3].innerHTML = `<span class="hl">${STORE.me.name}（${STORE.me.phone}）</span>`; }, 600);
+}
+
+/* ---- 提交 ---- */
+function submitOrder(btn){
+  if(state!=='confirm') return;
+  btn.classList.add('disabled'); btn.textContent='提交中…';
+  addUser('（点击 [✅ 确认并提交报修单]）');
+  setTimeout(()=>{
+    const m = document.createElement('div'); m.className='msg ai';
+    m.innerHTML = '<div class="avatar">🤖</div><div class="bubble success-card"></div>';
+    m.querySelector('.bubble').innerHTML =
+      `提交成功 ✅<br>报修单编号：<span class="no">${ctx.order}</span><br>状态：<b>已提交 / 待派单</b><br>维修进度会推送通知你。` +
+      `<div class="act-row"><button class="act-btn" onclick="resetDemo()">🔁 重新演示</button></div>`;
+    body.appendChild(m); scrollEnd();
+    state = 'done';
+  }, 900);
+}
+
+/* ---- 输入处理 ---- */
+function sendUser(text){
+  const t = text.trim(); if(!t) return;
+  addUser(t);
+  if(state==='welcome'){ setTimeout(()=>freeDescribe(t), 600); }
+  else if(state==='b_details'){
+    state='photo';
+    addAI(`收到，报修详情已整理为草稿 ✅`);
+    setTimeout(askPhoto, 1100);
+  }
+  else { addAI('请点击上方选项继续操作 🙂'); }
+}
+$('#btnSend').onclick = ()=>{ const v=$('#chatInput').value; $('#chatInput').value=''; sendUser(v); };
+$('#chatInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ const v=e.target.value; e.target.value=''; sendUser(v);} });
+
+/* ---- 屏幕切换 ---- */
+$('#btnFab').onclick = ()=>{
+  $('#screenForm').classList.remove('active');
+  $('#screenChat').classList.add('active');
+  if(!body.children.length) welcome();
+};
+$('#btnBack').onclick = ()=>{
+  $('#screenChat').classList.remove('active');
+  $('#screenForm').classList.add('active');
+  document.querySelector('.fab-arrow').style.display='none';
+};
+
+/* ---- 重置 ---- */
+function resetDemo(){
+  body.innerHTML=''; state='welcome'; ctx={};
+  welcome();
+}
+</script>
+</body>
+</html>

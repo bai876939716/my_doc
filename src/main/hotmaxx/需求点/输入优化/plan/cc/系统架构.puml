@@ -1,0 +1,41 @@
+flowchart LR
+    subgraph CLIENT["客户端"]
+        H5["App / 网页 H5 聊天页"]
+        OLD["传统报修表单（存量保留）"]
+    end
+    subgraph AGENT["Agent 服务 · FastAPI 独立部署"]
+        API["会话 API · SSE 流式"]
+        SM["状态机引擎"]
+        LC["LangChain 编排 · GLM-5.3 / Flash"]
+        PM["Prompt 管理 · 版本化"]
+        TR["埋点采集"]
+    end
+    subgraph MCP["MCP Server · 独立进程"]
+        T1["get_login_profile"]
+        T2["get_store_master"]
+        T3["get_category_dict"]
+        T4["validate_photos"]
+        T5["upload_media"]
+        T6["create_repair_order"]
+        T7["draft_save / draft_get"]
+    end
+    subgraph BACK["后端依赖"]
+        HR["员工档案"]
+        MDM["门店主数据"]
+        DICT["类别字典 · 配置表"]
+        OSS["对象存储"]
+        MDY["明道云 API"]
+    end
+    H5 -- "HTTPS + SSE" --> API
+    OLD -. "草稿隔离 · 互不覆盖" .-> H5
+    API --> SM
+    SM --> LC
+    SM --> PM
+    LC <--> MCP
+    API --> TR
+    T1 --> HR
+    T2 --> MDM
+    T3 --> DICT
+    T4 --> DICT
+    T5 --> OSS
+    T6 --> MDY
