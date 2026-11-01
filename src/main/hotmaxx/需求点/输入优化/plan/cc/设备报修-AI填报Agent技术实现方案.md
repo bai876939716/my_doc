@@ -37,6 +37,8 @@
 
 > 督导多店：`get_login_profile` 返回多门店时，前端首屏弹门店切换胶囊，切换后重调 `get_store_master` 联动刷新。
 
+> **部署与传输**：MCP Server 以 fastmcp 的 **Streamable HTTP** 独立部署（单端点 `/mcp`），Agent 服务经官方 SDK 的 streamable http client 连接（会话由 MCP-Session-Id 维持，断线可续传）；stdio 仅用于本地调试，不用于生产。选型论证见《技术选型与方案设计对比.md》§3.3，代码骨架见 [详细点/关键代码骨架.md](./详细点/关键代码骨架.md)。
+
 ---
 
 ## 3. 对话状态机
@@ -52,6 +54,7 @@
 | `CONTACT` | 照片通过 | 无 | 展示带出联系人 + 修改入口 | 用本人→`CONFIRM`；修改→行内表单→`CONFIRM` |
 | `CONFIRM` | 字段齐 | 无 | 渲染预填确认单（带出灰显/AI 高亮/✏️） | 确认→`DONE`；点重选类别→`PHOTO` 前置重走 |
 | `DONE` | 提交成功 | 无 | 出单号 + 状态，推埋点 | 终态（可重新演示/继续报修） |
+| `EXITED` | 主动退出（`exit_keep` / `exit_abandon`），DONE 之外任意状态可触发 | 无 | keep：再存一次快照后终态（草稿保留 7 天，重进下发「继续上次报修」）；abandon：草稿标记废弃 | 终态（keep 快照可经恢复接口重建会话） |
 | `FALLBACK` | 识别失败 / 候选全被过滤 / 主数据缺失 | 无 | 全量类别树逐级点选；仍无法定位→引导切老表单 | 选定→`DETAIL`；切走→终态 |
 
 > 📊 状态转移图（PlantUML 独立文件）：[diagrams/02-对话状态机图.puml](../../diagrams/02-对话状态机图.puml)
@@ -126,6 +129,8 @@
 
 断点续填：每次状态变更即 `draft_save`；重进会话 `draft_get` 恢复到上次状态。与老表单草稿**不同 Key 空间**，天然隔离、互不覆盖；切老表单时不回写（本期），仅在确认单展示带出字段。
 
+主动退出：`exit_keep` 与断点续填同源（快照已在 Redis，再存一次即退出）；`exit_abandon` 将快照标记废弃（保留 24h 供排查后删除）；重进 AI 入口检测到 keep 快照 → 下发「继续上次报修」卡片，点选即 `GET /sessions/{id}` 重放。
+
 > 💻 存储结构 JSON 与关键代码骨架（状态机 / MCP / 类别识别）：[详细点/关键代码骨架.md](./详细点/关键代码骨架.md)
 
 ---
@@ -136,7 +141,9 @@
 |---|---|---|
 | `/api/sessions` | POST | 建会话，返回 session_id + 首屏消息（状态条 + Top6 卡片） |
 | `/api/sessions/{id}/messages` | POST | 用户消息（文本/卡片点击/上传完成），响应 **SSE 流**：typing → 文本 → 卡片消息 |
+| `/api/sessions/{id}/upload` | POST | multipart 附件上传，返回 media_ids（经 MCP `upload_media` 落 OSS） |
 | `/api/sessions/{id}` | GET | 恢复会话（断点续填/换端） |
+| `/api/sessions/{id}/exit` | POST | 主动退出，body `{mode: keep\|abandon}`；keep 存快照进 `EXITED`（7 天内可续），abandon 标记废弃 |
 | `/api/sessions/{id}/submit` | POST | CONFIRM 状态提交，调 `create_repair_order` |
 
 **消息协议**（SSE `data`，与原型组件一一对应）：
@@ -153,6 +160,8 @@
 | `typing` / `system_tip` | — | 输入态 / 居中提示 |
 
 > 📊 一次完整会话的系统交互时序（泳道图，PlantUML 独立文件）：[diagrams/03-系统交互泳道图.puml](../../diagrams/03-系统交互泳道图.puml)
+
+> 📄 **接口真值**（请求/响应 JSON、SSE 事件流格式、MCP Streamable HTTP 握手与 tools/call 示例）：[详细点/接口文档.md](./详细点/接口文档.md)——交互图每条箭头与本文接口一一对应。
 
 ---
 
@@ -236,6 +245,7 @@ LLM 是唯一按量计费项，限额在 **Agent 服务 LLM 调用层**统一拦
 | `branch_a_input` / `branch_b_card_click` | 两个分支入口 | 分支占比、渗透率分母 |
 | `enum_first_pick` | A 分支：AI 预选项是否被直接点选 | **类别识别准确率**（first_pick=true 占比） |
 | `fallback_enter` / `switch_to_form` | 降级 / 切老表单 | 兜底率、转老表单率 |
+| `session_exit` / `draft_resume` | 主动退出（keep/abandon）/ 重进点「继续上次报修」 | 中途放弃率、续填恢复率（完成成功率归因） |
 | `photo_reject` | 拍摄清单缺项 | 防驳回前置拦截量 |
 | `contact_change` | 修改联系人 | 代报占比 |
 | `submit_success` / `submit_fail` | 明道云返回 | 完成成功率、卡壳定位 |

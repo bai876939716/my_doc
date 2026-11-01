@@ -5,37 +5,37 @@ skinparam backgroundColor #FAFAFA
 skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
 skinparam packageStyle rectangle
 skinparam shadowing false
-skinparam ArrowColor #607D8B
+skinparam ArrowColor #90A4AE
 skinparam ArrowFontSize 10
 
 title 三套整体方案对比 · 方案二为推荐（评选基准见对比文档 §1）
 
-rectangle "方案一 · 极简直连\n最快 · 但到顶即天花板" #FFF3E0 {
-  component "H5 聊天页" as A1 #FFCC80
-  component "FastAPI 单体服务\nLangChain Agent 全权决策\n流程在提示词里" as A2 #FFE0B2
-  component "明道云 / 员工档案 / 主数据\nREST 直连" as A3 #FFE082
+rectangle "方案一 · 极简直连\n最快 · 但到顶即天花板" #FFFCF5 {
+  component "H5 聊天页" as A1 #FFF3E0
+  component "FastAPI 单体服务\nLangChain Agent 全权决策\n流程在提示词里" as A2 #FFF8E1
+  component "明道云 / 员工档案 / 主数据\nREST 直连" as A3 #FFF8E1
   A1 -down-> A2 : HTTPS
   A2 -down-> A3
 }
 
-rectangle "方案二 · 自研状态机 + MCP\n推荐 · 本期采用" #E8F5E9 {
-  component "H5 聊天页\n消息协议对齐原型" as B1 #BBDEFB
-  component "FastAPI Agent 服务\n自研状态机(转移表配置化)\nLangChain 仅封装 LLM 调用" as B2 #C8E6C9
-  component "MCP Server\nStreamable HTTP · 7 工具\n独立进程·跨业务复用" as B3 #B0BEC5
-  component "Redis + MySQL\n会话·草稿·配额·埋点" as B4 #FFCDD2
-  component "明道云 / 员工档案 / 主数据 / OSS\n经 MCP 工具访问" as B5 #FFE082
+rectangle "方案二 · 自研状态机 + MCP\n推荐 · 本期采用" #F4FAF4 {
+  component "H5 聊天页\n消息协议对齐原型" as B1 #E3F2FD
+  component "FastAPI Agent 服务\n自研状态机(转移表配置化)\nLangChain 仅封装 LLM 调用" as B2 #E8F5E9
+  component "MCP Server\nStreamable HTTP · 7 工具\n独立进程·跨业务复用" as B3 #ECEFF1
+  component "Redis + MySQL\n会话·草稿·配额·埋点" as B4 #FFEBEE
+  component "明道云 / 员工档案 / 主数据 / OSS\n经 MCP 工具访问" as B5 #FFF8E1
   B1 -down-> B2 : POST + SSE 流
   B2 -down-> B3 : MCP 调用
   B2 -down-> B4 : 状态快照
   B3 -down-> B5
 }
 
-rectangle "方案三 · LangGraph 全托管\n终态形态提前" #E3F2FD {
-  component "H5 聊天页\n消息协议对齐原型" as C1 #BBDEFB
-  component "FastAPI 服务\nLangGraph StateGraph\n节点=状态·条件边=转移" as C2 #90CAF9
-  component "MCP Server\nStreamable HTTP · 7 工具" as C3 #B0BEC5
-  component "Redis Checkpointer\n断点续填原生" as C4 #FFCDD2
-  component "明道云 / 员工档案 / 主数据 / OSS\n经 MCP 工具访问" as C5 #FFE082
+rectangle "方案三 · LangGraph 全托管\n终态形态提前" #F5FAFE {
+  component "H5 聊天页\n消息协议对齐原型" as C1 #E3F2FD
+  component "FastAPI 服务\nLangGraph StateGraph\n节点=状态·条件边=转移" as C2 #E3F2FD
+  component "MCP Server\nStreamable HTTP · 7 工具" as C3 #ECEFF1
+  component "Redis Checkpointer\n断点续填原生" as C4 #FFEBEE
+  component "明道云 / 员工档案 / 主数据 / OSS\n经 MCP 工具访问" as C5 #FFF8E1
   C1 -down-> C2 : POST + SSE 流
   C2 -down-> C3 : MCP 调用
   C2 -down-> C4 : 快照内置

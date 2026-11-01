@@ -3,102 +3,161 @@
 skinparam backgroundColor #FAFAFA
 skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
 skinparam sequence {
-  ArrowColor #78909C
-  LifeLineBorderColor #B0BEC5
-  LifeLineBackgroundColor #ECEFF1
-  ParticipantBackgroundColor #ECEFF1
-  ParticipantBorderColor #90A4AE
+  ArrowColor #90A4AE
+  LifeLineBorderColor #CFD8DC
+  LifeLineBackgroundColor #F7F9FA
+  ParticipantBackgroundColor #F4F7F9
+  ParticipantBorderColor #B0BEC5
   ActorBackgroundColor #E3F2FD
-  ActorBorderColor #90A4AE
-  GroupBackgroundColor #F5F5F5
-  GroupBorderColor #B0BEC5
-  GroupHeaderFontColor #455A64
+  ActorBorderColor #90CAF9
+  GroupBackgroundColor #FAFAFA
+  GroupBorderColor #CFD8DC
+  GroupHeaderFontColor #546E7A
+  BoxBorderColor #CFD8DC
 }
-title 设备报修 AI 填报助手 — 系统交互时序（泳道）
+title 设备报修 AI 填报助手 — 系统交互时序（真实接口 · 见 详细点/接口文档.md）
 
-actor "店员\n(H5 聊天页)" as U #E3F2FD
-participant "Agent 服务\nFastAPI" as AG #C8E6C9
-participant "状态机引擎" as SM #A5D6A7
-participant "LLM\n模型待定" as LLM #FFE082
-participant "MCP Server" as MCP #B0BEC5
-database "明道云 / 主数据\n/ 字典 / OSS" as BACK #FFCC80
+actor "店员 / 督导" as U #E3F2FD
+
+box "客户端" #F5FAFE
+  participant "H5 聊天页" as H5 #E3F2FD
+end box
+
+box "Agent 服务 · FastAPI" #F4FAF4
+  participant "会话 API · SSE" as API #E8F5E9
+  participant "状态机引擎" as SM #DCEDC8
+  participant "LLM-XXX\n（SDK 调用）" as LLM #FFFDE7
+end box
+
+box "MCP Server · /mcp\nStreamable HTTP" #F7F9FA
+  participant "MCP 工具\n(fastmcp)" as MCP #ECEFF1
+end box
+
+box "数据存储" #FCFCFC
+  database "Redis" as RD #FFEBEE
+end box
+
+box "后端服务 · 数据源" #FFFEF5
+  participant "员工档案 / 主数据\n字典 / OSS" as SRC #FFF8E1
+end box
+
+box "明道云" #FFFCF5
+  participant "明道云 API" as MDY #FFF3E0
+end box
+
+== 0 建立 MCP 会话（服务启动后一次，长会话复用） ==
+API -> MCP : POST /mcp · initialize
+activate MCP
+MCP --> API : 200 · 响应头返回 MCP-Session-Id
+API -> MCP : notifications/initialized + tools/list
+deactivate MCP
 
 == 1 建会话 INIT ==
-U -> AG : POST /api/sessions (token)
-activate AG
-AG -> SM : new session
-activate SM
-SM -> MCP : get_login_profile
-MCP -> BACK : 查员工档案 / 门店主数据
-SM -> MCP : get_category_dict
-MCP -> BACK : 查类别字典 + Top6
-SM --> AG : 9 字段带出 + 首屏消息
-AG --> U : SSE：定位状态条 + Top6 卡片
-deactivate AG
+U -> H5 : 点「AI 助手填报」
+H5 -> API : POST /api/sessions (Bearer token)
+activate API
+API -> SM : new session
+SM -> MCP : tools/call get_login_profile / get_store_master
+MCP -> SRC : 员工档案 / 主数据接口（TODO 待确认）
+SM -> MCP : tools/call get_category_dict
+MCP -> SRC : 字典配置表
+SM -> MCP : tools/call draft_save
+MCP -> RD : SET rp:{sid} · TTL 7 天
+API --> H5 : SSE message · text + quick_cards（Top6）
+deactivate API
 
-group alt 分支B 点高频卡片
-  U -> AG : 点卡片 (POST messages)
-  AG -> SM : 事件 card
+group alt 分支B · 点高频卡片（类别直锁）
+  U -> H5 : 点「冷柜/空调不制冷」
+  H5 -> API : POST /messages {"type":"card"}
+  API -> SM : 事件 card
   SM -> SM : B_LOCK 锁定类别
-  SM --> U : 类别已锁定，请描述三要素
-else 分支A 自由描述
-  U -> AG : 输入文字
-  AG -> SM : 事件 text
-  SM -> LLM : 类别识别 prompt
+  API --> H5 : SSE message · text（请描述三要素）
+else 分支A · 自由描述
+  U -> H5 : 输入 / 语音转文字
+  H5 -> API : POST /messages {"type":"text"}
+  API -> SM : 事件 text
+  SM -> LLM : SDK · 类别识别 prompt（字典注入）
   activate LLM
-  LLM --> SM : Top3 候选（按相关性排序）
+  LLM --> SM : Top3 候选 JSON
   deactivate LLM
-  SM --> U : 枚举单选卡（AI 预选）
-  U -> AG : 点选确认
+  SM -> SM : 枚举白名单过滤
+  API --> H5 : SSE message · enum_card（首位预选）
+  U -> H5 : 点选确认
+  H5 -> API : POST /messages {"type":"enum_pick"}
 end
 
 == 2 详情采集 DETAIL ==
-U -> AG : 语音转文字描述
-AG -> SM : 事件 detail_text
-SM -> LLM : 三要素抽取 + 润色
+U -> H5 : 描述故障（语音转文字）
+H5 -> API : POST /messages {"type":"detail_text"}
+API -> SM : 事件 detail_text
+SM -> LLM : SDK · 三要素抽取 + 润色
 activate LLM
-LLM --> SM : 表现 / 原因 / 后果 (JSON)
+LLM --> SM : 表现 / 原因 / 后果 JSON
 deactivate LLM
 alt 要素缺失
-  SM --> U : 仅针对缺失要素追问一轮
-  U -> AG : 补充描述
+  API --> H5 : SSE message · text（仅追问缺失要素一轮）
+  U -> H5 : 补充描述
+  H5 -> API : POST /messages {"type":"detail_text"}
 end
+SM -> MCP : tools/call draft_save
+MCP -> RD : 更新快照 · TTL 滑动续期
 
 == 3 照片上传 PHOTO ==
-SM -> MCP : validate_photos 取拍摄清单
-MCP -> BACK : 查类别拍摄配置
-SM --> U : 拍摄指引（购物袋类红色警示）
-U -> AG : 上传照片 x2
-AG -> MCP : upload_media
-MCP -> BACK : 存 OSS
+SM -> MCP : tools/call validate_photos（按类别清单）
+MCP -> SRC : 类别拍摄配置
+API --> H5 : SSE message · photo_guide（购物袋红色警示）
+U -> H5 : 拍照 / 选视频
+H5 -> API : POST /upload（multipart）
+API -> MCP : tools/call upload_media
+MCP -> SRC : 存 OSS
+H5 -> API : POST /messages {"type":"upload_done"}
 SM -> SM : 清单逐项校验
 alt 缺项
-  SM --> U : 还差：袋底供应商标识
-  U -> AG : 补拍上传
+  API --> H5 : SSE system_tip · 还差「袋底供应商标识」
+  U -> H5 : 补拍上传
 end
 
 == 4 联系人 CONTACT ==
-SM --> U : 默认本人信息，可修改
+API --> H5 : SSE message · contact_confirm（默认本人）
 alt 改为店长
-  U -> AG : 姓名 + 手机号
+  U -> H5 : 姓名 + 手机号
+  H5 -> API : POST /messages {"type":"contact"}
   SM -> SM : 更新 contact
 end
 
 == 5 预填确认 CONFIRM ==
-SM --> U : 📋 13 字段确认单（可 ✏️）
-U -> AG : 确认提交 (POST submit)
-AG -> SM : 事件 submit
-SM -> MCP : create_repair_order
+API --> H5 : SSE message · confirm_card（13 字段 ✏️ 可改）
+U -> H5 : 确认提交
+H5 -> API : POST /submit {"ver":n}
+API -> SM : 事件 submit
+SM -> MCP : tools/call create_repair_order（幂等键 order_key）
 activate MCP
-MCP -> BACK : 明道云建单
-BACK --> MCP : 单号
+MCP -> MDY : 明道云 API 建单
+MDY --> MCP : 单号
 deactivate MCP
 SM -> SM : DONE
-SM --> U : ✅ 单号 + 已提交/待派单
-deactivate SM
+API --> H5 : SSE message · result（单号 / 待派单）
 
-note over U, BACK
-  断点续填：每次状态变更即 draft_save（Redis, TTL 7天）
-  中途退出后 GET /api/sessions/{id} 恢复到上次状态
+group 主动退出（任意非终态可触发）
+  U -> H5 : 点返回（会话未完成）
+  H5 -> API : POST /sessions/{id}/exit {"mode":"keep"|"abandon"}
+  alt keep · 保存退出
+    API -> MCP : tools/call draft_save
+    MCP -> RD : 快照保留 · TTL 7 天
+  else abandon · 放弃本次报修
+    API -> MCP : 草稿废弃标记
+    MCP -> RD : 标记废弃
+  end
+end
+
+note over MCP
+  所有 MCP 调用 = POST /mcp · JSON-RPC 2.0
+  · 会话头 MCP-Session-Id
+  · 响应 JSON 或 SSE 分片（Last-Event-ID 续传）
+end note
+
+note over U, RD
+  断点续填：GET /api/sessions/{id} 恢复状态与消息重放
+  错误退出（杀App/断网）零特殊处理；重进提示「继续上次报修」（draft_resume）
 end note
 @enduml
