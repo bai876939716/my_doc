@@ -1,100 +1,20 @@
-@startuml 设备报修AI填报-整体系统架构
-!pragma layout smetana
-!theme plain
-skinparam backgroundColor #FAFAFA
-skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
-
-title 设备报修 AI 填报助手 — 整体系统架构
-
-' ========== 用户 ==========
-actor "店员 / 督导\n(App · 网页)" as User #LightBlue
-
-' ========== 客户端层 ==========
-rectangle "客户端" #DDEEFF {
-  component "H5 聊天页\nAI 填报助手\n(消息协议对齐原型)" as H5 #BBDEFB
-  component "传统报修表单\n(存量保留)" as OLD #CFD8DC
+@startuml MCP_Transport_Layer
+skinparam component {
+  BackgroundColor #f0f8ff
 }
+component "MCP 上层协议\n(JSON-RPC消息语义：initialize、tools/call)" as MCP
+component "Transport选项1：Streamable HTTP【新版推荐】" as STREAM
+component "Transport选项2：旧版 HTTP+SSE【废弃】" as OLD_SSE
+component "Transport选项3：stdio（本地进程管道）" as STDIO
+component "HTTP 标准协议" as HTTP
+component "SSE（Server-Sent Events，HTTP上的单向流）" as SSE
 
-' ========== Agent 服务层 ==========
-rectangle "Agent 服务\n(Python 3.11 · FastAPI · 独立部署 · 无状态横向扩)" #E8F5E9 {
-  component "会话 API\nSSE 流式" as API #C8E6C9
-  component "状态机引擎\n转移表配置化" as SM #A5D6A7
-  component "LangChain 编排\nLLM-XXX 待定" as LC #C8E6C9
-  component "Prompt 管理\n版本化" as PM #DCEDC8
-  component "埋点采集" as TR #DCEDC8
-}
-
-' ========== MCP 工具层 ==========
-rectangle "MCP Server\n(独立进程 · fastmcp · 与业务解耦)" #ECEFF1 {
-  component "get_login_profile\n员工档案" as T1 #B0BEC5
-  component "get_store_master\n门店主数据" as T2 #B0BEC5
-  component "get_category_dict\n类别字典 / Top6" as T3 #B0BEC5
-  component "validate_photos\n拍摄清单校验" as T4 #B0BEC5
-  component "upload_media\n媒体上传" as T5 #B0BEC5
-  component "create_repair_order\n建单提交" as T6 #D7CCC8
-  component "draft_save / draft_get\n会话草稿" as T7 #B0BEC5
-}
-
-' ========== 存储层 ==========
-rectangle "数据存储" #F5F5F5 {
-  database "Redis\n会话/草稿/配额 TTL 7天" as RD #FFCDD2
-  database "MySQL\n归档 / 埋点" as MY #CFD8DC
-}
-
-' ========== 后端服务层（MCP 数据源） ==========
-rectangle "后端服务 · MCP 数据源 (TODO 接口确认)" #FFF9C4 {
-  component "员工档案" as HR #FFE082
-  component "门店主数据 MDM" as MDM #FFE082
-  component "类别字典\n配置表" as DICT #FFE082
-  component "对象存储 OSS" as OSS #FFE082
-}
-
-' ========== 明道云 ==========
-rectangle "明道云" #FFF3E0 {
-  component "明道云 API\n建单 / 工单流转" as MDY #FFCC80
-}
-
-' ========== 关系连线 ==========
-User -down-> H5 : HTTPS + SSE
-User -down-> OLD : 原路径
-OLD ..> H5 : 草稿隔离 · 互不覆盖
-
-H5 -down-> API
-API -down-> SM
-API -down-> TR
-SM -right-> LC
-SM -left-> PM
-
-LC -down-> T1 : MCP query
-LC -down-> T2 : MCP query
-LC -down-> T3 : MCP query
-LC -down-> T4 : MCP 规则校验
-LC -down-> T5 : MCP upload
-SM -down-> T6 : CONFIRM 状态提交
-API -down-> T7 : 每次状态变更存草稿
-
-T1 -down-> HR
-T2 -down-> MDM
-T3 -down-> DICT
-T4 -down-> DICT
-T5 -down-> OSS
-T6 -down-> MDY
-T7 -down-> RD
-TR -down-> MY
-
-note right of SM
-  核心设计决策
-  · LLM 不持有流程控制权
-  · 状态机决定"下一步问什么"
-  · LLM 只做理解与抽取
-  · 枚举 / 跳转 / 校验全走规则
-end note
-
-note right of LC
-  防幻觉三层
-  · JSON mode 结构化输出
-  · 枚举白名单过滤
-  · A 分支候选必须用户点选
-end note
-
+MCP --> STREAM : 选用
+MCP --> OLD_SSE : 旧版本选用
+MCP --> STDIO : 本地客户端(Cursor/Claude Desktop)
+STREAM --> HTTP : 基于HTTP POST
+STREAM ..> SSE : 按需、可选启用SSE
+OLD_SSE --> HTTP : 基于HTTP
+OLD_SSE --> SSE : 强制常驻SSE长连接
+SSE --> HTTP : SSE是HTTP的子集能力
 @enduml

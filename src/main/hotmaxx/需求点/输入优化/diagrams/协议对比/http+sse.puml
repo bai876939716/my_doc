@@ -1,1 +1,12 @@
-http+sse.puml
+@startuml Old_Http_SSE_Sequence
+participant Client as MCP客户端
+participant Server as MCP服务端
+note over Client,Server: 旧版 /sse + /message 双端点，必须粘会话
+Client->Server: GET /sse 【建立永久SSE长连接】
+Server-->Client: 返回 event:endpoint=/message，长连接保持不关闭
+Client->Server: POST /message 发MCP请求（tools/call）
+Server-->Client: 通过【之前那条常驻SSE长连接】推送流式结果
+Client->Server: POST /message 继续下一条请求
+Server-->Client: 依旧走同一条SSE长连接推送
+note over Client,Server: SSE连接断了 = 整个会话丢失
+@enduml
