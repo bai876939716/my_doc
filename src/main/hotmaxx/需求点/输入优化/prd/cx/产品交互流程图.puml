@@ -1,0 +1,157 @@
+@startuml 门店报修_V2_主流程
+title 门店报修 V2.0 · App 填报与本店记录闭环
+skinparam backgroundColor #F5F7FB
+skinparam activity {
+  BackgroundColor #FFFFFF
+  BorderColor #2475EF
+  FontColor #192636
+  DiamondBackgroundColor #EEF4FF
+  DiamondBorderColor #2475EF
+}
+skinparam noteBackgroundColor #FFF8E7
+skinparam ArrowColor #61758F
+start
+partition "App · 个人身份" {
+  :服务助手「我要报修」卡片;
+  :主入口进入新建报修；历史记录直达本店记录;
+}
+partition "接入服务 · 身份与门店" {
+  :验证 App 登录态，读取员工及授权门店;
+  if (登录有效且有授权门店？) then (是)
+    :沿用 App 当前授权门店；多店只在授权范围切换;
+  else (否)
+    :提示重新登录／联系门店管理员;
+    stop
+  endif
+}
+partition "报修中心" {
+  :固定展示当前门店及员工;
+  note right
+    统一明道云接入身份只在服务端使用。
+    查询本店所有员工记录，不按创建人过滤。
+    切店时清理旧请求、列表、统计及详情，切换草稿。
+  end note
+  if (进入哪个模块？) then (新建报修)
+    :带出门店、报修人、日期及可用电话;
+    if (输入方式？) then (AI 助手)
+      :自由描述／高频故障卡片;
+      :整理 100 字以内故障描述，推荐有效类别;
+      if (AI 可用？) then (是)
+        :用户确认类别，补充照片、期望上门、营业影响及电话;
+      else (否)
+        :保留 AI 草稿，引导传统表单;
+        :用户填写新版 9 字段中的可编辑项目;
+      endif
+    else (传统表单)
+      :填写类别、描述、照片、期望上门、营业影响及电话;
+    endif
+    :校验必填、100 字、照片大小／数量、时间与电话;
+    while (校验未通过？) is (是)
+      :定位问题字段，保留输入，用户修正;
+      :重新校验;
+    endwhile (否)
+    :展示完整 9 字段确认单;
+    while (需要修改？) is (是)
+      :返回当前方式编辑，重新校验并生成确认单;
+    endwhile (否)
+    if (用户明确确认提交？) then (是)
+      :锁定提交按钮，携带同一个 clientRequestId;
+    else (否)
+      :继续填写／保存草稿退出／放弃本次;
+      stop
+    endif
+  else (本店记录)
+    :进入查询子流程（见第二张图）;
+    stop
+  endif
+}
+partition "接入服务 → 明道云" {
+  :再次鉴权，校验门店、员工、字段及附件;
+  :幂等核验，映射业务字段后调用已验证创建能力;
+  note right
+    实际报修人 = App 员工。
+    技术创建人可为统一接入身份。
+    字段与工具名以实际配置为准。
+  end note
+  if (提交结果？) then (明确成功)
+    :取得工单 ID、编号及当前状态;
+  elseif (结果未知？) then (是)
+    :显示正在确认结果，保留请求号并锁定本次提交;
+    :按原请求号核验，不直接重复创建;
+    if (核验明确成功？) then (是)
+      :取得已有工单结果;
+    else (仍待确认／明确失败)
+      :保留输入，继续核验或按明确错误修正后重试;
+      stop
+    endif
+  else (明确失败)
+    :显示原因、保留输入，同一请求幂等重试;
+    stop
+  endif
+}
+partition "App · 成功回查" {
+  :清除当前方式草稿，展示编号、状态及门店;
+  :查看本单进度／本店全部记录／再报修;
+  note right
+    已成功但列表暂未同步：保留成功回执，按 ID 刷新并去重。
+    不承诺尚未接通的推送，不因列表延迟让员工重报。
+  end note
+  :进入详情／查询子流程，或发起新一单;
+}
+stop
+@enduml
+
+@startuml 门店报修_V2_查询详情
+title 门店报修 V2.0 · 按门店查询与真实进度
+skinparam backgroundColor #F5F7FB
+skinparam activityBackgroundColor #FFFFFF
+skinparam activityBorderColor #2475EF
+skinparam ArrowColor #61758F
+start
+:历史记录快捷入口／报修中心「本店记录」／成功页;
+:验证登录态及当前门店权限;
+if (有权限？) then (是)
+  :显示当前门店；默认全部状态、全部时间;
+else (否)
+  :清理缓存并提示无权查看;
+  stop
+endif
+:构建 当前门店 AND 状态 AND 时间 AND 关键词 条件;
+note right
+  关键词匹配：工单编号 OR 故障描述。
+  所有条件由服务端构建；不把全企业数据发到前端。
+  分页、统计和缓存同样按授权门店隔离。
+end note
+:服务端通过 MCP 读取本店数据，稳定倒序分页;
+if (读取成功？) then (是)
+  if (有匹配记录？) then (是)
+    :展示编号、状态、类别、摘要、提交时间、报修人及营业影响;
+  else (否)
+    if (存在搜索／筛选条件？) then (是)
+      :没有找到符合条件的记录 → 清除条件;
+    else (否)
+      :本店暂无报修记录 → 新建报修;
+    endif
+    stop
+  endif
+else (否)
+  :显示加载失败并允许重试；已有数据则保留并标注时间;
+  stop
+endif
+:搜索、筛选、加载更多或点击工单;
+:按工单 ID 请求详情，再次校验工单门店归属;
+if (记录存在且归属当前授权门店？) then (是)
+  :返回允许展示的详情、照片、当前状态及实际处理日志;
+else (否)
+  :记录不存在或当前无权查看 → 返回列表;
+  stop
+endif
+:显示 9 字段、真实处理时间线及可用处理信息;
+note right
+  未知状态保留可读源状态；无日志不伪造节点。
+  期望上门与实际安排分开；未接通能力不展示按钮。
+  附件预览也必须校验门店归属。
+end note
+:手动刷新进度／返回列表（保留筛选和位置）;
+stop
+@enduml

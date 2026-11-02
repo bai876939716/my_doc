@@ -52,7 +52,7 @@ AG -> RD : DEL rp:{sid} + rp:active:{uid}\n完整会话转 MySQL 归档
 
 == ⑤ 错误退出 → 重进恢复 ==
 note over U :   断网 / 闪退 无请求发出
-note over AG, RD : 快照停留
+note over  RD : 快照停留
 U -> AG : 重进 AI 入口 · POST /api/sessions
 AG -> RD : 查 rp:active:{uid} → draft_get
 AG --> U : is_resumed · 消息重放回到照片步骤
