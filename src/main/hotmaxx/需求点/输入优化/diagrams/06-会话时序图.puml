@@ -1,0 +1,70 @@
+@startuml 会话时序图
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam sequence {
+  ArrowColor #78909C
+  LifeLineBorderColor #B0BEC5
+  LifeLineBackgroundColor #ECEFF1
+  ParticipantBackgroundColor #ECEFF1
+  ParticipantBorderColor #90A4AE
+  ActorBackgroundColor #E3F2FD
+  ActorBorderColor #90A4AE
+  GroupBackgroundColor #F1F8E9
+  GroupBorderColor #A5D6A7
+  GroupHeaderFontColor #558B2F
+  DividerBackgroundColor #FFFDE7
+  DividerBorderColor #E0C96B
+  DividerFontColor #8D6E3A
+}
+title 会话与状态 · 全场景时序（状态修改一律先存再推 · 会话存储在 Redis）
+
+actor "店员 (H5)" as U #E3F2FD
+participant "Agent 服务 · 状态机" as AG #E8F5E9
+database "Redis · 会话存储" as RD #FFEBEE
+
+== ① 建会话 ==
+U -> AG : POST /api/sessions
+AG -> RD : 带出 10 项字段 · draft_save\n{state: INIT, ver: 1}
+AG --> U : SSE 首屏（状态条 + Top6 卡片）
+
+== ② 填报推进（每次状态变更：先存再推 · ver+1） ==
+U -> AG : 点高频卡片\nPOST /messages {"type":"card"}
+note over U, AG
+  ... 详情、照片、联系人电话
+end note
+
+AG -> RD : draft_save {→CONFIRM, ver: 6}
+AG --> U : SSE 13 字段确认单
+
+== ③ 全程可改 ==
+U -> AG : 确认单上改联系人（contact）
+AG -> RD : draft_save {字段更新 · 状态不变, ver: 7}
+U -> AG : 确认单上重选类别\nPOST /messages {"type":"enum_pick"}\n（CONFIRM 态收到 → 按 recat 处理）
+AG -> RD : draft_save {CONFIRM→PHOTO, ver: 8}\n状态回跳 · 按新类别重校验照片
+AG --> U : SSE 新拍摄清单（缺则补拍）
+
+== ④ 提交成功（草稿终态化） ==
+U -> AG : POST /submit {ver}
+AG -> RD : 校验 ver 一致（防双端并发）
+AG --> U : SSE 单号 + 已提交（明道云建单略）
+AG -> RD : DEL rp:{sid} + rp:active:{uid}\n完整会话转 MySQL 归档
+
+== ⑤ 错误退出 → 重进恢复 ==
+note over U :   断网 / 闪退 无请求发出
+note over AG, RD : 快照停留
+U -> AG : 重进 AI 入口 · POST /api/sessions
+AG -> RD : 查 rp:active:{uid} → draft_get
+AG --> U : is_resumed · 消息重放回到照片步骤
+
+== ⑥ 主动退出（keep / abandon） ==
+U -> AG : POST /exit {mode: keep}
+AG -> RD : 最后一次 draft_save · TTL 续 7 天
+U -> AG : （几天内）再进 · POST /api/sessions
+AG --> U : 检测活跃会话 →「继续上次报修」卡片
+U -> AG : 点继续 → GET /sessions/{id}
+AG --> U : 快照重放 · 从上次状态继续填
+U -> AG : POST /exit {mode: abandon}（另一单）
+AG -> RD : 标记废弃
+
+@enduml
