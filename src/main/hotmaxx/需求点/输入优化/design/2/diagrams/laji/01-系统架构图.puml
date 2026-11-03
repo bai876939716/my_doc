@@ -8,9 +8,8 @@ skinparam rectangle {
   BorderColor<<future>> #B0BEC5
   BorderStyle<<future>> dashed
 }
-skinparam legendBackgroundColor #FCFCFC
 
-title 设备报修 AI 填报助手 — 整体系统架构（纵向分层：用户→客户端→网关→Agent→工具/模型网关→底层设施）
+title 设备报修 AI 填报助手 — 整体系统架构
 
 actor "① 用户（店员）" as User #E3F2FD
 
@@ -20,7 +19,7 @@ rectangle "② 客户端 · App 内 H5" as FE #F5FAFE {
   component "历史报修记录页（已有）" as REC #EEF2F4
 }
 
-rectangle "<<future>> ③ AI 独立网关（暂不实现）\n模型路由 / 计费 / 限流 · 多业务共享\n第 2~3 个智能体业务时建设" as AIGW
+rectangle "<<future>> ③ AI 独立网关（暂不实现）\n模型路由 / 计费 / 限流 · 多业务共享" as AIGW
 
 rectangle "④ Agent 服务 · Python 3.11 · FastAPI · LangChain · 独立部署 · 无状态横向扩" as AGENT #F4FAF4 {
   component "会话 API · SSE 流式" as API #E8F5E9
@@ -29,22 +28,17 @@ rectangle "④ Agent 服务 · Python 3.11 · FastAPI · LangChain · 独立部�
   component "Prompt 管理 · 版本化" as PM #F1F8E9
   component "话术模板库 · 回复不调 LLM" as TL #F1F8E9
   component "埋点采集" as TR #F1F8E9
-  API --> SM
-  SM --> LC
-  SM --> PM
-  SM --> TL
-  API --> TR
 }
 
-rectangle "⑤ 工具层与模型网关（均暂在 Agent 中实现 · 逻辑独立一层）" as LAYER5 #FCFCFC {
+rectangle "⑤ 工具与模型网关层（暂在 Agent 中实现 · 逻辑独立）" as L5 #FCFCFC {
   rectangle "mcpServer · 工具层解耦" as MCPG #F7F9FA {
-    component "get_user_context\n登录人+门店+默认电话" as T1 #ECEFF1
-    component "get_category_dict\n字典/卡片/拍摄清单" as T2 #ECEFF1
-    component "upload_media\n媒体上传" as T3 #ECEFF1
-    component "create_repair_order\n建单 · order_key 幂等" as T4 #EFEBE9
+    component "get_user_context" as T1 #ECEFF1
+    component "get_category_dict" as T2 #ECEFF1
+    component "upload_media" as T3 #ECEFF1
+    component "create_repair_order\norder_key 幂等" as T4 #EFEBE9
   }
   rectangle "LLM 网关" as LGW #FFFDE7 {
-    component "超时 · 重试 · 降级 · 计次\nOpenAI 兼容 · 换型只改配置" as GW #FFFDE7
+    component "超时 · 重试 · 降级 · 计次\nOpenAI 兼容" as GW #FFFDE7
   }
 }
 
@@ -52,28 +46,21 @@ rectangle "⑥ 业务服务 · 中间件 · 数据库 · 模型" as INFRA #FFFCF
   component "员工档案 / 门店主数据\n（TODO 接口确认）" as HR #FFF8E1
   component "类别字典 · 配置表" as DICT #FFF8E1
   component "对象存储 OSS" as OSS #FFF8E1
-  component "明道云 API\n唯一服务端账号 · 建单 / 工单流转" as MDY #FFF3E0
+  component "明道云 API\n唯一服务端账号" as MDY #FFF3E0
   database "Redis\n会话 / 草稿 / 配额" as RD #FFEBEE
   database "MySQL\n归档 / 埋点" as MY #ECEFF1
-  component "LLM-XXX（模型）\n候选 GLM / Qwen / DeepSeek" as LLM #FFF3E0
+  component "LLM-XXX 模型\n候选 GLM / Qwen / DeepSeek" as LLM #FFF3E0
+  HR -[hidden]down-> RD
+  DICT -[hidden]down-> MY
+  OSS -[hidden]down-> LLM
 }
 
 User -down-> FE
 FE -down-> AGENT : HTTPS + SSE（本期直连）
 FE ..> AIGW : 未来统一入口
-AIGW ..> AGENT : （暂不实现）
-AGENT -down-> MCPG : 接口直调\n（ToolProvider 抽象）
-AGENT -down-> LGW : LLM 调用
-MCPG -down-> INFRA : 业务读写\n（档案 / 字典 / OSS / 明道云建单）
-LGW -down-> LLM : 模型调用
-AGENT -down-> RD : 会话快照
-AGENT -down-> MY : 归档 / 埋点
-
-note right of REC
-  查询走已有接口直查
-  本期不新增查询链路
-end note
-
-
+AIGW ..> AGENT
+AGENT -down-> L5 : 工具调用 · LLM 调用
+AGENT -down-> INFRA : 会话快照 · 归档 / 埋点
+L5 -down-> INFRA : 业务读写 · 模型调用
 
 @enduml

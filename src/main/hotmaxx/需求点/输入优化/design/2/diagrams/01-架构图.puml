@@ -1,0 +1,54 @@
+@startuml 部署架构图
+!pragma layout smetana
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam node {
+  BackgroundColor<<future>> #FFFFFF
+  BorderColor<<future>> #B0BEC5
+  BorderStyle<<future>> dashed
+}
+skinparam artifact {
+  BackgroundColor #E8F5E9
+  BorderColor #A5D6A7
+}
+
+title 部署视角 （虚线 = 未来独立部署）
+
+node "用户" as PHONE #E3F2FD {
+  artifact "自研 App\n（AI 对话页 · 表单页 · 记录页）" as APP
+}
+
+node "<<future>> AI 网关服务器\n（暂不实现 · 第 2~3 个智能体业务时建）" as GWNODE
+
+node "Agent 服务器 · Docker 单容器（本期唯一新建部署单元）" as AGNODE #F4FAF4 {
+  artifact "agent 进程 · Python 3.11\n─────────────\n会话 API · SSE\n状态机引擎 · 转移表\nLangChain 编排 · LLM-XXX\nPrompt 管理 · 话术模板\n埋点采集" as AGPROC
+  artifact "mcpServer\n（暂在 agent 进程内 · 工具层解耦）\nget_user_context · get_category_dict\nupload_media · create_repair_order" as MCPART #F7F9FA
+  artifact "LLM 网关\n（暂在 agent 进程内）\n超时 · 重试 · 降级 · 计次\nOpenAI 兼容" as GWART #FFFDE7
+}
+
+node "Redis\n会话 / 草稿 / 配额 · TTL 7 天" as REDIS #FFEBEE
+node "MySQL\n归档 / 埋点 / 调用日志" as MYSQL #ECEFF1
+
+cloud "员工档案 / 门店主数据\n（TODO 接口确认）" as HR #FFF8E1
+cloud "类别字典 · 配置表" as DICT #FFF8E1
+cloud "对象存储 OSS" as OSS #FFF8E1
+cloud "明道云\n（唯一服务端账号 · 建单 / 工单流转）" as MDY #FFF3E0
+cloud "LLM-XXX 模型 API\n候选 GLM / Qwen / DeepSeek" as LLM #FFF3E0
+
+APP --> AGPROC : HTTPS + SSE
+APP ..> GWNODE : 未来统一入口
+GWNODE ..> AGPROC
+AGPROC --> MCPART : 接口直调（ToolProvider）
+AGPROC --> GWART : LLM 调用
+MCPART --> HR
+MCPART --> DICT
+MCPART --> OSS
+MCPART --> MDY : 建单 · order_key
+GWART --> LLM
+AGPROC --> REDIS : 会话快照
+AGPROC --> MYSQL : 归档 / 埋点
+
+node "<<future>> mcpServer 服务器\n（第二个调用方出现时独立部署 · 引擎零改动）" as MCPNODE
+MCPART ..> MCPNODE : 未来独立
+@enduml

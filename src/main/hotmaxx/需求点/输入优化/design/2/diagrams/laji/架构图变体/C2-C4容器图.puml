@@ -1,0 +1,43 @@
+@startuml 架构图变体-C4容器视角
+!pragma layout smetana
+!include <C4/C4_Container>
+
+title C4 容器视角 — 系统边界与职责（C4 标准记法）
+
+Person(user, "① 店员", "门店员工 · App 登录")
+System_Boundary(app2, "② 自研 App（客户端）") {
+  Container(h5, "AI 对话页 H5", "App 内 H5", "新增 · 表单页顶部入口 · 双路径对话")
+  Container(form, "报修表单页", "App 内 H5", "存量保留 · 顶部 AI 入口")
+  Container(rec, "历史报修记录页", "App 内 H5", "已有 · 现成接口直查")
+}
+
+System_Boundary(agentb, "④⑤ Agent 服务（本期唯一新建 · 单进程部署）") {
+  Container(agent, "Agent 引擎", "Python · FastAPI · LangChain", "会话 API/SSE · 状态机编排 · 联合抽取 · Prompt/话术 · 埋点")
+  Container(mcp, "mcpServer", "暂在 Agent 进程内 · 工具层解耦", "get_user_context · get_category_dict · upload_media · create_repair_order（order_key 幂等）")
+  Container(llmgw, "LLM 网关", "暂在 Agent 进程内", "超时/重试/降级/计次 · OpenAI 兼容换型只改配置")
+}
+
+System_Ext(aigw, "③ AI 独立网关（暂不实现）", "未来多业务统一入口 · 模型路由/计费/限流")
+System_Ext(mdy, "明道云", "唯一服务端账号 · 报修工作表 · 工单流转")
+System_Ext(hr, "员工档案 / 门店主数据", "TODO 接口确认")
+System_Ext(dict, "类别字典配置", "枚举 · 高频卡片 · 拍摄清单")
+System_Ext(oss, "OSS", "现场照片存储")
+System_Ext(redis, "Redis", "会话/草稿/配额 · TTL 7 天")
+System_Ext(mysql, "MySQL", "归档/埋点/调用日志")
+System_Ext(llm, "LLM-XXX 模型", "候选 GLM / Qwen / DeepSeek · 待定")
+
+Rel(user, h5, "点「AI 智能填报」进入")
+Rel(h5, agent, "REST + SSE", "HTTPS")
+Rel(h5, aigw, "未来统一入口", "虚线 · 暂不实现")
+Rel(agent, mcp, "接口直调（ToolProvider）")
+Rel(agent, llmgw, "LLM 调用")
+Rel(mcp, mdy, "建单 · order_key 幂等")
+Rel(mcp, hr, "登录人 + 门店")
+Rel(mcp, dict, "枚举字典")
+Rel(mcp, oss, "照片上传")
+Rel(llmgw, llm, "OpenAI 兼容协议")
+Rel(agent, redis, "会话快照 · 先存再推")
+Rel(agent, mysql, "归档 / 埋点")
+
+SHOW_LEGEND()
+@enduml
