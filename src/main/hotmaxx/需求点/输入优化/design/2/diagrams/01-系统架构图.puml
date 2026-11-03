@@ -1,0 +1,90 @@
+@startuml 设备报修AI填报-整体系统架构
+!pragma layout smetana
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+
+title 设备报修 AI 填报助手 — 整体系统架构（final4 · 单明道云账号）
+
+actor "店员（App · 登录态）" as User #E3F2FD
+
+rectangle "客户端" #F5FAFE {
+  component "AI 对话页（新增）\n表单页顶部入口 · 消息协议对齐原型" as H5 #E3F2FD
+  component "报修表单页（存量保留）\n顶部「AI 智能填报」入口" as OLD #EEF2F4
+  component "历史报修记录页（已有）" as REC #EEF2F4
+}
+
+rectangle "Agent 服务 · Python 3.11 · FastAPI · 独立部署 · 无状态横向扩" #F4FAF4 {
+  component "会话 API · SSE 流式" as API #E8F5E9
+  component "状态机引擎 · 转移表配置化" as SM #DCEDC8
+  component "LangChain 编排 · LLM-XXX（待定）" as LC #E8F5E9
+  component "Prompt 管理 · 版本化" as PM #F1F8E9
+  component "话术模板库 · 回复不调 LLM" as TL #F1F8E9
+  component "埋点采集" as TR #F1F8E9
+}
+
+rectangle "MCP Server · fastmcp · Streamable HTTP（/mcp）· 与 Agent 同容器（可独立）" as MCPG #F7F9FA {
+  component "get_user_context\n登录人+绑定门店+默认电话" as T1 #ECEFF1
+  component "get_category_dict\n类别字典 / 高频卡片 / 拍摄清单" as T2 #ECEFF1
+  component "upload_media\n媒体上传" as T3 #ECEFF1
+  component "create_repair_order\n建单提交 · order_key 幂等" as T4 #EFEBE9
+}
+
+rectangle "数据存储" #FCFCFC {
+  database "Redis\n会话 / 草稿 / 配额 · TTL 7 天" as RD #FFEBEE
+  database "MySQL\n归档 / 埋点 / 调用日志" as MY #ECEFF1
+}
+
+rectangle "后端服务 · MCP 数据源（TODO 接口确认）" #FFFEF5 {
+  component "员工档案 / 门店主数据" as HR #FFF8E1
+  component "类别字典 · 配置表" as DICT #FFF8E1
+  component "对象存储 OSS" as OSS #FFF8E1
+}
+
+rectangle "明道云" #FFFCF5 {
+  component "明道云 API\n唯一服务端账号 · 建单 / 工单流转" as MDY #FFF3E0
+}
+
+User -down-> H5
+User -down-> OLD
+User -down-> REC
+OLD ..> H5 : 草稿隔离 · 互不覆盖
+
+H5 -down-> API : HTTPS + SSE
+API --> SM
+SM --> LC
+SM --> PM
+SM --> TL
+API --> TR
+
+LC <--> MCPG : MCP 调用（tools/call）
+SM --> MCPG : CONFIRM 状态提交建单
+SM --> RD : 会话快照（引擎内置 · 先存再推）
+
+T1 --> HR
+T2 --> DICT
+T3 --> OSS
+T4 --> MDY : 提交报修单
+TR --> MY : 埋点落库
+
+note right of REC
+  查询走已有接口直查
+  本期不新增查询工具
+end note
+
+note right of SM
+  核心设计决策
+  · LLM 不持有流程控制权
+  · 状态机决定"下一步问什么"
+  · LLM 只做联合抽取（打字一次调用）
+  · 枚举 / 跳转 / 校验全走规则
+end note
+
+note right of LC
+  防幻觉三层
+  · JSON mode 结构化输出
+  · 枚举白名单过滤
+  · 类别候选必须用户点选
+end note
+
+@enduml

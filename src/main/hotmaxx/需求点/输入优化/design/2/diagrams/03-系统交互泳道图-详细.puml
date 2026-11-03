@@ -1,0 +1,161 @@
+@startuml 设备报修AI填报-系统交互泳道图-详细版
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam sequence {
+  ArrowColor #90A4AE
+  LifeLineBorderColor #CFD8DC
+  LifeLineBackgroundColor #F7F9FA
+  ParticipantBackgroundColor #F4F7F9
+  ParticipantBorderColor #B0BEC5
+  ActorBackgroundColor #E3F2FD
+  ActorBorderColor #90CAF9
+  GroupBackgroundColor #FAFAFA
+  GroupBorderColor #CFD8DC
+  GroupHeaderFontColor #546E7A
+  BoxBorderColor #CFD8DC
+}
+title 设备报修 AI 填报助手 — 系统交互时序（真实接口 · final4）
+
+actor "店员" as U #E3F2FD
+
+box "客户端" #F5FAFE
+  participant "H5 对话页\n(表单页顶部入口)" as H5 #E3F2FD
+end box
+
+box "Agent 服务 · FastAPI" #F4FAF4
+  participant "会话 API · SSE" as API #E8F5E9
+  participant "状态机引擎" as SM #DCEDC8
+  participant "LLM-XXX\n（SDK 调用）" as LLM #FFFDE7
+end box
+
+box "MCP Server · /mcp\nStreamable HTTP" #F7F9FA
+  participant "MCP 工具\n(fastmcp)" as MCP #ECEFF1
+end box
+
+box "数据存储" #FCFCFC
+  database "Redis" as RD #FFEBEE
+end box
+
+box "后端服务 · 数据源" #FFFEF5
+  participant "员工档案/主数据\n字典 / OSS" as SRC #FFF8E1
+end box
+
+box "明道云" #FFFCF5
+  participant "明道云 API\n(唯一服务端账号)" as MDY #FFF3E0
+end box
+
+== 0 建立 MCP 会话（服务启动后一次，长会话复用） ==
+API -> MCP : POST /mcp · initialize
+activate MCP
+MCP --> API : 200 · 响应头返回 MCP-Session-Id
+API -> MCP : notifications/initialized + tools/list
+deactivate MCP
+
+== 1 建会话 INIT ==
+U -> H5 : 点表单页顶部「AI 智能填报」
+H5 -> API : POST /api/sessions (Bearer token)
+activate API
+API -> SM : new session（rp:active:{uid} 复用活跃会话）
+SM -> MCP : tools/call get_user_context
+MCP -> SRC : 登录人 + 绑定门店 + 默认电话（TODO 待确认）
+SM -> MCP : tools/call get_category_dict
+MCP -> SRC : 字典配置表（含拍摄清单）
+SM -> RD : SET rp:{sid} 快照 · TTL 7 天
+API --> H5 : SSE message · status_bar + text + quick_cards（高频卡片）
+deactivate API
+
+group alt 分支B · 点高频卡片（类别直锁 · 免描述）
+  U -> H5 : 点「冷柜/空调不制冷」
+  H5 -> API : POST /messages {"type":"card"}
+  API -> SM : 事件 card（0 次 LLM）
+  SM -> SM : B_LOCK 锁定类别
+  SM -> RD : draft_save · 先存再推（INIT→B_LOCK · ver+1）
+  API --> H5 : SSE message · photo_guide（购物袋类加拍袋底供应商标识）
+else 分支A · 自由描述（主路径）
+  U -> H5 : 口语描述（如「冷柜不制冷了，早上开始的」）
+  H5 -> API : POST /messages {"type":"text"}
+  API -> SM : 事件 text
+  SM -> LLM : SDK · 联合抽取 prompt（字典+槽位快照注入）
+  activate LLM
+  LLM --> SM : JSON：意图+槽位+类别Top3+描述整理+影响预判
+  deactivate LLM
+  SM -> SM : 枚举白名单过滤（非法丢弃 · 空则 FALLBACK）
+  API --> H5 : SSE message · enum_card（首位预选 · 必须点选）
+  U -> H5 : 点选确认
+  H5 -> API : POST /messages {"type":"enum_pick"}
+  API -> SM : 事件 enum_pick（类别入槽）
+  SM -> RD : draft_save · 先存再推（A_ENUM→PHOTO · ver+1）
+end
+
+== 2 现场照片 PHOTO ==
+SM -> MCP : get_category_dict 已带拍摄清单（规则校验 · 不调 LLM）
+API --> H5 : SSE message · photo_guide
+U -> H5 : 拍照 / 选视频
+H5 -> API : POST /upload（multipart）
+API -> MCP : tools/call upload_media
+MCP -> SRC : 存 OSS → media_ids
+H5 -> API : POST /messages {"type":"upload_done"}
+SM -> SM : 清单规则校验
+alt 缺项
+  API --> H5 : SSE system_tip · 还差「袋底供应商标识」
+  U -> H5 : 补拍上传
+end
+SM -> RD : draft_save · 先存再推（PHOTO→EXPECT · ver+1 · TTL 滑动续期）
+
+== 3 选项采集（全规则 · 0 次 LLM） ==
+API --> H5 : SSE message · seg_card 期望上门（尽快 / 可等待）
+H5 -> API : POST /messages {"type":"seg_pick"}
+API --> H5 : SSE message · seg_card 影响营业（A 路径已预判 · 点选确认）
+H5 -> API : POST /messages {"type":"seg_pick"}
+API --> H5 : SSE message · phone_confirm（默认本人 · 可改）
+H5 -> API : POST /messages {"type":"phone"}
+SM -> RD : draft_save · 先存再推（EXPECT/IMPACT/PHONE 逐次保存 · ver+1）
+
+group 随时改（任意状态可触发）
+  U -> H5 : 打字改字段（如「电话换成店长的」）
+  H5 -> API : POST /messages {"type":"text"}
+  SM -> LLM : SDK · 联合抽取（意图=update）
+  activate LLM
+  LLM --> SM : JSON：update phone=139xxxx
+  deactivate LLM
+  SM -> SM : 原地覆盖槽位 · 状态不变
+  SM -> RD : draft_save · 槽位变更也存（状态不变 · ver+1）
+  API --> H5 : SSE message · text（已更新 · 继续当前步骤）
+end
+
+== 4 预填确认 CONFIRM ==
+API --> H5 : SSE message · confirm_card（10 字段 ✏️ 可改 · B 路径描述自动填「类别+详见现场照片」）
+U -> H5 : 确认提交
+H5 -> API : POST /submit {"ver":n}
+API -> SM : 事件 submit（ver 乐观锁）
+SM -> MCP : tools/call create_repair_order（幂等键 order_key）
+activate MCP
+MCP -> MDY : 明道云 API 建单（业务身份=门店+报修人+电话）
+MDY --> MCP : 单号
+deactivate MCP
+SM -> SM : DONE
+SM -> RD : DEL rp:{sid} + rp:active · MySQL 归档
+API --> H5 : SSE message · result（单号 / 待派单）→ 前端跳已有记录页
+
+group 主动退出（任意非终态可触发）
+  U -> H5 : 点返回（会话未完成）
+  H5 -> API : POST /sessions/{id}/exit {"mode":"keep"|"abandon"}
+  alt keep · 保存退出
+    API -> RD : 快照保留 · TTL 7 天
+  else abandon · 放弃本次报修
+    API -> RD : 标记废弃
+  end
+end
+
+note over MCP
+  所有 MCP 调用 = POST /mcp · JSON-RPC 2.0
+  · 会话头 MCP-Session-Id
+  · 响应 JSON 或 SSE 分片（Last-Event-ID 续传）
+end note
+
+note over U, RD
+  断点续填：重进 POST /api/sessions → rp:active:{uid} 复用 → is_resumed=true 弹「继续上次报修」
+  错误退出（杀App/断网）零特殊处理 · 会话内刷新 GET /api/sessions/{id} 快照重放
+end note
+@enduml

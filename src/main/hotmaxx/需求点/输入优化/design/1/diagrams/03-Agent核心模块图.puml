@@ -1,0 +1,39 @@
+@startuml Agent核心模块图
+!pragma layout smetana
+title Agent 核心 · 一条消息的处理流水线与支撑模块
+
+skinparam defaultTextAlignment center
+
+rectangle "处理流水线（每条消息必经）" as PIPE #F7F9FA {
+  rectangle "消息入口\nPOST /messages\n点选事件 / 打字文本" as IN #E3F2FD
+  rectangle "① 规则快筛\n点选·按钮→结构化事件直通\n打字→进LLM管线" as GATE #E8F5E9
+  rectangle "② LLM 联合抽取\n意图+槽位更新+类别候选\n+描述整理+影响预判\n（每条打字仅此一次调用）" as NLU #FFF8E1
+  rectangle "③ 校验器\n枚举白名单·类型·长度\n非法候选丢弃·失败重试1次" as VALID #E8F5E9
+  rectangle "④ 边界分诊\n意图六分类·表外丢弃拉回\n注入当数据·连续失败计数" as GUARD #FFEBEE
+  rectangle "⑤ 编排器 · 状态机\n查转移表定下一步\nupdate普通字段·状态不变" as ORCH #E8F5E9
+  rectangle "⑥ 执行器\n工具调用（字典/建单）\n话术模板拼装·不调LLM" as EXEC #E8F5E9
+  rectangle "SSE 推送\ntyping → message → done" as OUT #E3F2FD
+
+  IN -down-> GATE
+  GATE -down-> NLU
+  NLU -down-> VALID
+  VALID -down-> GUARD
+  GUARD -down-> ORCH
+  ORCH -down-> EXEC
+  EXEC -down-> OUT
+}
+
+rectangle "支撑模块" as SUP #FCFCFC {
+  rectangle "会话与槽位存储 · Redis\n快照先存再推 · ver · TTL 7天" as STORE #ECEFF1
+  rectangle "话术模板库\n追问/拉回/报错 全模板化" as TPL #E8F5E9
+  rectangle "成本计次器\n会话≤6次 · 人/日限额" as QUOTA #FFF8E1
+  rectangle "埋点与日志\n事件落MySQL · sid串联" as TRACK #ECEFF1
+}
+
+rectangle "LLM 网关\n超时·重试·降级·计量" as GW #FFFDE7
+rectangle "MCP 工具层（同进程）\n用户上下文·类别字典·建单·附件" as TOOLS #FFF8E1
+
+NLU -right-> GW : JSON mode
+EXEC -right-> TOOLS : 工具调用
+PIPE -down-> SUP : 读写快照 · 取话术 · 计次 · 埋点
+@enduml

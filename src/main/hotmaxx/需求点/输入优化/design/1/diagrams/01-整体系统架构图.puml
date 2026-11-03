@@ -1,0 +1,64 @@
+@startuml 整体系统架构图
+!pragma layout smetana
+title 门店报修 AI 填报 · 整体系统架构（实线 = 本期 MVP · 虚线 = 未来扩展）
+
+skinparam defaultTextAlignment center
+skinparam rectangle {
+  BackgroundColor<<future>> #FFFFFF
+  BorderColor<<future>> #B0BEC5
+  BorderStyle<<future>> dashed
+}
+skinparam legendBackgroundColor #FCFCFC
+
+actor "店员（用户）" as User
+
+rectangle "接入层 · 自研 App 内 H5（现有页面不动 · 只新增一页）" as FE #F7F9FA {
+  rectangle "报修表单页 · 现有\n顶部「AI 智能填报」入口" as FormP #FCFCFC
+  rectangle "AI 对话页 · 新增\n双路径 · 确认单" as ChatP #E3F2FD
+  rectangle "历史报修记录页 · 现有\n已有实现直接复用" as RecP #FCFCFC
+}
+
+rectangle "Agent 服务 · 本期新建 · 单体分层（Python · FastAPI · 独立部署）" as AGENT #F5FAFE {
+  rectangle "API 接入层\n会话 · 消息 · 上传 · 提交 · 退出" as API #E3F2FD
+  rectangle "Agent 引擎" as ENGINE #F4FAF4 {
+    rectangle "编排 · 状态机\n状态×事件转移表 · 配置化" as ORCH #E8F5E9
+    rectangle "理解 · LLM 管线\n意图+槽位联合抽取 · 每条打字一次调用" as NLU #E8F5E9
+    rectangle "校验\n枚举白名单 · 类型 · 防幻觉" as VALID #E8F5E9
+    rectangle "会话管理\n槽位快照 · 草稿 · 恢复" as SESS #E8F5E9
+    rectangle "话术模板库\n回复全部模板化" as SCRIPT #E8F5E9
+  }
+  rectangle "工具层 · MCP Server（同进程）\n用户上下文 · 类别字典 · 建单提交 · 附件上传" as TOOLS #FFF8E1
+}
+
+rectangle "模型层" as MODEL #FFFEF5 {
+  rectangle "LLM 网关\n超时 · 重试 · 降级 · 计次计量" as GW #FFFDE7
+  rectangle "LLM-XXX（选型待定）\n候选：GLM / Qwen / DeepSeek" as LLM #FFFDE7
+}
+
+rectangle "数据层" as DATA #F7F9FA {
+  database "Redis\n会话/草稿/配额 · TTL 7 天" as REDIS #ECEFF1
+  database "MySQL\n归档 · 埋点 · 调用日志" as MYSQL #ECEFF1
+  cloud "OSS\n现场照片" as OSS #ECEFF1
+}
+
+rectangle "业务系统层" as BIZ #FFFCF5 {
+  rectangle "明道云 · 唯一服务端账号\n报修工作表 · 状态流转工作流" as MDY #FFF3E0
+  rectangle "员工档案 / 门店主数据\n接口待确认（TODO）" as HR #FFF3E0
+}
+
+rectangle "<<future>> 报销业务包（二期）\n字典 + 转移表 + Prompt + 工具 · 配置化接入" as FUT1
+rectangle "<<future>> 查询 Agent → 多 Agent 统一调度\n（FA §十 终态）" as FUT2
+
+User -down-> FE
+FE -down-> AGENT : AI 对话 REST + SSE\n传统表单提交走现有链路
+AGENT -down-> MODEL : JSON mode 调用
+AGENT -down-> DATA : 会话快照 · 归档 · 埋点 · 照片
+TOOLS -down-> BIZ : 明道云 API（单账号收口）· 员工门店接口
+AGENT ..> FUT1 : 复用引擎与工具设施
+AGENT ..> FUT2 : 状态=节点 · 平滑演进
+
+legend
+实线 = 本期 MVP 范围（11.16 端到端验收）
+虚线 = 未来扩展（不在本期验收内）
+endlegend
+@enduml

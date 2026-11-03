@@ -1,0 +1,59 @@
+@startuml Agent对话状态机图
+!pragma layout smetana
+title 对话状态机 · 双路径只在入口分叉 · 汇合后一致 · 随时改不换状态
+
+state "填报中（任意状态可打字修改）" as MAIN #FCFCFC {
+  state "INIT\n入场 · 带出3字段\n下发高频卡片" as INIT #E8F5E9
+  state "A_DESC\n自由描述 · LLM联合抽取" as A_DESC #E3F2FD
+  state "A_ENUM\n类别Top3点选" as A_ENUM #E3F2FD
+  state "B_LOCK\n卡片即类别 · 不问描述" as B_LOCK #FFF8E1
+  state "PHOTO\n现场照片" as PHOTO #E8F5E9
+  state "EXPECT\n期望上门 二选一" as EXPECT #E8F5E9
+  state "IMPACT\n影响营业 是/否\nA路径已预判·点选确认" as IMPACT #E8F5E9
+  state "PHONE\n联系电话 · 默认本人" as PHONE #E8F5E9
+  state "CONFIRM\n确认单 · 点哪改哪" as CONFIRM #E8F5E9
+  state "FALLBACK\n全量类别点选\nLLM不可用→卡片向导" as FALLBACK #FFEBEE
+
+  [*] --> INIT
+  INIT --> A_DESC : 打字描述（主路径）
+  INIT --> B_LOCK : 点高频卡片（最快路径）
+  A_DESC --> A_ENUM : 识别成功 · Top3卡
+  A_DESC --> FALLBACK : 识别失败/候选滤空
+  FALLBACK --> PHOTO : 全量点选选定
+  A_ENUM --> PHOTO : 点选确认
+  B_LOCK --> PHOTO : 免类别免描述
+  PHOTO --> EXPECT : 照片齐
+  PHOTO --> PHOTO : 补拍循环
+  EXPECT --> IMPACT : 点选
+  IMPACT --> PHONE : 点选
+  PHONE --> CONFIRM : 用本人/改
+  CONFIRM --> PHOTO : 重选类别 · 联动重校验
+}
+
+state "DONE\n已提交 · 出单号" as DONE #ECEFF1
+state "EXITED\nkeep 草稿7天可续\nabandon 废弃" as EXITED #EFEBE9
+
+CONFIRM --> DONE : 确认提交（幂等）
+MAIN --> EXITED : 主动退出 · 连续失败降级 · 切回表单
+DONE --> [*]
+EXITED --> [*]
+
+note right of A_DESC
+  LLM 调用点：每条打字消息一次
+  联合抽取（意图+槽位+类别候选
+  +描述整理+影响预判）
+  点选/按钮 = 结构化事件 · 0 调用
+end note
+
+note right of PHOTO
+  随时改（全局规则）：
+  任意状态打字 → 联合抽取
+  → 普通字段原地覆盖 · 状态不变
+  类别例外：回跳重校验
+end note
+
+note right of DONE
+  提交后不可改
+  走驳回重提 / 人工
+end note
+@enduml
