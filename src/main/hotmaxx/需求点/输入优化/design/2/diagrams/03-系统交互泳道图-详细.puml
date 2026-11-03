@@ -23,14 +23,14 @@ box "客户端" #F5FAFE
   participant "H5 对话页\n(表单页顶部入口)" as H5 #E3F2FD
 end box
 
-box "Agent 服务 · FastAPI" #F4FAF4
+box "Agent 服务 · Python · FastAPI" #F4FAF4
   participant "会话 API · SSE" as API #E8F5E9
   participant "状态机引擎" as SM #DCEDC8
-  participant "LLM-XXX\n（SDK 调用）" as LLM #FFFDE7
+  participant "LLM-XXX\n（LangChain 调用）" as LLM #FFFDE7
 end box
 
-box "MCP Server · /mcp\nStreamable HTTP" #F7F9FA
-  participant "MCP 工具\n(fastmcp)" as MCP #ECEFF1
+box "mcpServer（暂写在 Agent 服务中）\n工具层解耦 · 进程内直调" #F7F9FA
+  participant "MCP 工具\n(LocalToolProvider)" as MCP #ECEFF1
 end box
 
 box "数据存储" #FCFCFC
@@ -45,21 +45,14 @@ box "明道云" #FFFCF5
   participant "明道云 API\n(唯一服务端账号)" as MDY #FFF3E0
 end box
 
-== 0 建立 MCP 会话（服务启动后一次，长会话复用） ==
-API -> MCP : POST /mcp · initialize
-activate MCP
-MCP --> API : 200 · 响应头返回 MCP-Session-Id
-API -> MCP : notifications/initialized + tools/list
-deactivate MCP
-
 == 1 建会话 INIT ==
 U -> H5 : 点表单页顶部「AI 智能填报」
 H5 -> API : POST /api/sessions (Bearer token)
 activate API
 API -> SM : new session（rp:active:{uid} 复用活跃会话）
-SM -> MCP : tools/call get_user_context
+SM -> MCP : get_user_context()
 MCP -> SRC : 登录人 + 绑定门店 + 默认电话（TODO 待确认）
-SM -> MCP : tools/call get_category_dict
+SM -> MCP : get_category_dict()
 MCP -> SRC : 字典配置表（含拍摄清单）
 SM -> RD : SET rp:{sid} 快照 · TTL 7 天
 API --> H5 : SSE message · status_bar + text + quick_cards（高频卡片）
@@ -89,11 +82,11 @@ else 分支A · 自由描述（主路径）
 end
 
 == 2 现场照片 PHOTO ==
-SM -> MCP : get_category_dict 已带拍摄清单（规则校验 · 不调 LLM）
+SM -> SM : 拍摄清单规则校验（字典 INIT 已取缓存 · 不调 LLM）
 API --> H5 : SSE message · photo_guide
 U -> H5 : 拍照 / 选视频
 H5 -> API : POST /upload（multipart）
-API -> MCP : tools/call upload_media
+API -> MCP : upload_media()
 MCP -> SRC : 存 OSS → media_ids
 H5 -> API : POST /messages {"type":"upload_done"}
 SM -> SM : 清单规则校验
@@ -129,7 +122,7 @@ API --> H5 : SSE message · confirm_card（10 字段 ✏️ 可改 · B 路径�
 U -> H5 : 确认提交
 H5 -> API : POST /submit {"ver":n}
 API -> SM : 事件 submit（ver 乐观锁）
-SM -> MCP : tools/call create_repair_order（幂等键 order_key）
+SM -> MCP : create_repair_order()（order_key 幂等）
 activate MCP
 MCP -> MDY : 明道云 API 建单（业务身份=门店+报修人+电话）
 MDY --> MCP : 单号
@@ -149,9 +142,9 @@ group 主动退出（任意非终态可触发）
 end
 
 note over MCP
-  所有 MCP 调用 = POST /mcp · JSON-RPC 2.0
-  · 会话头 MCP-Session-Id
-  · 响应 JSON 或 SSE 分片（Last-Event-ID 续传）
+  工具层 = ToolProvider 抽象 + Local 实现（进程内直调 · 零协议开销）
+  独立服务化时：换 McpToolProvider 适配器（≈1人天）或部署为 MCP 服务
+  引擎代码零改动（注册/校验/超时/日志与协议无关）
 end note
 
 note over U, RD

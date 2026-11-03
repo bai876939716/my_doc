@@ -23,7 +23,7 @@ title 设备报修 AI 填报 — 系统交互时序（精简版 · 详细版见 
 actor "店员" as U #E3F2FD
 participant "H5 对话页\n(表单页顶部入口)" as H5 #E3F2FD
 participant "Agent 服务\nFastAPI · 状态机 · LLM" as AG #E8F5E9
-participant "MCP Server\n/mcp" as MCP #ECEFF1
+participant "mcpServer\n（暂写在 Agent 服务中）" as MCP #ECEFF1
 database "Redis" as RD #FFEBEE
 participant "数据源\n档案 / 字典 / OSS" as SRC #FFF8E1
 participant "明道云\n(唯一服务端账号)" as MDY #FFF3E0
@@ -31,7 +31,7 @@ participant "明道云\n(唯一服务端账号)" as MDY #FFF3E0
 == 1 建会话 ==
 U -> H5 : 点表单页顶部「AI 智能填报」
 H5 -> AG : POST /api/sessions
-AG -> MCP : tools/call get_user_context · get_category_dict
+AG -> MCP : 接口直调 get_user_context · get_category_dict
 MCP -> SRC : 带出 3 项字段（门店/报修人/日期）· 字典
 AG -> RD : 会话快照（引擎内置）· TTL 7 天
 AG --> H5 : SSE 首屏（状态条 + 高频卡片）
@@ -50,7 +50,7 @@ end note
 
 == 3 照片上传 ==
 H5 -> AG : POST /upload → upload_done
-AG -> MCP : tools/call upload_media
+AG -> MCP : 接口直调 upload_media
 MCP -> SRC : 存 OSS
 AG --> H5 : SSE 拍摄指引 / 缺项提示（购物袋拍袋底标识）
 AG -> RD : 快照更新（先存再推 · ver+1）
@@ -67,7 +67,7 @@ AG -> RD : 快照更新（先存再推 · ver+1）
 == 5 确认提交 ==
 AG --> H5 : SSE 10 字段确认单（全部 ✏️ 可改）
 H5 -> AG : POST /submit（ver 乐观锁）
-AG -> MCP : tools/call create_repair_order
+AG -> MCP : 接口直调 create_repair_order
 MCP -> MDY : 建单（幂等键 order_key）
 MCP --> AG : 单号
 AG --> H5 : SSE 提交成功（单号）· 跳已有记录页
@@ -77,8 +77,8 @@ H5 -> AG : POST /exit（keep / abandon）
 AG -> RD : 快照保留 7 天 / 标记废弃
 
 note over MCP
-  所有调用 = POST /mcp
-  JSON-RPC 2.0 · MCP-Session-Id
+  工具层 = ToolProvider 抽象 + Local 实现（进程内直调）
+  未来独立服务化时引入 MCP 协议 · 引擎零改动
 end note
 note over H5, RD
   每次状态变更先存快照再推送
