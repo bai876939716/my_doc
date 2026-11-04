@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 http://maven.apache.org/xsd/settings-1.0.0.xsd">
+    <mirrors>
+        <mirror>
+            <id>mirror</id>
+            <mirrorOf>central,jcenter,!2194012-release-ZVV7km</mirrorOf>
+            <name>mirror</name>
+            <url>https://maven.aliyun.com/nexus/content/groups/public</url>
+        </mirror>
+    </mirrors>
+    <servers>
+        <server>
+            <id>2194012-release-ZVV7km</id>
+            <username>689d4e8279784350ec0a1acc</username>
+            <password>JQ2LDPLaShQX</password>
+        </server>
+
+        <server>
+            <id>2194012-snapshot-CZUwmo</id>
+            <username>689d4e8279784350ec0a1acc</username>
+            <password>JQ2LDPLaShQX</password>
+        </server>
+
+    </servers>
+    <profiles>
+        <profile>
+            <id>rdc</id>
+            <properties>
+
+                <altReleaseDeploymentRepository>
+                    2194012-release-ZVV7km::default::https://packages.aliyun.com/621ec8ebb49717e05aee206e/maven/2194012-release-zvv7km
+                </altReleaseDeploymentRepository>
+
+
+            </properties>
+            <repositories>
+                <repository>
+                    <id>2194012-snapshot-CZUwmo</id>
+                    <url>https://packages.aliyun.com/621ec8ebb49717e05aee206e/maven/2194012-snapshot-czuwmo</url>
+                    <releases>
+                        <enabled>true</enabled>
+                    </releases>
+                    <snapshots>
+                        <enabled>true</enabled>
+                    </snapshots>
+                </repository>
+
+                <repository>
+                    <id>central</id>
+                    <url>https://maven.aliyun.com/nexus/content/groups/public</url>
+                    <releases>
+                        <enabled>true</enabled>
+                    </releases>
+                    <snapshots>
+                        <enabled>false</enabled>
+                    </snapshots>
+                </repository>
+                <repository>
+                    <id>snapshots</id>
+                    <url>https://maven.aliyun.com/nexus/content/groups/public</url>
+                    <releases>
+                        <enabled>false</enabled>
+                    </releases>
+                    <snapshots>
+                        <enabled>true</enabled>
+                    </snapshots>
+                </repository>
+                <repository>
+                    <id>2194012-release-ZVV7km</id>
+                    <url>https://packages.aliyun.com/621ec8ebb49717e05aee206e/maven/2194012-release-zvv7km</url>
+                    <releases>
+                        <enabled>true</enabled>
+                    </releases>
+                    <snapshots>
+                        <enabled>true</enabled>
+                    </snapshots>
+                </repository>
+            </repositories>
+            <pluginRepositories>
+                <pluginRepository>
+                    <id>central</id>
+                    <url>https://maven.aliyun.com/nexus/content/groups/public</url>
+                    <releases>
+                        <enabled>true</enabled>
+                    </releases>
+                    <snapshots>
+                        <enabled>true</enabled>
+                    </snapshots>
+                </pluginRepository>
+                <pluginRepository>
+                    <id>snapshots</id>
+                    <url>https://maven.aliyun.com/nexus/content/groups/public</url>
+                    <releases>
+                        <enabled>false</enabled>
+                    </releases>
+                    <snapshots>
+                        <enabled>true</enabled>
+                    </snapshots>
+                </pluginRepository>
+
+
+                <pluginRepository>
+                    <id>2194012-release-ZVV7km</id>
+                    <url>https://packages.aliyun.com/621ec8ebb49717e05aee206e/maven/2194012-release-zvv7km</url>
+                    <releases>
+                        <enabled>true</enabled>
+                    </releases>
+                    <snapshots>
+                        <enabled>true</enabled>
+                    </snapshots>
+                </pluginRepository>
+            </pluginRepositories>
+        </profile>
+    </profiles>
+    <activeProfiles>
+        <activeProfile>rdc</activeProfile>
+    </activeProfiles>
+</settings>
