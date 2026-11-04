@@ -21,7 +21,9 @@ node "用户" as PHONE #E3F2FD {
   artifact "自研 App\n（AI 对话页 · 表单页 · 记录页）" as APP
 }
 
-node "<<future>> AI 网关服务器\n（暂不实现 · 第 2~3 个智能体业务时建）" as GWNODE
+node "<<future>> AI 网关服务器 " as GWNODE
+
+node "<<future>> Java 服务层\n 限流 / 排队 / 数据权限 " as JAVASRV
 
 node "Agent 服务器 · Docker 单容器（本期唯一新建部署单元）" as AGNODE #F4FAF4 {
   artifact "agent 进程 · Python 3.11\n─────────────\n会话 API · SSE\n状态机引擎 · 转移表\nLangChain 编排 · LLM-XXX\nPrompt 管理 · 话术模板\n埋点采集" as AGPROC
@@ -42,7 +44,8 @@ cloud "LLM-XXX 模型 API" as LLM #FFF3E0
 
 APP --> AGPROC : HTTPS + SSE
 APP ..> GWNODE : 未来统一入口
-GWNODE ..> AGPROC
+GWNODE ..> JAVASRV : 转发
+JAVASRV ..> AGPROC : 限流 / 鉴权后放行
 AGPROC --> MCPART : 接口直调（ToolProvider）
 AGPROC --> GWART : LLM 调用
 MCPART --> HR
