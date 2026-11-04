@@ -1,0 +1,83 @@
+@startuml 设备报修AI填报-对话状态机
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam state {
+  BackgroundColor #F1F8E9
+  BorderColor #A5D6A7
+  ArrowColor #607D8B
+  FontSize 13
+}
+
+title 设备报修 AI 填报助手 — 对话状态机（final4 · 含主动退出）
+
+state "主流程 · 任意非终态可主动退出 · 可随时打字改字段" as MAIN #FFFFFF {
+  state "INIT\n入场建档 · 带出3字段\n下发高频卡片" as INIT #FFFDE7
+  state "A_DESC\n自由描述\n联合抽取：类别候选+描述整理+影响预判" as A_DESC #E8F5E9
+  state "B_LOCK\n卡片即锁定报修类别\n(无二次选择 · 免描述)" as B_LOCK #E3F2FD
+  state "A_ENUM\n枚举确认卡\nAI 识别项预选 · 仅限点选" as A_ENUM #E8F5E9
+  state "FALLBACK\n全量类别点选\n仍无法定位则引导切老表单" as FALLBACK #FFEBEE
+  state "PHOTO\n现场照片\n按类别拍摄清单规则校验" as PHOTO #F1F8E9
+  state "EXPECT\n期望上门\n尽快上门 / 可等待安排" as EXPECT #F1F8E9
+  state "IMPACT\n影响营业 是/否\nA 路径已预判 · 点选确认" as IMPACT #F1F8E9
+  state "PHONE\n联系电话\n默认本人 · 可改" as PHONE #F1F8E9
+  state "CONFIRM\n预填确认单\n10字段全部可微调" as CONFIRM #F1F8E9
+
+  [*] --> INIT : 建会话
+
+  INIT --> A_DESC : 用户发文字（主路径）
+  INIT --> B_LOCK : 点高频卡片
+
+  A_DESC --> A_ENUM : 识别有效 (Top3)
+  A_DESC --> FALLBACK : 识别失败 / 候选为空
+  A_ENUM --> PHOTO : 用户点选确认
+  B_LOCK --> PHOTO : 类别即锁定 · 直接拍照
+  FALLBACK --> PHOTO : 全量列表点选
+  FALLBACK --> [*] : 引导切老表单
+
+  PHOTO --> PHOTO : 缺项补拍
+  PHOTO --> EXPECT : 清单校验通过
+
+  EXPECT --> IMPACT : 点选二选一
+  IMPACT --> PHONE : 点选是/否
+  PHONE --> CONFIRM : 确认 / 修改
+
+  CONFIRM --> PHOTO : 重选类别 · 联动重校验
+}
+
+state "DONE\n提交成功\n单号 + 跳已有记录页" as DONE #DCEDC8
+state "EXITED\n主动退出终态\nkeep 草稿保留7天 / abandon 废弃" as EXITED #EFEBE9
+
+CONFIRM --> DONE : 确认提交（10字段校验）
+DONE --> [*] : 会话结束
+
+MAIN --> EXITED : exit_keep / exit_abandon
+
+note right of A_DESC
+  LLM 唯一调用点
+  · 一次联合抽取拿全：意图+槽位
+    +类别候选+描述整理+影响预判
+  · 打字改字段：原地覆盖 · 状态不变
+  · 点选 / 按钮全走规则 · 0 调用
+end note
+
+note right of B_LOCK
+  分支差异只在入口
+  B_LOCK：卡片即枚举，免类别免描述
+  A_ENUM：AI 识别不入库，必须点选
+  汇合后流程完全一致
+end note
+
+note right of FALLBACK
+  兜底原则：永远有路可走
+  LLM 不可用降级卡片向导模式
+end note
+
+note right of EXITED
+  主动退出与断点续填同源：
+  · keep：快照保留，重进提示「继续上次报修」
+  · abandon：草稿标记废弃
+  · 错误退出（杀App/断网）零特殊处理，走 keep 同一路径
+end note
+
+@enduml
