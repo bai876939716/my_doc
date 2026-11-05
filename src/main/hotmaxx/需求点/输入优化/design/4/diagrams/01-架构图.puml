@@ -1,0 +1,69 @@
+@startuml 部署架构图v4
+!pragma layout smetana
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam node {
+  BackgroundColor<<future>> #FFFFFF
+  BorderColor<<future>> #B0BEC5
+  BorderStyle<<future>> dashed
+}
+skinparam artifact {
+  BackgroundColor #E8F5E9
+  BorderColor #A5D6A7
+}
+skinparam packageBackgroundColor #FFFCF5
+skinparam packageBorderColor #E0C96B
+
+title 部署视角（彩色 = 本期临时方案 · 白色虚线 = 未来独立形态 · design/4 引擎换 LangGraph）
+
+node "用户" as PHONE #E3F2FD {
+  artifact "自研 App\n（AI 对话页 · 表单页 · 记录页）" as APP
+}
+
+node "<<future>> AI 网关服务器 " as GWNODE
+
+node "<<future>> Java 服务层\n 限流 / 排队 / 数据权限 " as JAVASRV
+
+node "Agent 服务器 · Docker 单容器（本期唯一新建部署单元）" as AGNODE #F4FAF4 {
+  artifact "agent 进程 · Python 3.13\n─────────────\n会话 API · SSE\nLangGraph 引擎 · 通用采集图\n技能包：报修 repair · 报销 expense\nLangChain 封装 LLM-XXX\nPrompt 管理 · 话术模板\n埋点采集" as AGPROC
+  artifact "mcpServer\n（暂在 agent 进程内 · 工具层解耦）\n报修：get_user_context · get_category_dict\n　　　upload_media · create_repair_order\n报销：get_expense_dict · get_dept_tree\n　　　create_expense_order" as MCPART #F7F9FA
+  artifact "LLM 网关\n（暂在 agent 进程内）\n超时 · 重试 · 降级 · 计次\nOpenAI 兼容" as GWART #FFFDE7
+}
+
+node "Redis\nLangGraph 检查点 · 记忆（工具读写）\n活跃索引 / 配额 · TTL 7 天" as REDIS #FFEBEE
+node "MySQL\n归档 / 埋点 / 调用日志" as MYSQL #ECEFF1
+
+package "已有服务（公司现有）" {
+  cloud "员工档案 / 门店主数据\n（TODO 接口确认）" as HR #FFF8E1
+  cloud "类别 / 费用项目 · 字典配置\n部门树（TODO 接口确认）" as DICT #FFF8E1
+  cloud "对象存储 OSS" as OSS #FFF8E1
+  cloud "明道云\n（唯一服务端账号 · 建单 / 工单流转）" as MDY #FFF3E0
+}
+cloud "LLM-XXX 模型 API" as LLM #FFF3E0
+
+APP --> AGPROC : HTTPS + SSE
+APP ..> GWNODE : 未来统一入口
+GWNODE ..> JAVASRV : 转发
+JAVASRV ..> AGPROC : 限流 / 鉴权后放行
+AGPROC --> MCPART : 接口直调（ToolProvider）
+AGPROC --> GWART : LLM 调用
+MCPART --> HR
+MCPART --> DICT
+MCPART --> OSS
+MCPART --> MDY : 建单 · order_key
+GWART --> LLM
+AGPROC --> REDIS : 检查点存档（原生先存再推）
+AGPROC --> MYSQL : 归档 / 埋点
+
+node "<<future>> mcpServer 服务器\n（第二个调用方出现时独立部署 · 引擎零改动）" as MCPNODE
+MCPART ..> MCPNODE : 未来独立部署
+MCPNODE ..> HR
+MCPNODE ..> DICT
+MCPNODE ..> OSS
+MCPNODE ..> MDY : 业务读写
+
+node "<<future>> LLM 网关服务器\n（独立部署 · 多业务共享）" as LGWNODE
+GWART ..> LGWNODE : 未来独立部署
+LGWNODE --> LLM : 模型调用
+@enduml

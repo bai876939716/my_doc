@@ -1,0 +1,85 @@
+@startuml 门店费用报销-系统交互泳道图
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam sequence {
+  ArrowColor #78909C
+  LifeLineBorderColor #B0BEC5
+  LifeLineBackgroundColor #ECEFF1
+  ParticipantBackgroundColor #ECEFF1
+  ParticipantBorderColor #90A4AE
+  ActorBackgroundColor #E3F2FD
+  ActorBorderColor #90A4AE
+  GroupBackgroundColor #F1F8E9
+  GroupBorderColor #A5D6A7
+  GroupHeaderFontColor #558B2F
+  BoxBorderColor #B0BEC5
+  DividerBackgroundColor #FFFDE7
+  DividerBorderColor #E0C96B
+  DividerFontColor #8D6E3A
+}
+title 门店费用报销（技能包二）— 同一张通用图 · 子表/树/记忆全场景
+
+actor "店长" as U #E3F2FD
+participant "H5 对话页\n(门店费用通道)" as H5 #E3F2FD
+participant "Agent 服务\nFastAPI · LangGraph 通用图" as AG #E8F5E9
+participant "mcpServer\n（暂写在 Agent 服务中）" as MCP #ECEFF1
+database "Redis\n检查点 · 记忆（工具）" as RD #FFEBEE
+participant "数据源\n字典 / 部门树 / OSS" as SRC #FFF8E1
+participant "明道云\n(唯一服务端账号)" as MDY #FFF3E0
+
+== 1 建会话 ==
+U -> H5 : 点「AI 智能填报」（门店费用通道）
+H5 -> AG : POST /agent/expense/v1/sessions
+AG -> MCP : 接口直调 get_user_context · get_expense_dict · get_dept_tree
+MCP -> SRC : 只读 13 项带出 · 费用项目/付款公司/办公地点字典 · 部门树
+AG -> RD : 检查点存档（thread_id）· 字典缓存
+AG --> H5 : SSE 状态条 + 开场（费用事由示例）
+
+group 2 一句话抽多行
+  H5 -> AG : POST /messages「房租5000 电费1200 发票没到」
+  AG --> H5 : SSE subtable_card 两行草稿 + 发票三选一卡
+  H5 -> AG : subtable_op · enum_pick（逐行确认 · 点选 0 LLM）
+  AG -> RD : 检查点自动存档
+end
+note over AG
+  全流程仅 1 处 LLM 调用
+  联合抽取：意图 + 槽位 + 多行草稿 + 发票状态候选
+  点选 / 卡片操作全走规则 · 0 调用
+end note
+
+== 3 树与下拉 ==
+AG --> H5 : SSE tree_card 部门 Top3 完整路径（白名单匹配）
+H5 -> AG : tree_pick（路径点选 · 一级部门自动推导不问）
+AG --> H5 : SSE 办公地点 / 付款公司 / 费用承担类型卡
+H5 -> AG : enum_pick
+AG -> RD : 检查点自动存档
+
+== 4 收款人记忆 ==
+AG -> MCP : 接口直调 recall_payee（uid）
+MCP -> RD : 读 payee:{uid}
+RD --> MCP : 四件套（命中时）
+MCP --> AG : 四件套（命中时）
+AG --> H5 : SSE group_card 预填（[用上次的] / [改]）
+H5 -> AG : group_submit
+
+== 5 确认提交 ==
+AG --> H5 : SSE 确认单（期间天数 · 大写金额 computed · 欠票提示）
+H5 -> AG : POST /submit（interrupt 恢复 · order_key 幂等）
+AG -> MCP : 接口直调 create_expense_order
+MCP -> MDY : 建单（幂等键 order_key）
+MCP --> AG : 申请编号
+AG -> MCP : 接口直调 save_payee（写回记忆）
+MCP -> RD : 写 payee:{uid}
+AG -> RD : 清活跃索引
+AG --> H5 : SSE result 单号 · 票到补传提示
+
+note over MCP
+  工具层 = ToolProvider 抽象 + Local 实现（进程内直调）
+  与报修共用同一套工具设施 · 未来独立服务化时引入 MCP 协议
+end note
+note over H5, RD
+  每个节点后自动存档（Checkpointer 原生）
+  错误退出零处理 · 重进 POST /agent/expense/v1/sessions 复用活跃会话
+end note
+@enduml

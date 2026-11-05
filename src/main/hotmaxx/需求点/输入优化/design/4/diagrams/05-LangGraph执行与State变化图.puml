@@ -1,0 +1,100 @@
+@startuml LangGraph执行与State变化图
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam sequence {
+  ArrowColor #78909C
+  LifeLineBorderColor #B0BEC5
+  LifeLineBackgroundColor #ECEFF1
+  ParticipantBackgroundColor #ECEFF1
+  ParticipantBorderColor #90A4AE
+  ActorBackgroundColor #E3F2FD
+  ActorBorderColor #90A4AE
+  GroupBackgroundColor #F1F8E9
+  GroupBorderColor #A5D6A7
+  GroupHeaderFontColor #558B2F
+  BoxBorderColor #B0BEC5
+  DividerBackgroundColor #FFFDE7
+  DividerBorderColor #E0C96B
+  DividerFontColor #8D6E3A
+}
+title 一次报修会话 · LangGraph 执行与 State 变化（每个节点后自动存档 = 先存再推的原生版）
+
+actor "店员" as U #E3F2FD
+participant "H5 对话页" as H5 #E3F2FD
+participant "Agent 服务\nFastAPI · LangGraph" as AG #E8F5E9
+participant "State（黑板）\nslots · agenda · messages" as ST #FFFDE7
+database "Redis\n检查点（thread_id）" as RD #FFEBEE
+
+== ① 建会话 · load_context ==
+U -> H5 : 点「AI 智能填报」
+H5 -> AG : POST /sessions
+AG -> ST : 工具带出 → 写 context（门店/报修人/日期）
+AG -> RD : 检查点 v1
+AG --> H5 : SSE 状态条 + 开场 + 高频卡片
+note over ST
+  v1：slots 0/7
+  agenda：[类别, 描述, 照片,
+  期望上门, 影响营业, 电话]
+end note
+
+== ② 自由描述 · extract（LLM 唯一调用点） ==
+H5 -> AG : POST /messages text「冷柜不制冷…」
+AG -> ST : 写 detail（ai_filled）+ 类别候选 Top3
+AG -> RD : 检查点 v2
+AG --> H5 : SSE enum_card Top3（必须点选）
+note over ST
+  v2：detail ✓(AI)
+  类别=候选未定稿
+  agenda：[类别, 照片, …]（描述划掉）
+end note
+
+== ③ 点选类别 · update（过白名单闸） ==
+H5 -> AG : enum_pick 制冷设备/冷柜
+AG -> ST : 写 category（user_edited）
+AG -> RD : 检查点 v3
+AG --> H5 : SSE photo_guide（按类别拍摄清单）
+note over ST
+  v3：类别 ✓（点选定稿）
+  agenda：[照片, 期望上门, 影响营业, 电话]
+end note
+
+== ④ 上传照片 · update ==
+H5 -> AG : upload → upload_done（m_001·m_002）
+AG -> ST : 写 photos（清单规则校验过）
+AG -> RD : 检查点 v4
+AG --> H5 : SSE seg_card 期望上门
+
+group ⑤ 选项采集（每次点选 = 一轮图执行 + 一次存档）
+  H5 -> AG : seg_pick ×2 · phone（点选 · 0 LLM）
+  AG -> ST : 逐槽写入
+  AG -> RD : 检查点 v5 → v6 → v7
+  AG --> H5 : SSE seg_card / phone_confirm / confirm_card
+end
+note over ST
+  v7：7/7 全齐 · agenda：[]
+  → route 送入 confirm
+end note
+
+== ⑥ 确认单 · interrupt() 挂起 ==
+AG -> RD : 检查点 v8（挂起状态也被存档）
+note over AG
+  interrupt()：图就地暂停等人
+  确认单上改字段 = 带新值恢复回 extract
+  （槽位覆盖 · agenda 不变）
+end note
+H5 -> AG : POST /submit
+AG -> ST : Command(resume) → submit 节点执行
+AG -> RD : 检查点 v9（DONE）
+AG -> RD : 清活跃索引 · 终态归档 MySQL
+AG --> H5 : SSE result 单号 BX-20261105-0007
+note over ST
+  v9：status=DONE · 单号已产生
+  会话转 MySQL · 检查点删除
+end note
+
+note over H5, RD
+  横切规则：每个节点执行完框架自动存档（v1→v9）——杀 App / 断网 / 主动退出，
+  重进 POST /sessions → get_state(thread_id) 重放，回到断点那一步（报销同图同机制）
+end note
+@enduml

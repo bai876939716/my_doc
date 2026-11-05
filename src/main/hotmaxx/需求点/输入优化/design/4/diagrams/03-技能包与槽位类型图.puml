@@ -1,0 +1,49 @@
+@startuml 技能包与槽位类型
+!pragma layout smetana
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam component {
+  BackgroundColor #E8F5E9
+  BorderColor #A5D6A7
+}
+skinparam rectangle {
+  BackgroundColor #FFF8E1
+  BorderColor #E0C96B
+}
+skinparam packageBackgroundColor #F5FAFE
+skinparam packageBorderColor #90A4AE
+
+title core 与技能包（core 业务无关一次建设 · 技能包逐业务接入零流程代码）
+
+package "api 接入层" as APIG {
+  component "会话 API\n/agent/{skill}/v1 · 六接口 + SSE" as API
+}
+
+package "core 引擎（业务无关 · 一次建设）" as COREG {
+  component "LangGraph 通用采集图\nextract · update · route · ask\nconfirm · submit · fallback" as GRAPH
+  component "槽位议程引擎\n缺什么问什么 · 随时改不回流程" as AGENDA
+  component "槽位类型系统\n10 类（右卡）" as SLOTTYPE
+  component "防幻觉闸\n白名单 · 树匹配 · 金额校验" as GUARD
+  component "话术模板引擎\n不调 LLM · 口径可运营" as TALK
+  component "工具设施\nToolProvider 抽象 · 进程内直调" as TOOLS
+  component "检查点 · 记忆\nAsyncRedisSaver · BaseStore" as CKPT
+}
+
+package "技能包（业务 · 逐个接入）" as SKG {
+  rectangle "报修包 repair\n10 槽位\n字典：类别 · 高频卡片\n钩子：类别必点选 · B路径免描述 · 照片清单" as RP #E8F5E9
+  rectangle "报销包 expense\n~15 槽位 + 2 子表\n字典：费用项目 · 付款公司 · 办公地点 · 部门树\n钩子：子表≤10行 · 一级部门推导 · 欠票提示" as EX #FFF8E1
+}
+
+rectangle "槽位类型 10 类 · 一次建设全业务复用\n─────────────\ncontext 带出 · enum 枚举（含下拉） · tree 树筛选\ntext 文本 · money 金额 · date 日期 · media 附件\nsubgroup 字段组（收款人四件套 · 记忆复用）\nsubtable 子表（费用明细多行 · 一句话抽多行）\ncomputed 计算（期间天数 · 大写金额）" as SLOTS #FFFDE7
+
+APIG -down-> COREG : 请求
+SKG -up-> COREG : 注册（schema · 字典 · 话术 · 工具 · 钩子）
+SKG -[hidden]down-> SLOTS
+
+note bottom of SKG
+  接入新业务 = 新增一个技能包目录
+  core 零改动 · 零流程代码 ≈ 3~5 人天
+  （流程真长成图时允许挂自定义子图 · 框架不拦）
+end note
+@enduml

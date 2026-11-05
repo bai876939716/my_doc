@@ -1,0 +1,73 @@
+@startuml AI填报-通用采集图
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam state {
+  BackgroundColor #F1F8E9
+  BorderColor #A5D6A7
+  ArrowColor #607D8B
+  FontSize 13
+}
+
+title AI 填报 — 通用采集图（LangGraph · 一张图跑所有业务 · 业务差异在技能包）
+
+state "采集循环 · 任意非终态可 exit · 随时打字改字段" as MAIN #FFFFFF {
+  state "load_context 带出\ncontext 工具带出只读项\n下发状态条 + 高频卡片" as LOAD #FFFDE7
+  state "extract 联合抽取\n意图+槽位+类别候选+描述整理\n（每条打字消息一次）" as EXTRACT #E8F5E9
+  state "update 校验入库\n防幻觉闸 → 写槽位\n→ 钩子联动失效" as UPDATE #E3F2FD
+  state "ask 追问下发\n话术模板 · 槽位类型→卡片\n（agenda 缺什么问什么）" as ASK #F1F8E9
+  state "fallback 降级\n卡片向导 · 0 LLM" as FB #FFEBEE
+
+  [*] --> LOAD : 建会话 / 恢复
+
+  LOAD --> EXTRACT
+  EXTRACT --> UPDATE
+  UPDATE --> ASK : 议程还有缺槽
+  ASK --> EXTRACT : 下一条打字消息\n（点选卡片直接进 update · 0 LLM）
+  UPDATE --> FB : 边界拉回失败 / 连续识别失败
+  FB --> ASK : 向导点选定
+}
+
+state "confirm 确认单\ninterrupt() 挂起 · 等人" as CONFIRM #FFF3E0
+state "submit 提交\norder_key 幂等建单" as SUBMIT #E8F5E9
+state "DONE\n出单号 · 归档" as DONE #DCEDC8
+state "EXITED\nkeep 草稿7天 / abandon 废弃" as EXITED #EFEBE9
+
+UPDATE --> CONFIRM : 必填全齐
+CONFIRM --> SUBMIT : resume=submit（POST /submit）
+CONFIRM --> EXTRACT : resume=改字段（带新值）
+SUBMIT --> DONE : 成功
+SUBMIT --> CONFIRM : 建单失败 · 报错重来
+FB --> EXITED : 引导切老表单
+MAIN --> EXITED : exit_keep / exit_abandon
+DONE --> [*] : 会话结束
+
+note right of EXTRACT
+  LLM 唯一调用点
+  · 打字改字段：原地覆盖 · 议程不变
+  · 报销子表：一句话抽多行草稿
+  · 点选 / 按钮全走规则 · 0 调用
+end note
+
+note right of CONFIRM
+  interrupt()：确认单挂起等人
+  · 提交接口 = Command(resume)
+  · Checkpointer：每个节点后自动存档
+    （先存再推的原生版 · TTL 7 天）
+end note
+
+note left of ASK
+  agenda 由技能包字段 schema 生成
+  · 槽位类型决定卡片形态
+    enum→单选卡 · tree→路径卡
+    subtable→行卡 · subgroup→组卡
+  · B 路径：高频卡片直填槽位
+end note
+
+note right of EXITED
+  · keep：重进提示「继续上次填报」
+  · 错误退出（杀App/断网）零特殊处理
+  · 恢复 = get_state(thread_id) 重放
+end note
+
+@enduml
