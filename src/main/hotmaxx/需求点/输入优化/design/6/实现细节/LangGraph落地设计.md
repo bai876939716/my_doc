@@ -1,7 +1,7 @@
 # LangGraph 落地设计
 
 > 一句话：**通用采集图是一张固定的 StateGraph，技能包只提供"数据"（字段 schema / 字典 / 话术 / 工具 / 钩子）；Checkpointer 管存档恢复，interrupt() 管确认单，LLM 只在 extract 节点出现。**
-> 主文档：[../技术方案.md](../技术方案.md) §5 ｜ **State 完整结构与设计理由：[State设计.md](./State设计.md)**
+> 主文档：[../技术方案.md](../技术方案.md) §4 ｜ **State 完整结构与设计理由：[State设计.md](./State设计.md)**
 > 本文只讲运行时：图怎么搭、接口怎么接、检查点怎么配、怎么迁移与验证。
 
 ---
