@@ -30,7 +30,7 @@ participant "明道云\n(唯一服务端账号)" as MDY #FFF3E0
 
 == 1 建会话 ==
 U -> H5 : 点表单页顶部「AI 智能填报」
-H5 -> AG : POST /api/sessions
+H5 -> AG : POST /agent/repair/v1/sessions
 AG -> MCP : 接口直调 get_user_context · get_category_dict
 MCP -> SRC : 带出 3 项字段（门店/报修人/日期）· 字典
 AG -> RD : 会话快照（引擎内置）· TTL 7 天
@@ -82,6 +82,6 @@ note over MCP
 end note
 note over H5, RD
   每次状态变更先存快照再推送
-  错误退出零处理 · 重进 POST /api/sessions 复用活跃会话
+  错误退出零处理 · 重进 POST /agent/repair/v1/sessions 复用活跃会话
 end note
 @enduml

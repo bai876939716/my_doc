@@ -47,7 +47,7 @@ end box
 
 == 1 建会话 INIT ==
 U -> H5 : 点表单页顶部「AI 智能填报」
-H5 -> API : POST /api/sessions (Bearer token)
+H5 -> API : POST /agent/repair/v1/sessions (Bearer token)
 activate API
 API -> SM : new session（rp:active:{uid} 复用活跃会话）
 SM -> MCP : get_user_context()
@@ -148,7 +148,7 @@ note over MCP
 end note
 
 note over U, RD
-  断点续填：重进 POST /api/sessions → rp:active:{uid} 复用 → is_resumed=true 弹「继续上次报修」
-  错误退出（杀App/断网）零特殊处理 · 会话内刷新 GET /api/sessions/{id} 快照重放
+  断点续填：重进 POST /agent/repair/v1/sessions → rp:active:{uid} 复用 → is_resumed=true 弹「继续上次报修」
+  错误退出（杀App/断网）零特殊处理 · 会话内刷新 GET /agent/repair/v1/sessions/{id} 快照重放
 end note
 @enduml
