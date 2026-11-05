@@ -1,0 +1,311 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>通用采集图 · 场景演示（节点流转与 State 全量值）</title><style>
+:root{--ink:#1f2d3d;--muted:#7c8a99;--line:#e5eaf1;--red:#c62828;--redbg:#fff5f5;--blue:#2475ef;--bg:#f6f8fb}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.65 -apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif}
+.wrap{max-width:980px;margin:0 auto;padding:34px 20px 70px}
+h1{font-size:22px;margin:0 0 6px}.sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+.sub b{color:var(--red);font-weight:600}
+.legend{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.legend .t{font-weight:700;font-size:13px;margin-right:4px}
+.chip{display:inline-block;padding:2px 10px;border:1px solid #c4cfd9;background:#eef2f7;border-radius:999px;font-size:12px;color:#37485a}
+.chip.llm{border-color:var(--red);color:var(--red);background:var(--redbg)}
+.chip.ghost{border-style:dashed;color:var(--muted);background:#fff}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.tabs button{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 14px;font-size:14px;cursor:pointer;color:var(--ink)}
+.tabs button.on{border-color:var(--blue);color:var(--blue);font-weight:700;box-shadow:0 0 0 3px #2475ef14}
+.tabs button small{display:block;font-size:11px;color:var(--muted);font-weight:400}
+.scen{display:none}.scen.on{display:block}
+.intro{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:13px;color:#41526a}
+.step{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin-bottom:14px}
+.shead{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ver{background:#e8f0fe;color:var(--blue);font-weight:700;border-radius:7px;padding:1px 9px;font-size:13px}
+.ver.nobump{background:#eef2f7;color:var(--muted)}
+.stitle{font-weight:700;font-size:15px}
+.badge{font-size:11px;border-radius:999px;padding:2px 9px;border:1px solid}
+.badge.llm{border-color:var(--red);color:var(--red);background:var(--redbg);font-weight:700}
+.badge.zero{border-color:#a5d6a7;color:#2e7d32;background:#f1f8e9}
+.badge.ckpt{border-color:var(--line);color:var(--muted)}
+.sact{margin:8px 0 4px;color:#41526a}.sact b{color:var(--ink)}
+.nchain{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:8px 0}
+.nchain .arr{color:#9db0c3;font-size:12px}
+.ssend{font-size:13px;color:#41526a;background:#f7f9fc;border-left:3px solid #c9d7ea;padding:6px 10px;border-radius:0 8px 8px 0;margin:8px 0}
+.jtog{margin-top:4px;border:1px dashed #b7c6d8;background:#fbfdff;border-radius:8px;padding:6px 12px;font-size:13px;color:var(--blue);cursor:pointer}
+.jtog:hover{background:#f2f7ff}
+.sjson{display:none;margin:10px 0 4px;background:#0f1720;color:#dce6f2;border-radius:10px;padding:14px 16px;font:12px/1.6 ui-monospace,Consolas,Menlo,monospace;overflow:auto;max-height:430px}
+.sjson.show{display:block}
+.sjson .chg{color:#ff8a80;background:#3a1d20;border-radius:3px;padding:0 3px}
+.swhy{font-size:12.5px;color:var(--muted);margin-top:8px}
+.swhy b{color:#41526a}
+</style></head><body><div class="wrap">
+<h1>通用采集图 · 场景演示</h1>
+<div class="sub">四个场景逐步"放电影"：<b>红色 = 相对上一版变化的字段</b> ｜ 每步点开「State 完整 JSON」查看该检查点版本的全量值 ｜ ★ 标记 = 该步发生 LLM 调用</div>
+<div class="legend"><span class="t">通用图 8 节点</span><span class="chip">load_context</span><span class="chip llm">extract ★</span><span class="chip">update</span><span class="chip">route</span><span class="chip">ask</span><span class="chip">confirm（interrupt）</span><span class="chip">submit</span><span class="chip">fallback</span></div>
+<div class="tabs" id="tabs"></div>
+<div id="scenes"></div>
+</div><script>
+const $=s=>document.querySelector(s);
+let CLK=40;
+const t=()=>{CLK++;return "2026-11-05T09:41:"+(CLK<10?"0"+CLK:CLK)+"+08:00"};
+const slot=(v,src,ts)=>({value:v===undefined?null:v,source:src||"system_default",updated_at:ts||"-"});
+function initialState(){CLK=40;return{
+ skill:"repair",session_id:"rp_9f3k2m",
+ context:{store:"11522 安徽商之都OK店",reporter:"白云翔",date:"2026-11-05",phone_masked:"138****1234"},
+ slots:{category:slot(),detail:slot(),photos:slot([]),expect_visit:slot(),impact_business:slot(),phone:slot("13800001234","system_default","2026-11-05T09:41:03+08:00"),expect_process:slot()},
+ agenda:["category","detail","photos","expect_visit","impact_business","phone"],focus:"category",
+ messages:[
+  {seq:1,role:"server",type:"status_bar",data:{store:"11522 安徽商之都OK店",reporter:"白云翔",phone_masked:"138****1234"}},
+  {seq:2,role:"server",type:"text",data:{content:"白云翔你好！直接说哪儿坏了就行，比如「冷柜不制冷了，今天早上开始的」——我来帮你归类、填单。"}},
+  {seq:3,role:"server",type:"quick_cards",data:{cards:[{id:"c_cool",icon:"❄️",title:"冷柜/空调不制冷"},{id:"c_pos",icon:"💻",title:"收银机/扫码枪故障"},{id:"c_light",icon:"💡",title:"照明/招牌灯不亮"},{id:"c_bag",icon:"🛍️",title:"购物袋/物料质量"},{id:"c_water",icon:"🚰",title:"水电/下水道"},{id:"c_shelf",icon:"🔧",title:"货架/门锁"}]}}
+ ],
+ meta:{branch:"a",mode:"normal",fail_count:0,llm_calls:0,confirm_pending:false,seq_counter:3,exit_status:null,order:null},
+ rows:[]}}
+const pm=S=>{const p=(S.slots.phone.value||"");return p.replace(/(\d{3})\d{4}(\d{4})/,"$1****$2")};
+const push=(S,role,type,data)=>{S.meta.seq_counter=(S.meta.seq_counter||S.messages.length)+1;S.messages.push({seq:S.meta.seq_counter,role,type,data})};
+const setSlot=(S,n,v,src)=>{S.slots[n]={value:v,source:src||"user_edited",updated_at:t()}};
+const dropAgenda=S=>{S.agenda.shift();S.focus=S.agenda[0]||null};
+function confirmData(S){return{groups:[
+ {group_name:"基础信息（系统带出）",items:[
+  {field:"store",label:"门店名称",value:S.context.store,editable:true,source:"system_default"},
+  {field:"reporter",label:"报修人员",value:S.context.reporter,editable:true,source:"system_default"},
+  {field:"date",label:"报修日期",value:S.context.date,editable:true,source:"system_default"}]},
+ {group_name:"报修内容（AI 采集整理）",items:[
+  {field:"category",label:"报修类别",value:S.slots.category.value,editable:true,source:S.slots.category.source},
+  {field:"detail",label:"描述具体故障",value:S.slots.detail.value,editable:true,source:S.slots.detail.source},
+  {field:"photos",label:"现场照片",value:(S.slots.photos.value||[]).length+" 张",editable:true,source:S.slots.photos.source},
+  {field:"expect_visit",label:"期望上门",value:S.slots.expect_visit.value,editable:true,source:S.slots.expect_visit.source},
+  {field:"impact_business",label:"影响营业",value:S.slots.impact_business.value,editable:true,source:S.slots.impact_business.source},
+  {field:"phone",label:"联系电话",value:pm(S),editable:true,source:"system_default"},
+  {field:"expect_process",label:"期望处理（选填）",value:"",editable:true,source:"system_default"}]}
+],missing:[]}}
+const DETAIL_A="故障现象：冷藏风幕柜不制冷，柜内温度 15℃；发生时间：今天早上开始；影响范围：柜内鲜奶已下架，暂无法销售";
+const DETAIL_C="故障现象：招牌灯箱右半段不亮；发生时间：近一周晚间明显；影响范围：影响顾客识别门店";
+
+const SCEN=[
+{id:"A",name:"A · 主路径自由描述",tag:"全程 LLM 仅 1 次",intro:"说一句话 → AI 抽取整理 → 点选推进 → 确认提交。检查点 v1→v9。",
+steps:[
+ {v:"v1",t:"轮1 · 建会话",act:"店员点「AI 智能填报」",nodes:["load_context"],llm:0,sends:"status_bar（状态条）+ text（开场）+ quick_cards（高频卡片 ×6）",
+  chg:[],init:true,why:"工具带出 3 字段入 context；<b>agenda 由技能包 schema 生成</b>（6 项必填）——此时黑板即 v1。",
+  mut:S=>{}},
+ {v:"v2",t:"轮2 · 打字描述",act:"「店里的冷藏风幕柜不制冷了，柜内温度15度，今天早上开始的，鲜奶不敢卖全下架了。」",nodes:["extract★","update","route","ask"],llm:1,sends:"text + enum_card（类别 Top3 · 首位预选 · 必须点选）",
+  chg:["slots.detail","agenda","meta.llm_calls"],
+  why:"全流程唯一 LLM 调用：一次拿回意图+描述整理+类别候选。<b>候选只进卡片消息、不进槽位</b>（slots.category 仍为空）。",
+  mut:S=>{setSlot(S,"detail",DETAIL_A,"ai_filled");S.agenda.splice(S.agenda.indexOf("detail"),1);S.focus=S.agenda[0];S.meta.llm_calls=1;
+   push(S,"user","text",{content:"店里的冷藏风幕柜不制冷了，柜内温度15度，今天早上开始的，鲜奶不敢卖全下架了。"});
+   push(S,"server","text",{content:"听下来了。我认出的类别如下——怕报错被驳回，点一下确认（不对就选别的）："});
+   push(S,"server","enum_card",{field:"category",mode:"top3",options:["工程类 - 制冷设备/冷柜","工程类 - 暖通/空调","特别紧急 - 影响营业的紧急故障"],preselect:0})}},
+ {v:"v3",t:"轮3 · 点选类别",act:"点选「工程类 - 制冷设备/冷柜」",nodes:["update","route","ask"],llm:0,sends:"text + photo_guide（制冷类拍摄清单：整体 + 部位特写）",
+  chg:["slots.category","agenda","focus"],
+  why:"点选才定稿——slots.category 由 null → 值（source=user_edited）。",
+  mut:S=>{setSlot(S,"category","工程类 - 制冷设备/冷柜");dropAgenda(S);
+   push(S,"user","enum_pick",{field:"category",value:"工程类 - 制冷设备/冷柜"});
+   push(S,"server","text",{content:"类别登记好了。麻烦拍两张现场照片：设备整体 + 问题部位，维修师傅好提前判断。"});
+   push(S,"server","photo_guide",{need_count:2,tips:[{text:"设备整体一张",level:"info"},{text:"问题部位特写一张",level:"info"}],warning:null})}},
+ {v:"v4",t:"轮4 · 传照片",act:"上传 2 张照片 → upload_done",nodes:["update","route","ask"],llm:0,sends:"seg_card（期望上门 · 二选一）",
+  chg:["slots.photos","agenda","focus"],
+  why:"照片按类别清单<b>规则校验</b>（0 LLM），media_id 入槽。",
+  mut:S=>{setSlot(S,"photos",["m_001","m_002"]);dropAgenda(S);
+   push(S,"user","upload_done",{media_ids:["m_001","m_002"]});
+   push(S,"server","seg_card",{field:"expect_visit",question:"期望上门",options:[{value:"维修人员尽快上门",label:"🔧 维修人员尽快上门"},{value:"可等待安排",label:"🗓 可等待安排"}]})}},
+ {v:"v5",t:"轮5 · 点选期望上门",act:"点「维修人员尽快上门」",nodes:["update","route","ask"],llm:0,sends:"seg_card（影响营业 · 带 AI 预判：「你提到鲜奶下架，猜是影响了？」）",
+  chg:["slots.expect_visit","agenda","focus"],
+  why:"点选 0 LLM。",
+  mut:S=>{setSlot(S,"expect_visit","维修人员尽快上门");dropAgenda(S);
+   push(S,"user","seg_pick",{field:"expect_visit",value:"维修人员尽快上门"});
+   push(S,"server","seg_card",{field:"impact_business",question:"这故障影响做生意吗？你提到鲜奶下架卖不了，我猜是影响了，对吗？",options:[{value:"是",label:"✅ 影响"},{value:"否",label:"不影响"}]})}},
+ {v:"v6",t:"轮6 · 点选影响营业",act:"点「是」（预判命中）",nodes:["update","route","ask"],llm:0,sends:"phone_confirm（默认本人号码，可改）",
+  chg:["slots.impact_business","agenda","focus"],
+  why:"预判命中：值落槽 source=user_edited（AI 只提名，确认权在用户）。",
+  mut:S=>{setSlot(S,"impact_business","是");dropAgenda(S);
+   push(S,"user","seg_pick",{field:"impact_business",value:"是"});
+   push(S,"server","phone_confirm",{phone_masked:"138****1234",use_default:true})}},
+ {v:"v7",t:"轮7 · 确认电话",act:"点「用本人号码」",nodes:["update","route"],llm:0,sends:"（议程清空，下一站 confirm）",
+  chg:["slots.phone","agenda","focus"],
+  why:"确认采用带出值（source 保持 system_default）；<b>agenda=[] → 7/7 齐</b>。",
+  mut:S=>{S.slots.phone={value:"13800001234",source:"system_default",updated_at:t()};dropAgenda(S);
+   push(S,"user","phone",{use_default:true})}},
+ {v:"v8",t:"轮8 · 议程空 → 确认单挂起",act:"（无用户动作，route 自动送入）",nodes:["route","confirm"],llm:0,sends:"confirm_card（10 字段确认单 · 全部 ✏️ 可改）",
+  chg:["meta.confirm_pending"],
+  why:"<b>interrupt() 挂起</b>——挂起状态也被存档，等 POST /submit 恢复。",
+  mut:S=>{S.meta.confirm_pending=true;push(S,"server","confirm_card",confirmData(S))}},
+ {v:"v9",t:"轮9 · 确认提交",act:"点【确认并提交报修单】（POST /submit）",nodes:["submit"],llm:0,sends:"result（BX-20261105-0007 · 已提交/待派单）→ 跳记录页",
+  chg:["meta.order","meta.confirm_pending"],
+  why:"Command(resume)→submit；order_key 幂等建单；<b>检查点删除、活跃索引清除、终态归档 MySQL</b>。",
+  mut:S=>{S.meta.confirm_pending=false;S.meta.order={order_no:"BX-20261105-0007",status:"已提交 / 待派单"};push(S,"server","result",{order_no:"BX-20261105-0007",status:"已提交 / 待派单",tip:"可在报修记录查看处理进度"})}}
+]},
+{id:"B",name:"B · 高频卡片路径",tag:"全程 0 次 LLM",intro:"点卡片=类别直锁（跳过 extract）→ 免类别免描述 → 默认描述在确认单前才补。检查点 v1→v8。",
+steps:[
+ {v:"v1",t:"轮1 · 建会话",act:"店员点「AI 智能填报」",nodes:["load_context"],llm:0,sends:"状态条 + 开场 + 高频卡片 ×6",chg:[],init:true,why:"初始黑板同场景A。",mut:S=>{}},
+ {v:"v2",t:"轮2 · 点高频卡片",act:"点「❄️ 冷柜/空调不制冷」",nodes:["（跳过 extract）","update","route","ask"],llm:0,sends:"text + photo_guide（免类别免描述，直接拍照）",
+  chg:["slots.category","agenda","focus","meta.branch"],
+  why:"卡片消息<b>自带槽位值</b>，不需要 LLM 听懂——category 直接入槽；类别与描述同时划出议程。",
+  mut:S=>{setSlot(S,"category","工程类 - 制冷设备/冷柜");S.meta.branch="b";
+   S.agenda=S.agenda.filter(x=>x!=="category"&&x!=="detail");S.focus=S.agenda[0];
+   push(S,"user","card",{card_id:"c_cool"});
+   push(S,"server","text",{content:"好，就报 工程类 - 制冷设备/冷柜。不用再填描述了——拍两张现场照片：设备整体 + 问题部位。"});
+   push(S,"server","photo_guide",{need_count:2,tips:[{text:"设备整体一张",level:"info"},{text:"问题部位特写一张",level:"info"}],warning:null})}},
+ {v:"v3",t:"轮3 · 传照片",act:"上传 2 张照片",nodes:["update","route","ask"],llm:0,sends:"seg_card（期望上门）",chg:["slots.photos","agenda","focus"],
+  mut:S=>{setSlot(S,"photos",["m_001","m_002"]);dropAgenda(S);push(S,"user","upload_done",{media_ids:["m_001","m_002"]});
+   push(S,"server","seg_card",{field:"expect_visit",question:"期望上门",options:[{value:"维修人员尽快上门",label:"🔧 维修人员尽快上门"},{value:"可等待安排",label:"🗓 可等待安排"}]})}},
+ {v:"v4",t:"轮4 · 点期望上门",act:"点「尽快上门」",nodes:["update","route","ask"],llm:0,sends:"seg_card（影响营业 · B 路径直接问）",chg:["slots.expect_visit","agenda","focus"],
+  mut:S=>{setSlot(S,"expect_visit","维修人员尽快上门");dropAgenda(S);push(S,"user","seg_pick",{field:"expect_visit",value:"维修人员尽快上门"});
+   push(S,"server","seg_card",{field:"impact_business",question:"这故障影响做生意吗？",options:[{value:"是",label:"✅ 影响"},{value:"否",label:"不影响"}]})}},
+ {v:"v5",t:"轮5 · 点影响营业",act:"点「是」",nodes:["update","route","ask"],llm:0,sends:"phone_confirm",chg:["slots.impact_business","agenda","focus"],
+  mut:S=>{setSlot(S,"impact_business","是");dropAgenda(S);push(S,"user","seg_pick",{field:"impact_business",value:"是"});
+   push(S,"server","phone_confirm",{phone_masked:"138****1234",use_default:true})}},
+ {v:"v6",t:"轮6 · 确认电话",act:"点「用本人号码」",nodes:["update","route"],llm:0,sends:"（议程清空）",chg:["slots.phone","agenda","focus"],
+  mut:S=>{S.slots.phone={value:"13800001234",source:"system_default",updated_at:t()};dropAgenda(S);push(S,"user","phone",{use_default:true})}},
+ {v:"v7",t:"轮7 · 默认描述补填 + 挂起",act:"（无用户动作）",nodes:["update（DefaultFill）","route","confirm"],llm:0,sends:"confirm_card（描述=默认值，可编辑补充）",
+  chg:["slots.detail","meta.confirm_pending"],
+  why:"<b>DefaultFill 钩子此刻才触发</b>：描述为空 → 自动填「类别细分名，详见现场照片」（system_default）。",
+  mut:S=>{setSlot(S,"detail","制冷设备/冷柜，详见现场照片","system_default");S.meta.confirm_pending=true;push(S,"server","confirm_card",confirmData(S))}},
+ {v:"v8",t:"轮8 · 提交",act:"点【确认并提交】",nodes:["submit"],llm:0,sends:"result（BX-20261105-0008）",chg:["meta.order","meta.confirm_pending"],
+  why:"同样的单，<b>llm_calls 全程为 0</b>。",
+  mut:S=>{S.meta.confirm_pending=false;S.meta.order={order_no:"BX-20261105-0008",status:"已提交 / 待派单"};push(S,"server","result",{order_no:"BX-20261105-0008",status:"已提交 / 待派单",tip:"可在报修记录查看处理进度"})}}
+]},
+{id:"C",name:"C · 随时改 + 重选类别",tag:"议程不动 / 钩子失效",intro:"承接场景A 的 v8（确认单挂起中）。改普通字段议程不动；重选类别触发 OnChange 联动失效。检查点 v8→v14。",
+steps:[
+ {v:"v8",t:"起始 · 确认单挂起中",act:"（承接场景A 轮8 末）",nodes:["—"],llm:0,sends:"（等待用户在确认单上的动作）",chg:[],init:true,why:"7/7 齐，confirm_pending=true。",
+  mut:S=>{},pre:"A"},
+ {v:"v9",t:"① 打字改电话",act:"「电话换成店长的 13900005678」",nodes:["extract★","update","route","confirm"],llm:1,sends:"text（已更新）+ confirm_card（刷新）",
+  chg:["slots.phone","meta.llm_calls","meta.confirm_pending"],
+  why:"<b>改内容 ≠ 改流程</b>：槽位原地覆盖，agenda 始终为 []，改完重新挂起。",
+  mut:S=>{setSlot(S,"phone","13900005678");S.meta.llm_calls++;S.meta.confirm_pending=false;
+   push(S,"user","text",{content:"电话换成店长的 13900005678"});
+   push(S,"server","text",{content:"已把联系电话更新为「139****5678」，请核对确认单。"});
+   S.meta.confirm_pending=true;push(S,"server","confirm_card",confirmData(S))}},
+ {v:"v10",t:"② 重选类别（例外）",act:"在确认单点【重选】→ 选「工程类 - 照明/招牌」",nodes:["update（OnChange）","route","ask"],llm:0,sends:"photo_guide（照明类新清单：灯箱整体 + 不亮部位）",
+  chg:["slots.category","slots.photos","slots.detail","meta.confirm_pending","agenda","focus"],
+  why:"<b>一次动作改三处</b>：类别改值；照片/描述被钩子判失效清空、塞回议程——「回跳拍照」的数据化实现。",
+  mut:S=>{setSlot(S,"category","工程类 - 照明/招牌");setSlot(S,"photos",[],"system_default");setSlot(S,"detail",null,"system_default");
+   S.meta.confirm_pending=false;S.agenda=["photos","detail"];S.focus="photos";
+   push(S,"user","enum_pick",{field:"category",value:"工程类 - 照明/招牌"});
+   push(S,"server","photo_guide",{need_count:2,tips:[{text:"灯箱整体一张",level:"info"},{text:"不亮部位特写",level:"info"}],warning:null})}},
+ {v:"v11",t:"③ 按新清单重传",act:"上传 2 张新照片",nodes:["update","route","ask"],llm:0,sends:"text（补充故障描述，或用默认）",chg:["slots.photos","agenda","focus"],
+  mut:S=>{setSlot(S,"photos",["m_003","m_004"]);dropAgenda(S);
+   push(S,"user","upload_done",{media_ids:["m_003","m_004"]});
+   push(S,"server","text",{content:"照片收到。补充下故障情况（不补就用默认描述）。"})}},
+ {v:"v12",t:"④ 打字重述描述",act:"「招牌右半段不亮，晚上影响认店」",nodes:["extract★","update","route"],llm:1,sends:"（议程空，进入确认）",chg:["slots.detail","agenda","focus","meta.llm_calls"],
+  mut:S=>{setSlot(S,"detail",DETAIL_C,"ai_filled");dropAgenda(S);S.meta.llm_calls++;
+   push(S,"user","text",{content:"招牌右半段不亮，晚上影响认店"});push(S,"server","text",{content:"已整理进描述，到确认单核对。"})}},
+ {v:"v13",t:"⑤ 重新挂起",act:"（无用户动作）",nodes:["route","confirm"],llm:0,sends:"confirm_card（类别/照片/描述已更新）",chg:["meta.confirm_pending"],
+  mut:S=>{S.meta.confirm_pending=true;push(S,"server","confirm_card",confirmData(S))}},
+ {v:"v14",t:"⑥ 提交",act:"点【确认并提交】",nodes:["submit"],llm:0,sends:"result（BX-20261105-0009）",chg:["meta.order","meta.confirm_pending"],
+  why:"本场景新增 2 次 LLM（①④打字）；fail_count 全程 0——改字段不算失败。",
+  mut:S=>{S.meta.confirm_pending=false;S.meta.order={order_no:"BX-20261105-0009",status:"已提交 / 待派单"};push(S,"server","result",{order_no:"BX-20261105-0009",status:"已提交 / 待派单",tip:"可在报修记录查看处理进度"})}}
+]},
+{id:"D",name:"D · 断线恢复 + 跑题降级",tag:"恢复 0 LLM · 降级照交单",intro:"承接场景A 的 v5（正在问影响营业）时杀 App。重进靠活跃索引还原现场；随后连续跑题触发降级，卡片向导照样交单。",
+steps:[
+ {v:"v5",t:"① 杀 App 后重进",act:"重新点「AI 智能填报」（POST /sessions）",nodes:["— get_state —"],llm:0,nobump:true,sends:"is_resumed=true + 消息重放 → 界面回到「影响营业」",
+  chg:[],init:true,pre:"A",
+  why:"查 rp:active:{uid} 命中会话 → get_state 读回 v5 原样。<b>没有新版本号、零写入、零 LLM</b>。",
+  mut:S=>{}},
+ {v:"v6",t:"② 继续填",act:"点「✅ 影响」",nodes:["update","route","ask"],llm:0,sends:"phone_confirm",chg:["slots.impact_business","agenda","focus"],
+  mut:S=>{setSlot(S,"impact_business","是");dropAgenda(S);push(S,"user","seg_pick",{field:"impact_business",value:"是"});
+   push(S,"server","phone_confirm",{phone_masked:"138****1234",use_default:true})}},
+ {v:"v7",t:"③ 跑题①",act:"「你们这个AI挺聪明，给我讲个笑话」",nodes:["extract★","route","ask"],llm:1,sends:"text（模板拉回）",
+  chg:["meta.fail_count","meta.llm_calls"],
+  why:"意图=off_scope：<b>槽位零写入</b>，只有 fail_count 和 llm_calls 在涨；拉回复是模板。",
+  mut:S=>{S.meta.fail_count=1;S.meta.llm_calls++;push(S,"user","text",{content:"你们这个AI挺聪明，给我讲个笑话"});
+   push(S,"server","text",{content:"我只帮你填报修单——说故障、选类别、传照片就行，其他的帮不了啦。"})}},
+ {v:"v8",t:"④ 跑题②",act:"「就聊两句嘛」",nodes:["extract★","route"],llm:1,sends:"text（再次拉回）",chg:["meta.fail_count","meta.llm_calls"],
+  why:"fail_count=2，达到降级判定阈值。",
+  mut:S=>{S.meta.fail_count=2;S.meta.llm_calls++;push(S,"user","text",{content:"就聊两句嘛"});
+   push(S,"server","text",{content:"咱们先把单填完？就差电话一步了。"})}},
+ {v:"v9",t:"⑤ 降级接管",act:"（route 判定连续失败）",nodes:["route","fallback"],llm:0,sends:"system_tip（先用卡片点选填）+ phone_confirm",
+  chg:["meta.mode"],
+  why:"mode=fallback：<b>此后打字不再调 LLM</b>，剩余步骤全部卡片向导（0 LLM）。",
+  mut:S=>{S.meta.mode="fallback";push(S,"server","system_tip",{content:"AI 手速有点慢，先用卡片点选填，一样能交单",level:"warn"});
+   push(S,"server","phone_confirm",{phone_masked:"138****1234",use_default:true})}},
+ {v:"v10",t:"⑥ 向导内完成 + 挂起",act:"点「用本人号码」",nodes:["update","route","confirm"],llm:0,sends:"confirm_card",chg:["slots.phone","agenda","focus","meta.confirm_pending"],
+  mut:S=>{S.slots.phone={value:"13800001234",source:"system_default",updated_at:t()};dropAgenda(S);S.meta.confirm_pending=true;
+   push(S,"user","phone",{use_default:true});push(S,"server","confirm_card",confirmData(S))}},
+ {v:"v12",t:"⑦ 提交",act:"点【确认并提交】",nodes:["submit"],llm:0,sends:"result（BX-20261105-0010）",chg:["meta.order","meta.confirm_pending"],
+  why:"降级换通道、不换结果——单照样交出去。llm_calls 冻结在 3。",
+  mut:S=>{S.meta.confirm_pending=false;S.meta.order={order_no:"BX-20261105-0010",status:"已提交 / 待派单"};push(S,"server","result",{order_no:"BX-20261105-0010",status:"已提交 / 待派单",tip:"可在报修记录查看处理进度"})}}
+]}
+];
+
+function hit(chg,p){return chg.some(c=>p===c||p.startsWith(c+".")||p.startsWith(c+"["))}
+function esc(s){return String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]))}
+function scalar(v){return v===null||typeof v!=="object"}
+function jline(txt,red){return red?'<span class="chg">'+txt+'</span>':txt}
+function rObj(o,path,chg,ind,lines){
+ const keys=Object.keys(o);
+ if(keys.length&&keys.every(k=>scalar(o[k]))&&JSON.stringify(o).length<=110){
+  lines.push(ind+"{"+keys.map(k=>jline(JSON.stringify(k)+": "+JSON.stringify(o[k]),hit(chg,path?path+"."+k:k))).join(", ")+"}");return}
+ lines.push(ind+"{");
+ keys.forEach((k,i)=>{const p=path?path+"."+k:k;const ind2=ind+"  ";
+  const ls=rVal(o[k],p,chg,ind2);
+  ls[0]=ind2+jline(JSON.stringify(k)+": ",hit(chg,p))+ls[0].slice(ind2.length);
+  if(i<keys.length-1)ls[ls.length-1]+=",";
+  lines.push(...ls)});
+ lines.push(ind+"}")}
+function rArr(a,path,chg,ind,lines){
+ if(!a.length){lines.push(ind+"[]");return}
+ if(a.every(scalar)){lines.push(ind+"["+a.map(v=>jline(JSON.stringify(v),hit(chg,path))).join(", ")+"]");return}
+ lines.push(ind+"[");
+ a.forEach((v,i)=>{const p=path+"["+i+"]";const ind2=ind+"  ";
+  const ls=rVal(v,p,chg,ind2);
+  if(hit(chg,p))ls[0]='<span class="chg">'+ls[0]+'</span>';
+  if(i<a.length-1)ls[ls.length-1]+=",";
+  lines.push(...ls)});
+ lines.push(ind+"]")}
+function rVal(v,p,chg,ind){
+ if(v===null||v===undefined)return[ind+"null"];
+ if(Array.isArray(v)){const l=[];rArr(v,p,chg,ind,l);return l}
+ if(typeof v==="object"){const l=[];rObj(v,p,chg,ind,l);return l}
+ return[ind+JSON.stringify(v)]}
+function renderJSON(state,chg){
+ const lines=[];rObj(state,"",chg,"",lines);
+ return lines.join("\n")}
+
+const SNAP={};
+function build(){
+ SCEN.forEach(sc=>{
+  const pre=(sc.steps.find(s=>s.pre==="A"))?null:null;
+  let S=null;
+  const steps=[];
+  sc.steps.forEach((st,idx)=>{
+   if(st.pre==="A"){const n=(st.v==="v5")?5:8;S=initialState();SCEN[0].steps.slice(0,n).forEach(s=>s.mut(S));S=JSON.parse(JSON.stringify(S));}
+   else if(S===null){S=initialState()}
+   else{S=JSON.parse(JSON.stringify(S))}
+   st.mut(S);
+   steps.push({meta:st,snap:JSON.parse(JSON.stringify(S))});
+  });
+  SNAP[sc.id]=steps;
+ });
+}
+build();
+function draw(){
+ const tabs=$("#tabs"),scenes=$("#scenes");
+ SCEN.forEach((sc,si)=>{
+  const b=document.createElement("button");b.innerHTML=sc.name+"<small>"+sc.tag+"</small>";
+  b.onclick=()=>{document.querySelectorAll(".tabs button").forEach(x=>x.classList.remove("on"));b.classList.add("on");
+   document.querySelectorAll(".scen").forEach(x=>x.classList.remove("on"));$("#scen-"+sc.id).classList.add("on")};
+  if(si===0)b.classList.add("on");tabs.append(b);
+  const div=document.createElement("div");div.className="scen"+(si===0?" on":"");div.id="scen-"+sc.id;
+  div.innerHTML='<div class="intro">'+sc.intro+'</div>';
+  SNAP[sc.id].forEach((st,i)=>{
+   const m=st.meta;
+   const el=document.createElement("div");el.className="step";
+   const badges=[];
+   if(m.llm)badges.push('<span class="badge llm">★ LLM '+(m.llm===1?"×1":"×"+m.llm)+'</span>');
+   else badges.push('<span class="badge zero">0 LLM</span>');
+   badges.push('<span class="badge ckpt">检查点 '+(m.nobump?m.v+"（读回）":m.v)+'</span>');
+   const chips=m.nodes.map(n=>{const llm=n.includes("★");const ghost=n.startsWith("（");
+    return '<span class="chip'+(llm?" llm":ghost?" ghost":"")+'">'+n.replace("★","")+(llm?" ★":"")+'</span>'}).join('<span class="arr">→</span>');
+   el.innerHTML='<div class="shead"><span class="ver'+(m.nobump?" nobump":"")+'">'+m.v+'</span><span class="stitle">'+m.t+'</span>'+badges.join("")+'</div>'
+    +'<div class="sact">👤 <b>'+m.act+'</b></div>'
+    +'<div class="nchain">'+chips+'</div>'
+    +'<div class="ssend">下发：'+m.sends+'</div>'
+    +'<button class="jtog">▸ State '+m.v+' 完整 JSON（变化标红）</button>'
+    +'<pre class="sjson">'+renderJSON(st.snap,m.chg)+'</pre>'
+    +(m.why?'<div class="swhy">看点：'+m.why+'</div>':'');
+   el.querySelector(".jtog").onclick=e=>{const p=el.querySelector(".sjson");const open=p.classList.toggle("show");
+    e.target.textContent=(open?"▾ ":"▸ ")+"State "+m.v+" 完整 JSON（变化标红）"};
+   div.append(el);
+  });
+  scenes.append(div);
+ });
+}
+draw();
+</script></body></html>

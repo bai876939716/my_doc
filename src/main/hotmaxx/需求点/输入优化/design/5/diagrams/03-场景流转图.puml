@@ -1,0 +1,78 @@
+@startuml 场景流转图
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam ActivityBackgroundColor #FFFFFF
+skinparam ActivityBorderColor #90A4AE
+skinparam ActivityDiamondBackgroundColor #FFFDE7
+skinparam ActivityDiamondBorderColor #E0C96B
+skinparam ArrowColor #607D8B
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #E0C96B
+
+title 一次报修的对话流转（场景版 · 全程仅「听懂」这一步调用 1 次 LLM，其余为规则与模板）
+
+legend left
+  <#E3F2FD> 用户说/做
+  <#ECEFF1> 节点流转
+  <#E8F5E9> AI 话术与卡片
+endlegend
+
+start
+#E3F2FD:👤 **进入**
+点表单页顶部「AI 智能填报」;
+#ECEFF1:⚙ load_context
+工具带出 门店/报修人/日期;
+#E8F5E9:🤖 「白云翔你好！直接说**哪儿坏了**就行，
+比如「冷柜不制冷了，今天早上开始的」」
+📄 高频卡片 ×6;
+
+#E3F2FD:👤 **打字**
+「店里的冷藏风幕柜不制冷了，柜内温度15度，
+今天早上开始的，鲜奶不敢卖全下架了」;
+#ECEFF1:⚙ **extract ★LLM①** → update → route → ask
+一次听懂：意图+描述整理+类别候选;
+#E8F5E9:🤖 「听下来了。我认出的类别如下——
+怕报错被驳回，**点一下确认**（不对就选别的）」
+📄 枚举卡 Top3（首位预选 · 仅限点选）;
+
+#E3F2FD:👤 **点选**
+「工程类 - 制冷设备/冷柜」;
+#ECEFF1:⚙ update → route → ask;
+#E8F5E9:🤖 「类别登记好了。麻烦拍两张**现场照片**：
+设备整体 + 问题部位，维修师傅好提前判断」
+📄 拍照引导（按类别清单）;
+
+#E3F2FD:👤 **上传**
+2 张现场照片;
+#ECEFF1:⚙ update（清单规则校验）→ route → ask;
+#E8F5E9:🤖 「照片收到。**期望上门**怎么安排？」
+📄 二选一卡：尽快上门 ｜ 可等待安排;
+
+#E3F2FD:👤 **点选**
+「维修人员尽快上门」;
+#ECEFF1:⚙ update → route → ask;
+#E8F5E9:🤖 「这故障**影响做生意吗**？
+你提到鲜奶下架卖不了，我猜是影响了，对吗？」
+📄 是 ｜ 否;
+
+#E3F2FD:👤 **点选**
+「影响」;
+#ECEFF1:⚙ update → route → ask;
+#E8F5E9:🤖 「**联系电话**就用你本人的 138****1234 吗？
+替别人报修可以改」
+📄 用本人号码 ｜ 修改;
+
+#E3F2FD:👤 **点选**
+「用本人号码」;
+#ECEFF1:⚙ route（必填全齐）→ confirm;
+#E8F5E9:🤖 「信息齐了，请核对：」
+📄 **确认单**：带出3项 + 采集6项，全部 ✏️ 可改
+【✅ 确认并提交报修单】;
+
+#E3F2FD:👤 **点【确认并提交】**;
+#ECEFF1:⚙ submit（order_key 幂等建单）;
+#E8F5E9:🤖 「提交成功 ✅ 报修单号 BX-20261105-0007」
+📄 结果卡 → 跳「查看报修记录」;
+stop
+@enduml
