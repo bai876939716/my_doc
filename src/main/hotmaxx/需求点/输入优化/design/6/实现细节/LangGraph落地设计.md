@@ -45,7 +45,7 @@ SSE 流：`graph.astream_events(...)` → 引擎层把节点产出翻译成卡�
 | 项 | 设计 |
 |---|---|
 | Saver | `AsyncRedisSaver`（langgraph-checkpoint-redis，Redis 官方维护） |
-| 存什么 | **整个 State 快照**：槽位 slots + 议程 agenda + 上下文 context + **全部对话消息 messages**（用户输入与服务端卡片消息都追加进 messages 通道——`GET /{id}` 的消息重放、断线重连还原全靠它；附件只存 media_id 引用） |
+| 存什么 | **整个 State 快照**：槽位 slots + 议程 agenda + 上下文 context + **消息窗口 messages**（最近 10 轮，用户与服务端卡片都追加——`GET /{id}` 的重放靠它；全量在 MySQL 消息表，复原两源拼接；附件只存 media_id 引用） |
 | thread | `thread_id = session_id`（`rp_*` / `ex_*` 前缀） |
 | TTL | Saver 的 TTL 配置 + **每日清理任务兜底**（扫描超 7 天检查点删除）❗POC 验证项：确认 TTL 字段行为与滑动续期实现 |
 | 保留 Key | `rp:active:{uid}`（业务前缀，活跃索引）、`quota:{uid}:{date}` 不变 |

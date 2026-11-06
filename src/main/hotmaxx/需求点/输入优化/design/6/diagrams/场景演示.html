@@ -119,7 +119,7 @@ steps:[
    push(S,"server","phone_confirm",{phone_masked:"138****1234",use_default:true})}},
  {v:"v7",t:"轮7 · 确认电话",act:"点「用本人号码」",nodes:["update","route"],llm:0,sends:"（议程清空，下一站 confirm）",
   chg:["slots.phone","agenda","focus"],
-  why:"确认采用带出值（source 保持 system_default）；<b>agenda=[] → 7/7 齐</b>。",
+  why:"确认采用带出值（source 保持 system_default）；<b>agenda=[] → 必填全齐</b>。",
   mut:S=>{S.slots.phone={value:"13800001234",source:"system_default",updated_at:t()};dropAgenda(S);
    push(S,"user","phone",{use_default:true})}},
  {v:"v8",t:"轮8 · 议程空 → 确认单挂起",act:"（无用户动作，route 自动送入）",nodes:["route","confirm"],llm:0,sends:"confirm_card（10 字段确认单 · 全部 ✏️ 可改）",
@@ -163,7 +163,7 @@ steps:[
 ]},
 {id:"C",name:"C · 随时改 + 重选类别",tag:"议程不动 / 钩子失效",intro:"承接场景A 的 v8（确认单挂起中）。改普通字段议程不动；重选类别触发 OnChange 联动失效。检查点 v8→v14。",
 steps:[
- {v:"v8",t:"起始 · 确认单挂起中",act:"（承接场景A 轮8 末）",nodes:["—"],llm:0,sends:"（等待用户在确认单上的动作）",chg:[],init:true,why:"7/7 齐，confirm_pending=true。",
+ {v:"v8",t:"起始 · 确认单挂起中",act:"（承接场景A 轮8 末）",nodes:["—"],llm:0,sends:"（等待用户在确认单上的动作）",chg:[],init:true,why:"必填全齐，confirm_pending=true。",
   mut:S=>{},pre:"A"},
  {v:"v9",t:"① 打字改电话",act:"「电话换成店长的 13900005678」",nodes:["extract★","update","route","confirm"],llm:1,sends:"text（已更新）+ confirm_card（刷新）",
   chg:["slots.phone","meta.llm_calls","meta.confirm_pending"],

@@ -16,15 +16,17 @@ state "采集循环 · 任意非终态可 exit · 随时打字改字段" as MAIN
   state "extract 联合抽取\n意图+槽位+类别候选+描述整理\n（每条打字消息一次）" as EXTRACT #E8F5E9
   state "update 校验入库\n防幻觉闸 → 写槽位\n→ 钩子联动失效" as UPDATE #E3F2FD
   state "ask 追问下发\n话术模板 · 槽位类型→卡片\n（agenda 缺什么问什么）" as ASK #F1F8E9
+  state "route 路由\n看议程与意图定下一跳\n（条件边函数）" as ROUTE #FFF8E1
   state "fallback 降级\n卡片向导 · 0 LLM" as FB #FFEBEE
 
   [*] --> LOAD : 建会话 / 恢复
 
   LOAD --> EXTRACT
   EXTRACT --> UPDATE
-  UPDATE --> ASK : 议程还有缺槽
+  UPDATE --> ROUTE
+  ROUTE --> ASK : 议程还有缺槽
   ASK --> EXTRACT : 下一条打字消息\n（点选卡片直接进 update · 0 LLM）
-  UPDATE --> FB : 边界拉回失败 / 连续识别失败
+  ROUTE --> FB : 边界拉回失败 / 连续识别失败
   FB --> ASK : 向导点选定
 }
 
@@ -33,7 +35,7 @@ state "submit 提交\norder_key 幂等建单" as SUBMIT #E8F5E9
 state "DONE\n出单号 · 归档" as DONE #DCEDC8
 state "EXITED\nkeep 草稿7天 / abandon 废弃" as EXITED #EFEBE9
 
-UPDATE --> CONFIRM : 必填全齐
+ROUTE --> CONFIRM : 必填全齐
 CONFIRM --> SUBMIT : resume=submit（POST /submit）
 CONFIRM --> EXTRACT : resume=改字段（带新值）
 SUBMIT --> DONE : 成功

@@ -1,4 +1,4 @@
-# LangGraph 会话存储入门（教学）
+# LangGraph 会话存储（教学）
 
 > 给谁看：看到技术方案里"`langgraph-checkpoint-redis`（AsyncRedisSaver，thread_id = 会话 ID，TTL 配置）"这行字不知道它在说什么的工程师。读完知道：会话存在哪、存了什么、怎么存取、我们方案的每个概念对应它的哪个机制。
 > 关联：更完整的教学版（六个基本概念 + FAQ + 上手路径）在 design/4/实现细节/LangGraph落地设计-解读.md｜本目录为辅助理解材料，不进评审链路。
