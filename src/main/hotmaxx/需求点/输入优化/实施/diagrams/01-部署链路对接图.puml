@@ -27,7 +27,7 @@ title 报修 Agent · 部署链路与外部对接（形态对照 ShopCadAI 实�
 node "店员 App（自研）\n报修表单页 · AI 对话 H5（webview）" as APP #E3F2FD
 
 package "K8s 集群 htm-dev（dev 示例 · prod 同构）" {
-  node "Ingress（nginx）\nagent 专属域名 · 同域双路径：\n/ → agent 静态页 · /agent/** → 网关\nread-timeout 150s · body-size 50m" as ING #FFFDE7
+  node "Ingress（nginx）\nagent 专属域名 · 同域双路径：\n/ → agent 静态页 · /agent/** → 网关\nread-timeout 30s · body-size 50m" as ING #FFFDE7
   node "go-dev · 统一网关（Go）\n接口登记：method + path\n（common-center 审批）" as GW #FFFDE7
   node "dev · provider-biz-ai-middle（AI 中间层·已有服务）\n加转发 Controller（照 LayoutDrawingProxy 模式）\nbase-url 配置指向 agent · read-timeout 120s" as JAVA #FFF8E1
   node "python · Agent 容器\nFastAPI + LangGraph 引擎 · mcpServer 工具层\nLLM 网关模块 · web/（H5 静态页随镜像发）" as AGENT #E8F5E9
@@ -47,7 +47,7 @@ cloud "OSS（阿里云）\n照片本体 · State 存 media_id" as OSS #FFF3E0
 APP --> ING : "①② HTTPS（同域）"
 ING -down-> GW : "② /agent/**（接口已登记）"
 GW -down-> JAVA : "② 注入用户身份（HTM-HEADER）"
-JAVA -down-> AGENT : "② 内网 base-url 直调\n（http://…-agent-svc.python:80 · SSE 流式）"
+JAVA -down-> AGENT : "② 内网 base-url 直调\n（http://…-agent-svc.python:80 · 同步 JSON）"
 AGENT -down-> REDIS : "⑦ 检查点 · 索引"
 AGENT -down-> MYSQL : "⑦ 归档 · 埋点"
 AGENT -down-> LLM : "③ 模型调用"

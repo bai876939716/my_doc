@@ -54,10 +54,10 @@ App(H5 对话页)
                                                             └─► Redis / MySQL / 明道云 / LLM
 ```
 
-**SSE 与照片上传的现成注解先例**（ShopCadAI 的 Ingress，直接抄）：
+**上传大小与超时的现成注解先例**（ShopCadAI 的 Ingress，直接抄）：
 
 ```yaml
-nginx.ingress.kubernetes.io/proxy-read-timeout: "150"   # ≥ 我们 SSE 要求的 120s
+nginx.ingress.kubernetes.io/proxy-read-timeout: "30"    # JSON 短响应足够（LLM 轮最长 ~10s；二期上 SSE 再升 150，先例在此）
 nginx.ingress.kubernetes.io/proxy-body-size: "50m"      # 覆盖照片 multipart 上传
 ```
 
@@ -136,7 +136,7 @@ CMD [".venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 | 不抄 | 原因 |
 |---|---|
-| 标准库 http.server 手写路由 | 历史包袱；我们用 FastAPI + async（SSE 需要） |
+| 标准库 http.server 手写路由 | 历史包袱；我们用 FastAPI + async（引擎异步 I/O；二期 SSE 亦备） |
 | requirements.txt | 保留 uv——锁文件更严格，配 `UV_DEFAULT_INDEX` 阿里源即可，与公司「固定版本」精神一致 |
 | PDF 识别相关依赖/字体 | 业务无关 |
 
