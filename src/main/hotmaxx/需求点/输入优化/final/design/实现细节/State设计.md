@@ -45,7 +45,7 @@
 | `skill` | str | `"repair"` | 建会话写入，此后不变 | 恢复现场时定位技能包（schema/字典/话术/工具） |
 | `session_id` | str | `"rp_9f3k2m"` | 建会话写入，此后不变 | = thread_id；归档、排查、日志关联免反查 |
 | `context` | dict | 门店/报修人/日期/掩码电话 4 项 | `load_context` 工具带出一次写成 | 环境字段：确认单展示、提交映射都要用，但不进议程不追问 |
-| `slots` | dict[str, SlotValue] | 7 格（phone 已带出，余 6 格空） | `update` 节点：点选定稿 / 抽取写入 / 钩子失效清空 | 业务事实的唯一载体（"槽位=已定稿事实"） |
+| `slots` | dict[str, SlotValue] | 7 格（phone 已带出，余 6 格空） | `update` 节点：点选定稿 / **抽取直填（无 MustPick 的枚举槽，说到的即入槽 ai_filled）** / 钩子失效清空 | 业务事实的唯一载体（"槽位=已定稿事实"） |
 | `agenda` | list[str] | 6 项必填槽位名（schema 顺序） | 建（schema 生成）/ 答一划一 / 钩子失效回填 | "问什么"的数据化——引擎按它推进，业务接入零流程代码的根基 |
 | `focus` | str \| null | `"category"` | agenda 变则同步变（唯一写入点） | = agenda 首项的影子；对外输出（done.focus / GET）零计算 |
 | `messages` | list[MessageEntry] | 首屏 3 条（status_bar/text/quick_cards） | 每轮追加（用户 + 服务端卡片）；**滑动窗口：只保留最近 10 轮**，更早消息轮末批量入库后裁剪 | 断线重放的尾巴材料、extract 的近期上下文、候选提议的存放地；**不进 Prompt**；全量在 MySQL 消息表 |

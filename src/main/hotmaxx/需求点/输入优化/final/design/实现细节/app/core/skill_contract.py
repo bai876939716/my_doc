@@ -11,7 +11,7 @@ from typing import Any, Callable
 
 class SlotType(str, Enum):
     CONTEXT = "context"      # 工具带出，不问
-    ENUM = "enum"            # 枚举/下拉：LLM 给 Top3 → 必须点选
+    ENUM = "enum"            # 枚举/下拉：挂 MustPick 的（类别）必须点选；低风险枚举可 fill_from_text 直填
     TEXT = "text"            # 自由文本：LLM 抽取 + 范式整理
     MEDIA = "media"          # 照片/附件：上传 + 清单规则校验
     TREE = "tree"            # 树筛选（报销）：路径点选
@@ -74,6 +74,8 @@ class Slot:
     pattern: str | None = None         # text 范式说明（注入 Prompt）
     max_len: int | None = None
     predict: bool = False              # extract 是否预判
+    fill_from_text: bool = False       # enum：用户原话说到（或可推断）→ 抽取值过白名单后直接 ai_filled 入槽；
+                                       # 仅对未挂 MustPick 的槽生效（类别永不直填），没说到才发卡问
     check_list: str | None = None      # media：按字典里的拍摄清单做规则校验
     hooks: list[Any] = field(default_factory=list)
 

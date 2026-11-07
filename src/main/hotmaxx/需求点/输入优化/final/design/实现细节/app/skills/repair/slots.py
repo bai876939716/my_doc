@@ -29,10 +29,11 @@ SLOTS = [
          card="photo_guide"),
 
     Slot(name="expect_visit", type=SlotType.ENUM, label="期望上门", required=True,
-         dict_source="static:expect_visit", card="seg_card"),
+         dict_source="static:expect_visit", fill_from_text=True,   # 原话说到 → 直接 ai_filled（没说到才发卡问）
+         card="seg_card"),
 
     Slot(name="impact_business", type=SlotType.ENUM, label="影响营业", required=True,
-         dict_source="static:impact", predict=True,           # extract 预判，点选确认
+         dict_source="static:impact", predict=True, fill_from_text=True,  # 明说或可靠推断 → 直接 ai_filled，确认单核对
          card="seg_card"),
 
     Slot(name="phone", type=SlotType.CONTEXT, label="联系电话", required=True,

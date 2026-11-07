@@ -13,6 +13,7 @@ TALKS = {
     "repair.ask_impact_pre": "这故障**影响做生意吗**？{predict_hint}",
     "repair.ask_impact": "这故障**影响做生意吗**？",
     "repair.ask_phone": "**联系电话**就用你本人的 {phone_masked} 吗？替别人报修可以改。",
+    "repair.echo_filled": "都记下了：{filled_list}——确认单里都能改。",
     "repair.confirm": "信息齐了，请核对：",
     "repair.updated": "已把{field_label}更新为「{value}」，继续当前的步骤就行。",
     "repair.pull_back": "我只帮你填报修单——说故障、选类别、传照片就行，其他的帮不了啦。",
