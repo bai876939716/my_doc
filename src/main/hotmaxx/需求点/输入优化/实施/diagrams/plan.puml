@@ -1,0 +1,21 @@
+@startgantt
+project starts on 2026-11-10
+
+[协同方案&前置文档制定] lasts 2 days
+[LangGraph+Redis本地POC验证] lasts 3 days
+[项目基建：代码仓/流水线/权限资源] lasts 2 days
+[框架搭建：Redis/MySQL/模型接入] lasts 3 days
+[测试环境链路打通 HelloWorld+网关] lasts 2 days
+[接口开发 + 会话模块实现] lasts 4 days
+[本地验证、端到端、前后端联调] lasts 3 days
+[端到端脚本场景测试] lasts 2 days
+
+[协同方案&前置文档制定] --> [LangGraph+Redis本地POC验证]
+[LangGraph+Redis本地POC验证] --> [项目基建：代码仓/流水线/权限资源]
+[项目基建：代码仓/流水线/权限资源] --> [框架搭建：Redis/MySQL/模型接入]
+[框架搭建：Redis/MySQL/模型接入] --> [测试环境链路打通 HelloWorld+网关]
+[测试环境链路打通 HelloWorld+网关] --> [接口开发 + 会话模块实现]
+[接口开发 + 会话模块实现] --> [本地验证、端到端、前后端联调]
+[本地验证、端到端、前后端联调] --> [端到端脚本场景测试]
+
+@endgantt
