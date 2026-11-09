@@ -101,7 +101,7 @@ steps:[
   mut:S=>{setSlot(S,"category","工程类 - 制冷设备/冷柜");dropAgenda(S);
    push(S,"user","enum_pick",{field:"category",value:"工程类 - 制冷设备/冷柜"});
    push(S,"server","text",{content:"类别登记好了。麻烦拍两张现场照片：设备整体 + 问题部位，维修师傅好提前判断。"});
-   push(S,"server","photo_guide",{need_count:2,tips:[{text:"设备整体一张",level:"info"},{text:"问题部位特写一张",level:"info"}],warning:null})}},
+   push(S,"server","photo_guide",{need_count:2,tips:[{text:"设备整体一张"},{text:"问题部位特写一张"}]})}},
  {v:"v4",t:"轮4 · 传照片",act:"上传 2 张照片 → upload_done",nodes:["update","route","ask"],llm:0,sends:"phone_confirm（默认本人号码，可改）",
   chg:["slots.photos","agenda","focus"],
   why:"照片按类别清单<b>规则校验</b>（0 LLM），media_id 入槽；上门/影响已在 v2 预填，<b>不再追问</b>。",
@@ -132,7 +132,7 @@ steps:[
    S.agenda=S.agenda.filter(x=>x!=="category"&&x!=="detail");S.focus=S.agenda[0];
    push(S,"user","card",{card_id:"c_cool"});
    push(S,"server","text",{content:"好，就报 工程类 - 制冷设备/冷柜。不用再填描述了——拍两张现场照片：设备整体 + 问题部位。"});
-   push(S,"server","photo_guide",{need_count:2,tips:[{text:"设备整体一张",level:"info"},{text:"问题部位特写一张",level:"info"}],warning:null})}},
+   push(S,"server","photo_guide",{need_count:2,tips:[{text:"设备整体一张"},{text:"问题部位特写一张"}]})}},
  {v:"v3",t:"轮3 · 传照片",act:"上传 2 张照片",nodes:["update","route","ask"],llm:0,sends:"seg_card（期望上门）",chg:["slots.photos","agenda","focus"],
   mut:S=>{setSlot(S,"photos",["m_001","m_002"]);dropAgenda(S);push(S,"user","upload_done",{media_ids:["m_001","m_002"]});
    push(S,"server","seg_card",{field:"expect_visit",question:"期望上门",options:[{value:"维修人员尽快上门",label:"🔧 维修人员尽快上门"},{value:"可等待安排",label:"🗓 可等待安排"}]})}},
@@ -169,7 +169,7 @@ steps:[
   mut:S=>{setSlot(S,"category","工程类 - 照明/招牌");setSlot(S,"photos",[],"system_default");setSlot(S,"detail",null,"system_default");
    S.meta.confirm_pending=false;S.agenda=["photos","detail"];S.focus="photos";
    push(S,"user","enum_pick",{field:"category",value:"工程类 - 照明/招牌"});
-   push(S,"server","photo_guide",{need_count:2,tips:[{text:"灯箱整体一张",level:"info"},{text:"不亮部位特写",level:"info"}],warning:null})}},
+   push(S,"server","photo_guide",{need_count:2,tips:[{text:"灯箱整体一张"},{text:"不亮部位特写"}]})}},
  {v:"v9",t:"③ 按新清单重传",act:"上传 2 张新照片",nodes:["update","route","ask"],llm:0,sends:"text（补充故障描述，或用默认）",chg:["slots.photos","agenda","focus"],
   mut:S=>{setSlot(S,"photos",["m_003","m_004"]);dropAgenda(S);
    push(S,"user","upload_done",{media_ids:["m_003","m_004"]});
