@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent 网关项目实施计划甘特图</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    background: #f5f7fa;
+    color: #333;
+  }
+  .page-wrapper {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 32px;
+  }
+  .card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  .chart-container {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    min-height: 300px;
+  }
+  .desc {
+    color: #666;
+    font-size: 13px;
+    line-height: 1.7;
+    padding: 0 4px 12px;
+  }
+  .desc b { color: #333; }
+  @media (max-width: 768px) {
+    .page-wrapper { padding: 20px 16px; }
+    .card { padding: 16px; margin-bottom: 16px; border-radius: 8px; }
+    .chart-container { min-height: 240px; }
+  }
+</style>
+</head>
+<body>
+<div class="page-wrapper">
+  <div class="card">
+    <div class="desc">
+      <b>Agent 网关项目实施计划</b>（2026-11-09 起 · 约 6 周）。按周排布：W1 协同约定与 PoC 启动 → W2 PoC 收口、建仓接流水线 → W3 项目建立与工程框架 → W4 组件接入与网关 hello world → W5-W6 接口/会话实现、联调核验与端到端场景测试。悬停任务条可查看所属阶段、起止日期与说明。
+    </div>
+    <div class="chart-container" id="gantt" data-chart="true"></div>
+  </div>
+</div>
+<script src="https://image.uc.cn/s/uae/g/3n/mos-production/0915/echarts.min.js"></script>
+<script>
+(function () {
+  var isMobile = window.innerWidth <= 768;
+
+  // ---------- 数据（内联自 实施计划数据.json）----------
+  var sections = ['协同与约定', '本地PoC验证', '项目与流水线', '部署与框架', '测试环境链路', '功能实现与联调', '端到端场景测试'];
+
+  // 阶段渐变：[起色, 止色]，文字取深色代表色
+  var gradients = [
+    ['#667eea', '#764ba2'], ['#f093fb', '#f5576c'], ['#4facfe', '#00f2fe'],
+    ['#43e97b', '#38f9d7'], ['#fa709a', '#fee140'], ['#a18cd1', '#fbc2eb'],
+    ['#ff9a44', '#fc6076']
+  ];
+  var labelColors = ['#667eea', '#e0447c', '#2f8fd8', '#22a06b', '#e0547a', '#8a6fc9', '#f07818'];
+
+  var tasks = [
+    { name: '接口文档 v1',       s: 0, start: '2026-11-09', end: '2026-11-14', note: '详细接口文档先行，作为对外协同的基准' },
+    { name: '工具能力清单',       s: 0, start: '2026-11-09', end: '2026-11-13', note: '罗列 Agent 可用工具/能力及其契约' },
+    { name: '负责人与排期表',     s: 0, start: '2026-11-11', end: '2026-11-14', note: '涉及服务、负责人、排期三方对齐确认' },
+    { name: 'LangGraph PoC',     s: 1, start: '2026-11-11', end: '2026-11-21', note: '本地跑通图执行、节点编排与恢复语义' },
+    { name: 'Redis 持久化 PoC',  s: 1, start: '2026-11-16', end: '2026-11-21', note: 'checkpointer 接本地 Redis，跨请求可续' },
+    { name: '代码仓与流水线',     s: 2, start: '2026-11-16', end: '2026-11-21', note: '新仓库初始化、CI 构建接入、镜像推送' },
+    { name: '外部对接与权限',     s: 2, start: '2026-11-23', end: '2026-11-28', note: '域名/证书工单、Nacos、制品库等权限申请' },
+    { name: '工程主框架搭建',     s: 3, start: '2026-11-23', end: '2026-11-28', note: '网关工程骨架 + 鉴权 Filter + 统一错误码' },
+    { name: 'Redis/MySQL 接入',  s: 3, start: '2026-11-30', end: '2026-12-05', note: '测试环境组件实例接入与连通性验证' },
+    { name: '模型接入',          s: 3, start: '2026-11-30', end: '2026-12-05', note: '模型服务/网关通道与超时分级配置' },
+    { name: '网关 hello world',  s: 4, start: '2026-11-30', end: '2026-12-05', note: '独立域名下打通一条真实只读链路' },
+    { name: '测试链路联调',       s: 4, start: '2026-12-01', end: '2026-12-05', note: '测试环境端到端链路跑通并留存验证记录' },
+    { name: '接口实现',          s: 5, start: '2026-12-07', end: '2026-12-12', note: '按接口文档实现工具接口与准入路由' },
+    { name: '会话模块实现',       s: 5, start: '2026-12-07', end: '2026-12-19', note: 'conversation 状态机 + 持久化 + SSE 断线续传' },
+    { name: '联调与数据核验',     s: 5, start: '2026-12-14', end: '2026-12-19', note: '前后端联调；本地端到端验证 + 数据正确性核验' },
+    { name: '脚本场景回归',       s: 6, start: '2026-12-14', end: '2026-12-19', note: '端到端脚本化场景测试，形成回归基线' }
+  ];
+
+  function ts(str) { return new Date(str.replace(/-/g, '/')).getTime(); }
+
+  var categories = [];
+  var data = [];
+  for (var i = 0; i < tasks.length; i++) {
+    var t = tasks[i];
+    categories.push(t.name);
+    data.push({
+      value: [i, ts(t.start), ts(t.end), t.name, sections[t.s], t.start, t.end],
+      note: t.note,
+      itemStyle: {
+        color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+          { offset: 0, color: gradients[t.s][0] },
+          { offset: 1, color: gradients[t.s][1] }
+        ])
+      }
+    });
+  }
+
+  // 周末底色区间（周六 00:00 ~ 周一 00:00）
+  var weekendData = [];
+  (function () {
+    var d = new Date(2026, 10, 8); // 2026-11-08（周日）
+    while (d.getTime() < ts('2026-12-22')) {
+      if (d.getDay() === 6) {
+        var sat = d.getTime();
+        var mon = sat + 2 * 86400000;
+        weekendData.push([{ xAxis: sat }, { xAxis: mon }]);
+      }
+      d = new Date(d.getTime() + 86400000);
+    }
+  })();
+
+  var rich = {};
+  for (var s = 0; s < sections.length; s++) {
+    rich['s' + s] = { color: labelColors[s], fontSize: isMobile ? 11 : 13, lineHeight: 18 };
+  }
+
+  // ---------- 渲染 ----------
+  var chart = echarts.init(document.getElementById('gantt'));
+
+  chart.setOption({
+    title: {
+      text: 'Agent 网关项目实施计划（2026-11-09 起 · 6 周）',
+      left: 'center',
+      top: isMobile ? 4 : 8,
+      textStyle: { fontSize: isMobile ? 13 : 14 }
+    },
+    tooltip: {
+      formatter: function (params) {
+        if (params.componentType !== 'series' || !Array.isArray(params.value)) { return ''; }
+        var v = params.value;
+        var days = Math.ceil((v[2] - v[1]) / 86400000);
+        var d = data[params.dataIndex] || {};
+        return '<b>' + v[3] + '</b><br/>' +
+          '阶段: ' + v[4] + '<br/>' +
+          '开始: ' + v[5] + '<br/>' +
+          '结束: ' + v[6] + '<br/>' +
+          '工期: ' + days + ' 天<br/>' +
+          (d.note ? '<span style="color:#888">' + d.note + '</span>' : '');
+      }
+    },
+    grid: {
+      top: isMobile ? '6%' : '8%',
+      bottom: isMobile ? '10%' : '8%',
+      left: '2%', right: '5%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'time',
+      min: ts('2026-11-07'),
+      max: ts('2026-12-23'),
+      interval: 7 * 86400000,
+      axisLabel: {
+        fontSize: isMobile ? 10 : 12,
+        formatter: function (value) {
+          var d = new Date(value);
+          var m = d.getMonth() + 1, day = d.getDate();
+          var md = (m < 10 ? '0' + m : m) + '-' + (day < 10 ? '0' + day : day);
+          return (m === 1 || (m === 11 && day <= 9)) ? '2026-' + md : md;
+        }
+      },
+      splitLine: { show: true, lineStyle: { color: '#eee', type: 'dashed' } }
+    },
+    yAxis: {
+      type: 'category',
+      data: categories,
+      inverse: true,
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: {
+        formatter: function (value, index) {
+          return '{s' + tasks[index].s + '|' + value + '}';
+        },
+        rich: rich
+      },
+      splitLine: { show: true, lineStyle: { color: '#f3f4f8' } }
+    },
+    series: [{
+      type: 'custom',
+      encode: { x: [1, 2], y: 0 },
+      clip: true,
+      renderItem: function (params, api) {
+        var categoryIndex = api.value(0);
+        var start = api.coord([api.value(1), categoryIndex]);
+        var end = api.coord([api.value(2), categoryIndex]);
+        var height = api.size([0, 1])[1] * 0.6;
+        var rectShape = echarts.graphic.clipRectByRect(
+          { x: start[0], y: start[1] - height / 2, width: end[0] - start[0], height: height },
+          { x: params.coordSys.x, y: params.coordSys.y, width: params.coordSys.width, height: params.coordSys.height }
+        );
+        return rectShape && {
+          type: 'rect',
+          transition: ['shape'],
+          shape: { x: rectShape.x, y: rectShape.y, width: rectShape.width, height: rectShape.height, r: 4 },
+          style: api.style()
+        };
+      },
+      data: data,
+      markArea: {
+        silent: true,
+        itemStyle: { color: 'rgba(240, 242, 246, 0.55)' },
+        data: weekendData
+      },
+      markLine: {
+        silent: true,
+        symbol: 'none',
+        lineStyle: { color: '#f5576c', type: 'solid', width: 1.5 },
+        label: {
+          formatter: '今天 11-09', position: 'end', color: '#f5576c',
+          fontSize: isMobile ? 10 : 12, padding: [0, 0, 2, 0]
+        },
+        data: [{ xAxis: ts('2026-11-09') }]
+      }
+    }]
+  });
+
+  window.addEventListener('resize', function () { chart.resize(); });
+})();
+</script>
+</body>
+</html>
