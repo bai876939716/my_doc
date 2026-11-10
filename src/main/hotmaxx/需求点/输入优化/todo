@@ -1,4 +1,4 @@
-
+sk-ws-H.YEXPIML.gFlt.MEYCIQCJxUCSrkJn9PmbPt-BLbeR7GvWNqnJWvue6dXSf9nBoAIhAKbPmnUcwtKMcv6shSgJGWTN9ayhiuYYkxRiLlrwsx1j
 
 
 百炼权限。
@@ -13,11 +13,15 @@
 模型接入
 
 
+langgrah 断点保存
 
+pgsql（） 向量数据也要用     要么就是 redis 8 + mysql
 转发url配置
 网关时间调整
 服务矩阵  整个架构
 redis 版本的确定
+
+python 项目配置引入
 
 
 

@@ -1,0 +1,166 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "明道云 建单测试（HAP v3 · 门店报修-产研测试）",
+    "description": "凭据已预填（Appkey/Sign 为静态对，每次请求原样带）。⚠️ 此文件含授权凭据，勿进 git 勿外发。\n测试顺序建议：①应用信息（验鉴权）→ ②查表结构 → ③建单 → ④查记录核对。",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "https://b.hotmaxx.cn", "description": "明道云私有部署（产研测试）" }
+  ],
+  "paths": {
+    "/v3/app": {
+      "get": {
+        "summary": "① 应用信息（验鉴权最轻探针）",
+        "description": "返回应用分组/工作表清单。通了 = Appkey/Sign 正确，后面全通。",
+        "parameters": [
+          { "$ref": "#/components/parameters/HapAppkey" },
+          { "$ref": "#/components/parameters/HapSign" }
+        ],
+        "responses": {
+          "200": {
+            "description": "success=true 即鉴权通过；10102=签名不合法、10000=IP受限"
+          }
+        }
+      }
+    },
+    "/v3/app/worksheets/{worksheet_id}": {
+      "get": {
+        "summary": "② 查工作表结构（字段清单+类型）",
+        "description": "逐字段核对「允许API创建」：Text(2)/SingleSelect(9)/Attachment(14)/Date(15)/Collaborator(26)/Relation(29) 可写；PhoneNumber(3)/Dropdown(11)/CascadingSelect(35) 不可写。responseFormat=md 更省 token。",
+        "parameters": [
+          { "$ref": "#/components/parameters/WorksheetId" },
+          { "$ref": "#/components/parameters/HapAppkey" },
+          { "$ref": "#/components/parameters/HapSign" },
+          {
+            "name": "responseFormat",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["json", "md"], "default": "json" },
+            "description": "md = 返回 Markdown，省 token"
+          }
+        ],
+        "responses": { "200": { "description": "工作表结构" } }
+      }
+    },
+    "/v3/app/worksheets/{worksheet_id}/rows": {
+      "post": {
+        "summary": "③ 建单（核心）",
+        "description": "新建行记录。⚠️ 这是真实写入，且 triggerWorkflow 默认 true 会触发明道云工作流。默认示例只写两个文本字段+一个附件占位。field id 换成新版表的 controlId 后即可复用。",
+        "parameters": [
+          { "$ref": "#/components/parameters/WorksheetId" },
+          { "$ref": "#/components/parameters/HapAppkey" },
+          { "$ref": "#/components/parameters/HapSign" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object" },
+              "examples": {
+                "最简（两个文本字段）": {
+                  "value": {
+                    "triggerWorkflow": false,
+                    "fields": [
+                      { "id": "637c4600a041e811fb61169e", "value": "11522 安徽商之都OK店" },
+                      { "id": "637c4600a041e811fb61169f", "value": "【API测试】冷柜不制冷，请忽略此单" }
+                    ]
+                  }
+                },
+                "含附件（url 形态）": {
+                  "value": {
+                    "triggerWorkflow": false,
+                    "fields": [
+                      { "id": "637c4600a041e811fb61169e", "value": "11522 安徽商之都OK店" },
+                      { "id": "637c4600a041e811fb61169f", "value": "【API测试】含附件建单" },
+                      { "id": "637c4600a041e811fb6116a0", "value": [ { "name": "test.jpg", "url": "https://b.hotmaxx.cn/file/mdpic/替换为真实上传url.jpg" } ] }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "data.id = 行记录ID（rowid，关联字段引用就用它）；430019=必填字段为空、430022=表不存在"
+          }
+        }
+      }
+    },
+    "/v3/app/worksheets/{worksheet_id}/rows/list": {
+      "post": {
+        "summary": "④ 查记录列表（核对建的单）",
+        "parameters": [
+          { "$ref": "#/components/parameters/WorksheetId" },
+          { "$ref": "#/components/parameters/HapAppkey" },
+          { "$ref": "#/components/parameters/HapSign" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object" },
+              "examples": {
+                "最近10条": {
+                  "value": {
+                    "pageSize": 10,
+                    "pageIndex": 1,
+                    "sorts": [ { "field": "ctime", "isAsc": false } ],
+                    "includeTotalCount": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "rows 数组 + total" } }
+      }
+    },
+    "/v3/users/lookup": {
+      "get": {
+        "summary": "⑤ 查成员（accountId，报修人字段用）",
+        "description": "Collaborator(26) 成员字段的值 = accountId 数组。这个接口按姓名查 ID。",
+        "parameters": [
+          { "$ref": "#/components/parameters/HapAppkey" },
+          { "$ref": "#/components/parameters/HapSign" },
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": "白云翔",
+            "description": "人员姓名（精准匹配）"
+          }
+        ],
+        "responses": { "200": { "description": "users[].accountId + 脱敏手机号" } }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "HapAppkey": {
+        "name": "HAP-Appkey",
+        "in": "header",
+        "required": true,
+        "schema": { "type": "string" },
+        "example": "545d71b9547d1a06"
+      },
+      "HapSign": {
+        "name": "HAP-Sign",
+        "in": "header",
+        "required": true,
+        "schema": { "type": "string" },
+        "example": "ZGFhOTM5NjIxZDQ2NDQzYmM3Nzk5Yzc3YzJmZGIzZWRlNjM0MTM3YzA3YWM1YmE4MWVjZTM1MDI0ZjRiYWI3Mg=="
+      },
+      "WorksheetId": {
+        "name": "worksheet_id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" },
+        "example": "6a62cd9c80061a3387736fc8",
+        "description": "当前=旧表「门店报修」（50字段那张）。新版表到位后替换此处"
+      }
+    }
+  }
+}
