@@ -15,14 +15,7 @@
   body{margin:0;background:var(--bg);color:var(--ink);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
     -webkit-font-smoothing:antialiased}
-  .wrap{max-width:1300px;margin:0 auto;padding:28px 20px 48px}
-  .layout{display:flex;gap:16px;align-items:flex-start}
-  .main{flex:1;min-width:0;max-width:880px}
-  .side{width:330px;flex:none;position:sticky;top:16px;max-height:calc(100vh - 32px);overflow:auto}
-  @media (max-width:1120px){
-    .layout{flex-direction:column}
-    .side{width:100%;position:static;max-height:none;overflow:visible}
-  }
+  .wrap{max-width:880px;margin:0 auto;padding:28px 20px 48px}
 
   header{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px 22px;box-shadow:0 1px 3px rgba(15,23,42,.05)}
   .hd-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
@@ -79,12 +72,11 @@
   li[data-s="2"] .st{border-color:var(--green);background:var(--green)}
   li[data-s="2"] .st::after{content:"✓";color:#fff;font-size:10px;font-weight:700;line-height:1}
 
-  .side .card{margin-top:0}
-  .side-title{margin:0;font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .hist-title{margin:0;font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
   .hist-count{font-size:12px;color:var(--sub);font-weight:400}
-  .hist-tip{font-size:11.5px;color:var(--sub);margin:10px 0}
-  .side .btns{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 0}
-  .side .btns button{padding:6px 10px}
+  .hist-tip{font-size:12px;color:var(--sub);margin:10px 0}
+  .hist-card .btns{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 0}
+  .hist-card .btns button{padding:6px 10px}
   .hist-scroll{overflow-x:auto}
   table.hist{border-collapse:collapse;font-size:11.5px;min-width:100%}
   table.hist th,table.hist td{border:1px solid var(--line);padding:5px 8px;white-space:nowrap;text-align:center}
@@ -114,8 +106,6 @@
     body{background:#fff}
     .wrap{max-width:none;padding:0}
     .card,header{box-shadow:none}
-    .layout{display:block}
-    .side{width:100%;position:static;max-height:none;overflow:visible}
     .btns,.del{display:none!important}
     li{cursor:default}
   }
@@ -123,8 +113,6 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="layout">
-  <div class="main">
 
   <header>
     <div class="hd-top">
@@ -157,7 +145,21 @@
     </div>
   </div>
 
-  <section class="card item need-card p-todo">
+  <div class="card hist-card" id="histBox">
+    <h2 class="hist-title">进度留档与历史对比<span class="hist-count" id="histCount">· 暂无快照</span></h2>
+    <div class="btns">
+      <button id="snapBtn" type="button" class="primary">保存快照</button>
+      <button id="impBtn" type="button">导入快照</button>
+      <button id="resetBtn" type="button">重置</button>
+    </div>
+    <p class="hist-tip" id="histTip">每次过进度（周三 / 周六）点「保存快照」：留档历史并下载 JSON 备份文件；换浏览器 / 换电脑时点「导入快照」选那份 JSON，勾选状态和历史全部恢复。</p>
+    <div class="hist-scroll">
+      <table class="hist" id="histTable"></table>
+    </div>
+    <input type="file" id="impFile" accept=".json,application/json" hidden>
+  </div>
+
+  <section class="card item need-card p-todo" data-id="外部依赖">
     <div class="head">
       <span class="idx">01</span>
       <div class="ttl"><h2>外部依赖</h2><span class="scope">API key · 明道云 · 字典 · 接口 · OSS · 资源</span></div>
@@ -175,7 +177,7 @@
     </ul>
   </section>
 
-  <section class="card item p-doing">
+  <section class="card item p-doing" data-id="协同内容敲定">
     <div class="head">
       <span class="idx">02</span>
       <div class="ttl"><h2>协同内容敲定</h2><span class="scope">接口文档 · 工具罗列 · 对接人拉会对齐</span></div>
@@ -189,7 +191,7 @@
     </ul>
   </section>
 
-  <section class="card item p-done">
+  <section class="card item p-done" data-id="项目工程的主框架搭建">
     <div class="head">
       <span class="idx">03</span>
       <div class="ttl"><h2>项目工程的主框架搭建</h2><span class="scope">代码仓 · 技能包 · 网关薄壳子 · 测试脚本</span></div>
@@ -204,7 +206,7 @@
     </ul>
   </section>
 
-  <section class="card item p-done">
+  <section class="card item p-done" data-id="本地POC验证">
     <div class="head">
       <span class="idx">04</span>
       <div class="ttl"><h2>本地POC验证</h2><span class="scope">会话检查点 · 引擎执行</span></div>
@@ -217,7 +219,7 @@
     </ul>
   </section>
 
-  <section class="card item p-doing">
+  <section class="card item p-doing" data-id="发布部署相关">
     <div class="head">
       <span class="idx">05</span>
       <div class="ttl"><h2>发布部署相关</h2><span class="scope">流水线建立 · Dockerfile 设定</span></div>
@@ -230,7 +232,7 @@
     </ul>
   </section>
 
-  <section class="card item p-doing">
+  <section class="card item p-doing" data-id="测试环境链路跑通">
     <div class="head">
       <span class="idx">06</span>
       <div class="ttl"><h2>测试环境链路跑通</h2><span class="scope">dev 部署 · ai-middle 转发链路</span></div>
@@ -243,7 +245,7 @@
     </ul>
   </section>
 
-  <section class="card item p-doing">
+  <section class="card item p-doing" data-id="功能实现">
     <div class="head">
       <span class="idx">07</span>
       <div class="ttl"><h2>功能实现</h2><span class="scope">转发 · 引擎 · 工具 · 会话 · 灰度 · 组件接入</span></div>
@@ -263,7 +265,7 @@
     </ul>
   </section>
 
-  <section class="card item p-doing">
+  <section class="card item p-doing" data-id="本地验证">
     <div class="head">
       <span class="idx">08</span>
       <div class="ttl"><h2>本地验证</h2><span class="scope">端到端脚本验证</span></div>
@@ -277,7 +279,7 @@
     </ul>
   </section>
 
-  <section class="card item p-doing">
+  <section class="card item p-doing" data-id="前后端对接联调">
     <div class="head">
       <span class="idx">09</span>
       <div class="ttl"><h2>前后端对接联调</h2><span class="scope">文档 · 联调 · 真机走查</span></div>
@@ -291,7 +293,7 @@
     </ul>
   </section>
 
-  <section class="card item p-todo">
+  <section class="card item p-todo" data-id="数据核验">
     <div class="head">
       <span class="idx">10</span>
       <div class="ttl"><h2>数据核验</h2><span class="scope">会话内容 · 数据埋点 · 建单字段映射核对</span></div>
@@ -305,7 +307,7 @@
     </ul>
   </section>
 
-  <section class="card item p-doing">
+  <section class="card item p-doing" data-id="整体测试">
     <div class="head">
       <span class="idx">11</span>
       <div class="ttl"><h2>整体测试</h2><span class="scope">场景集 · CI · UAT</span></div>
@@ -324,49 +326,33 @@
     <span class="hint">点击子项可切换状态：未开始 → 进行中 → 已完成，进度自动重算并保存在本机。</span>
   </div>
 
-  </div>
-  <aside class="side">
-    <div class="card" id="histBox">
-      <h2 class="side-title">进度留档与历史对比<span class="hist-count" id="histCount">· 暂无快照</span></h2>
-      <div class="btns">
-        <button id="snapBtn" type="button" class="primary">保存快照</button>
-        <button id="impBtn" type="button">导入快照</button>
-        <button id="resetBtn" type="button">重置</button>
-      </div>
-      <p class="hist-tip" id="histTip">每次过进度（周三 / 周六）点「保存快照」：留档历史并下载 JSON 备份文件；「导入快照」可跨浏览器 / 跨机器恢复看板。</p>
-      <div class="hist-scroll">
-        <table class="hist" id="histTable"></table>
-      </div>
-    </div>
-    <input type="file" id="impFile" accept=".json,application/json" hidden>
-  </aside>
-  </div>
-
 </div>
 
 <script>
 (function(){
-  var KEY='hotmaxx-agent-todo-v4';
+  var KEY='hotmaxx-agent-todo-v5';
   var HKEY='hotmaxx-agent-todo-hist-v1';
   var W=[0,0.5,1];
   var TIP_DEFAULT='每次过进度（周三 / 周六）点「保存快照」：留档历史并下载 JSON 备份文件；「导入快照」可跨浏览器 / 跨机器恢复看板。';
 
   function items(){return Array.prototype.slice.call(document.querySelectorAll('.card.item'));}
+  function cardKey(c,i){return c.getAttribute('data-id')||('item'+(i+1));}
   function subStatuses(){
     var o={},is=items();
     for(var i=0;i<is.length;i++){
-      var lis=is[i].querySelectorAll('li[data-s]');
-      for(var j=0;j<lis.length;j++){o[i+'-'+j]=+lis[j].getAttribute('data-s');}
+      var k=cardKey(is[i],i),lis=is[i].querySelectorAll('li[data-s]');
+      for(var j=0;j<lis.length;j++){o[k+'-'+j]=+lis[j].getAttribute('data-s');}
     }
     return o;
   }
   function applyStatuses(o){
     var is=items();
     for(var i=0;i<is.length;i++){
-      var lis=is[i].querySelectorAll('li[data-s]');
+      var k=cardKey(is[i],i),lis=is[i].querySelectorAll('li[data-s]');
       for(var j=0;j<lis.length;j++){
-        var k=i+'-'+j;
-        if(Object.prototype.hasOwnProperty.call(o,k))lis[j].setAttribute('data-s',o[k]);
+        var key=k+'-'+j;
+        if(Object.prototype.hasOwnProperty.call(o,key))lis[j].setAttribute('data-s',o[key]);
+        else if(Object.prototype.hasOwnProperty.call(o,i+'-'+j))lis[j].setAttribute('data-s',o[i+'-'+j]);
       }
     }
   }
@@ -404,7 +390,7 @@
     if(oc)oc.textContent='已完成 '+d.counts.done+' 项 · 进行中 '+d.counts.doing+' 项 · 未开始 '+d.counts.todo+' 项';
   }
   function save(){
-    try{localStorage.setItem(KEY,JSON.stringify(subStatuses()));}catch(e){}
+    try{localStorage.setItem(KEY,JSON.stringify({ts:Date.now(),statuses:subStatuses()}));}catch(e){}
   }
 
   /* ---------- 快照与历史 ---------- */
@@ -499,7 +485,7 @@
     var init=subStatuses();
     var saved=null;
     try{saved=JSON.parse(localStorage.getItem(KEY)||'null');}catch(e){}
-    if(saved&&typeof saved==='object')applyStatuses(saved);
+    if(saved&&typeof saved==='object'&&saved.statuses)applyStatuses(saved.statuses);
     render();
     renderHist();
     var hb=document.getElementById('histBox');
@@ -565,7 +551,7 @@
     if(rb)rb.addEventListener('click',function(){
       try{localStorage.removeItem(KEY);}catch(e){}
       applyStatuses(init);render();
-      flash('已重置为初始版本（历史快照不受影响）');
+      flash('已撤销本机点击，回到页面预填（快照文件不受影响）');
     });
   });
 })();
