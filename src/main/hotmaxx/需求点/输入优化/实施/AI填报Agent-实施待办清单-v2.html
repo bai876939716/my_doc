@@ -43,7 +43,13 @@
   .m.small .md{font-size:11px;color:var(--sub);font-weight:600}
   .m.hard .md{color:var(--red)}
   .ml{font-size:11px;color:var(--sub);display:block;margin-top:2px;white-space:nowrap}
+  .m.done .dot{border-color:var(--green);background:var(--green)}
+  .m.done .md{color:var(--green)}
   .m.hard .ml{color:#b91c1c;font-weight:700}
+  .m.stg{cursor:pointer}
+  .m.stg:hover .dot{border-color:#64748b}
+  .m.stg.done:hover .dot{border-color:var(--green)}
+  .m.stg.next:hover .dot{border-color:var(--blue)}
 
   .group{margin-top:22px}
   .g-head{display:flex;align-items:baseline;gap:8px;padding:0 4px}
@@ -128,27 +134,26 @@
         <p class="sub">门店报修 · 对话式填报 ｜节奏：每周三 / 周六 过进度</p>
       </div>
       <div class="bigpct-wrap">
-        <span class="bigpct" id="oPct">43%</span>
+        <span class="bigpct" id="oPct">44%</span>
         <span class="bigpct-l">总进度（按子项加权）</span>
       </div>
     </div>
-    <div class="obar"><i id="oFill" style="width:43%"></i></div>
-    <div class="chips" id="oChips">已完成 1 项 · 进行中 8 项 · 未开始 3 项</div>
+    <div class="obar"><i id="oFill" style="width:44%"></i></div>
+    <div class="chips" id="oChips">已完成 1 项 · 进行中 7 项 · 未开始 3 项</div>
   </header>
 
   <div class="card miles-wrap">
-    <div class="miles-cap">关键节点（小点 = 周三 / 周六 过进度）</div>
+    <div class="miles-cap">实施阶段（点击切换：未到 → 当前 → 已完成）</div>
     <div class="miles">
-      <div class="m small next"><span class="dot"></span><span class="md">11.11 三</span><span class="ml">过进度</span></div>
-      <div class="m"><span class="dot"></span><span class="md">11.13 五</span><span class="ml">内部走查</span></div>
-      <div class="m small"><span class="dot"></span><span class="md">11.14 六</span><span class="ml">过进度</span></div>
-      <div class="m"><span class="dot"></span><span class="md">11.18 三</span><span class="ml">依赖检查点</span></div>
-      <div class="m"><span class="dot"></span><span class="md">11.20 五</span><span class="ml">端到端验收</span></div>
-      <div class="m small"><span class="dot"></span><span class="md">11.21 六</span><span class="ml">过进度</span></div>
-      <div class="m small"><span class="dot"></span><span class="md">11.25 三</span><span class="ml">过进度</span></div>
-      <div class="m hard"><span class="dot"></span><span class="md">11.27 五</span><span class="ml">上线·灰度验证</span></div>
-      <div class="m small"><span class="dot"></span><span class="md">11.28 六</span><span class="ml">过进度</span></div>
-      <div class="m"><span class="dot"></span><span class="md">11.30 一</span><span class="ml">灰度放流</span></div>
+      <div class="m stg done" data-st="2"><span class="dot"></span><span class="md">POC 验证</span></div>
+      <div class="m stg done" data-st="2"><span class="dot"></span><span class="md">引擎本地跑通</span></div>
+      <div class="m stg next" data-st="1"><span class="dot"></span><span class="md">测试链路跑通</span></div>
+      <div class="m stg" data-st="0"><span class="dot"></span><span class="md">前后端联调</span></div>
+      <div class="m stg" data-st="0"><span class="dot"></span><span class="md">真依赖点亮</span></div>
+      <div class="m stg" data-st="0"><span class="dot"></span><span class="md">数据核验</span></div>
+      <div class="m stg" data-st="0"><span class="dot"></span><span class="md">可测试</span></div>
+      <div class="m stg" data-st="0"><span class="dot"></span><span class="md">验收通过</span></div>
+      <div class="m stg" data-st="0"><span class="dot"></span><span class="md">灰度上线</span></div>
     </div>
   </div>
 
@@ -159,7 +164,7 @@
       <button id="impBtn" type="button">导入快照</button>
       <button id="resetBtn" type="button">重置</button>
     </div>
-    <p class="hist-tip" id="histTip">每次过进度（周三 / 周六）点「保存快照」：留档历史并下载 JSON 备份文件；换浏览器 / 换电脑时点「导入快照」选那份 JSON，勾选状态和历史全部恢复。</p>
+    <p class="hist-tip" id="histTip"></p>
     <div class="hist-scroll">
       <table class="hist" id="histTable"></table>
     </div>
@@ -178,10 +183,11 @@
       </div>
       <div class="track"><i style="width:0%"></i></div>
       <ul>
-        <li data-s="0"><span class="st"></span><span>模型 API key（百炼 Qwen · 专用 key）</span></li>
+        <li data-s="0"><span class="st"></span><span>模型 API key </span></li>
         <li data-s="0"><span class="st"></span><span>明道云建单接口和权限</span></li>
         <li data-s="0"><span class="st"></span><span>报修类别字典真值</span></li>
         <li data-s="0"><span class="st"></span><span>员工手机号、姓名查询接口</span></li>
+        <li data-s="0"><span class="st"></span><span>店铺查询</span></li>
       </ul>
     </section>
 
@@ -195,7 +201,7 @@
       <ul>
         <li data-s="2"><span class="st"></span><span>接口文档定稿（六接口 · 消息协议 · 错误码 · 全场景示例）</span></li>
         <li data-s="2"><span class="st"></span><span>工具罗列（工具清单与依赖接口清单）</span></li>
-        <li data-s="1"><span class="st"></span><span>对接人拉会对齐（前端 · ai-middle · 平台组）</span></li>
+        <li data-s="1"><span class="st"></span><span>对接人拉会对齐（前端、测试）</span></li>
       </ul>
     </section>
   </div>
@@ -215,6 +221,8 @@
         <li data-s="2"><span class="st"></span><span>技能包（报修：10 字段 · 话术库 · 卡片协议 · 字典绑定）</span></li>
         <li data-s="2"><span class="st"></span><span>网关薄壳子（LLM 网关：Mock / 百炼双实现）</span></li>
         <li data-s="2"><span class="st"></span><span>测试脚本（pytest 基线全绿）</span></li>
+        <li data-s="2"><span class="st"></span><span>抽象工具类</span></li>
+        <li data-s="2"><span class="st"></span><span>Dockerfile 设定（镜像构建 · 健康检查通过）</span></li>
       </ul>
     </section>
 
@@ -253,30 +261,17 @@
   <div class="group">
     <div class="g-head"><span class="g-no">组三</span><span class="g-name">部署联通</span><span class="g-note">让代码跑起来、连起来 · 验证「通不通」</span></div>
 
-    <section class="card item p-doing" data-id="发布物">
-      <div class="head">
-        <span class="idx">06</span>
-        <div class="ttl"><h2>发布物</h2><span class="scope">Dockerfile · 流水线</span></div>
-        <div class="right"><span class="badge doing">进行中</span><span class="pct">50%</span></div>
-      </div>
-      <div class="track"><i style="width:50%"></i></div>
-      <ul>
-        <li data-s="2"><span class="st"></span><span>Dockerfile 设定（镜像构建 · 健康检查通过）</span></li>
-        <li data-s="0"><span class="st"></span><span>流水线建立（测试 → 镜像构建 → 部署）</span></li>
-      </ul>
-    </section>
-
     <section class="card item p-doing" data-id="环境部署与链路">
       <div class="head">
-        <span class="idx">07</span>
-        <div class="ttl"><h2>环境部署与链路</h2><span class="scope">dev 部署 · 转发链路 · 鉴权透传</span></div>
+        <span class="idx">06</span>
+        <div class="ttl"><h2>环境部署与链路</h2><span class="scope">dev 部署 · 转发链路 · 流水线</span></div>
         <div class="right"><span class="badge doing">进行中</span><span class="pct">17%</span></div>
       </div>
       <div class="track"><i style="width:17%"></i></div>
       <ul>
         <li data-s="0"><span class="st"></span><span>dev 首次部署（K8s 命名空间）</span></li>
         <li data-s="1"><span class="st"></span><span>转发链路调通（HTTP → 网关 → 中间层 → Python）</span></li>
-        <li data-s="0"><span class="st"></span><span>鉴权头透传验证（HTM-HEADER）</span></li>
+        <li data-s="0"><span class="st"></span><span>流水线建立（测试 → 镜像构建 → 部署）</span></li>
       </ul>
     </section>
   </div>
@@ -286,7 +281,7 @@
 
     <section class="card item p-doing" data-id="本地验证">
       <div class="head">
-        <span class="idx">08</span>
+        <span class="idx">07</span>
         <div class="ttl"><h2>本地验证</h2><span class="scope">POC → Mock 端到端 → 真模型</span></div>
         <div class="right"><span class="badge doing">进行中</span><span class="pct">80%</span></div>
       </div>
@@ -302,21 +297,21 @@
 
     <section class="card item p-doing" data-id="前后端对接联调">
       <div class="head">
-        <span class="idx">09</span>
+        <span class="idx">08</span>
         <div class="ttl"><h2>前后端对接联调</h2><span class="scope">文档 · 联调 · 真机走查</span></div>
         <div class="right"><span class="badge doing">进行中</span><span class="pct">33%</span></div>
       </div>
       <div class="track"><i style="width:33%"></i></div>
       <ul>
         <li data-s="2"><span class="st"></span><span>对接文档与调试指南交付</span></li>
-        <li data-s="0"><span class="st"></span><span>联调启动（11.11）</span></li>
-        <li data-s="0"><span class="st"></span><span>真机走查与问题闭环</span></li>
+        <li data-s="0"><span class="st"></span><span>联调启动 </span></li>
+        <li data-s="0"><span class="st"></span><span>场景验证，问题闭环</span></li>
       </ul>
     </section>
 
     <section class="card item p-todo" data-id="数据核验">
       <div class="head">
-        <span class="idx">10</span>
+        <span class="idx">09</span>
         <div class="ttl"><h2>数据核验</h2><span class="scope">会话内容 · 数据埋点 · 建单字段映射核对</span></div>
         <div class="right"><span class="badge todo">未开始</span><span class="pct">0%</span></div>
       </div>
@@ -330,16 +325,15 @@
 
     <section class="card item p-doing" data-id="整体测试">
       <div class="head">
-        <span class="idx">11</span>
-        <div class="ttl"><h2>整体测试</h2><span class="scope">场景集 · CI · UAT</span></div>
-        <div class="right"><span class="badge doing">进行中</span><span class="pct">38%</span></div>
+        <span class="idx">10</span>
+        <div class="ttl"><h2>整体测试</h2><span class="scope">场景集 · UAT</span></div>
+        <div class="right"><span class="badge doing">进行中</span><span class="pct">33%</span></div>
       </div>
-      <div class="track"><i style="width:38%"></i></div>
+      <div class="track"><i style="width:33%"></i></div>
       <ul>
         <li data-s="2"><span class="st"></span><span>测试方案（43 场景 + 红线用例）</span></li>
-        <li data-s="1"><span class="st"></span><span>Mock 场景集 CI 化</span></li>
-        <li data-s="0"><span class="st"></span><span>真依赖场景测试（含幂等红线）</span></li>
-        <li data-s="0"><span class="st"></span><span>UAT 验收清单走查</span></li>
+        <li data-s="0"><span class="st"></span><span>真依赖场景测试 </span></li>
+        <li data-s="0"><span class="st"></span><span> 验收清单走查</span></li>
       </ul>
     </section>
   </div>
@@ -349,7 +343,7 @@
 
     <section class="card item p-todo" data-id="上线与灰度">
       <div class="head">
-        <span class="idx">12</span>
+        <span class="idx">11</span>
         <div class="ttl"><h2>上线与灰度</h2><span class="scope">发布演练 · 灰度验证 · 放流 · 复盘</span></div>
         <span class="tag hard">11.27 上线 · 灰度验证</span>
         <div class="right"><span class="badge todo">未开始</span><span class="pct">0%</span></div>
@@ -357,23 +351,24 @@
       <div class="track"><i style="width:0%"></i></div>
       <ul>
         <li data-s="0"><span class="st"></span><span>生产发布准备（配置 · 发布清单 · 发布演练）</span></li>
-        <li data-s="0"><span class="st"></span><span>11.27 线上可用 · 灰度验证</span></li>
-        <li data-s="0"><span class="st"></span><span>试点门店灰度放流（11.30）</span></li>
+        <li data-s="0"><span class="st"></span><span> 线上可用 · 灰度验证</span></li>
+        <li data-s="0"><span class="st"></span><span>试点门店灰度放流 </span></li>
         <li data-s="0"><span class="st"></span><span>试点验收与指标复盘（时长 · 驳回率 · 类别识别准确率）</span></li>
       </ul>
     </section>
   </div>
 
   <div class="foot">
-    <span class="hint">点击子项可切换状态：未开始 → 进行中 → 已完成，进度自动重算并保存在本机。</span>
+    <span class="hint">点击子项切换状态：未开始 → 进行中 → 已完成；点击时间轴阶段切换：未到 → 当前 → 已完成。均自动保存在本机。</span>
   </div>
 
 </div>
 
 <script>
 (function(){
-  var KEY='hotmaxx-agent-todo-v6';
+  var KEY='hotmaxx-agent-todo-v7';
   var HKEY='hotmaxx-agent-todo-hist-v2';
+  var SKEY='hotmaxx-agent-todo-stages-v2';
   var W=[0,0.5,1];
   var TIP_DEFAULT='每次过进度（周三 / 周六）点「保存快照」：留档历史并下载 JSON 备份文件；换浏览器 / 换电脑时点「导入快照」选那份 JSON，勾选状态和历史全部恢复。';
 
@@ -522,6 +517,19 @@
     tbl.innerHTML=html;
   }
 
+  /* ---------- 阶段节点 ---------- */
+  function stages(){return Array.prototype.slice.call(document.querySelectorAll('.m.stg'));}
+  function renderStages(){
+    stages().forEach(function(el){
+      var s=+el.getAttribute('data-st');
+      el.classList.toggle('done',s===2);
+      el.classList.toggle('next',s===1);
+    });
+  }
+  function saveStages(){
+    try{localStorage.setItem(SKEY,JSON.stringify(stages().map(function(el){return +el.getAttribute('data-st');})));}catch(e){}
+  }
+
   document.addEventListener('DOMContentLoaded',function(){
     var init=subStatuses();
     var saved=null;
@@ -529,6 +537,21 @@
     if(saved&&typeof saved==='object'&&saved.statuses)applyStatuses(saved.statuses);
     render();
     renderHist();
+    var savedStages=null;
+    try{savedStages=JSON.parse(localStorage.getItem(SKEY)||'null');}catch(e){}
+    if(savedStages&&Object.prototype.toString.call(savedStages)==='[object Array]'){
+      var sg=stages();
+      for(var si=0;si<sg.length&&si<savedStages.length;si++){
+        if(savedStages[si]===0||savedStages[si]===1||savedStages[si]===2)sg[si].setAttribute('data-st',savedStages[si]);
+      }
+    }
+    renderStages();
+    stages().forEach(function(el){
+      el.addEventListener('click',function(){
+        el.setAttribute('data-st',(+el.getAttribute('data-st')+1)%3);
+        saveStages();renderStages();
+      });
+    });
 
     var is=items();
     for(var i=0;i<is.length;i++){
