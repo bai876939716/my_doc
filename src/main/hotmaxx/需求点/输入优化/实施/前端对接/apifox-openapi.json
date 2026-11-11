@@ -22,6 +22,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionStart"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -89,53 +99,6 @@
                 "schema": {
                   "$ref": "#/components/schemas/RoundResponse"
                 }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/agent/repair/v1/sessions/{sid}/upload": {
-      "post": {
-        "summary": "Upload",
-        "operationId": "upload_agent_repair_v1_sessions__sid__upload_post",
-        "parameters": [
-          {
-            "name": "sid",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Sid"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_upload_agent_repair_v1_sessions__sid__upload_post"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
               }
             }
           },
@@ -300,7 +263,7 @@
     "/healthz": {
       "get": {
         "summary": "Healthz",
-        "description": "健康检查：网关 / 平台探活用（对齐公司惯例）。",
+        "description": "liveness：进程活着就应答。",
         "operationId": "healthz_healthz_get",
         "responses": {
           "200": {
@@ -317,26 +280,49 @@
           }
         }
       }
+    },
+    "/readyz": {
+      "get": {
+        "summary": "Readyz",
+        "description": "readiness：依赖齐了才 200（memory 模式恒就绪；redis 模式查 Redis）。",
+        "operationId": "readyz_readyz_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
-      "Body_upload_agent_repair_v1_sessions__sid__upload_post": {
+      "Attachment": {
         "properties": {
-          "files": {
-            "items": {
-              "type": "string",
-              "contentMediaType": "application/octet-stream"
-            },
-            "type": "array",
-            "title": "Files"
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "url": {
+            "type": "string",
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Url"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
-          "files"
+          "name",
+          "url"
         ],
-        "title": "Body_upload_agent_repair_v1_sessions__sid__upload_post"
+        "title": "Attachment"
       },
       "HTTPValidationError": {
         "properties": {
@@ -355,8 +341,15 @@
         "properties": {
           "type": {
             "type": "string",
-            "title": "Type",
-            "description": "text|card|enum_pick|seg_pick|upload_done|phone"
+            "enum": [
+              "text",
+              "card",
+              "enum_pick",
+              "seg_pick",
+              "upload_done",
+              "phone"
+            ],
+            "title": "Type"
           },
           "content": {
             "anyOf": [
@@ -402,19 +395,20 @@
             ],
             "title": "Value"
           },
-          "media_ids": {
+          "attachments": {
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/Attachment"
                 },
-                "type": "array"
+                "type": "array",
+                "maxItems": 5
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Media Ids"
+            "title": "Attachments"
           },
           "use_default": {
             "anyOf": [
@@ -533,6 +527,22 @@
           "messages"
         ],
         "title": "SessionCreated"
+      },
+      "SessionStart": {
+        "properties": {
+          "store_no": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^\\S+$",
+            "title": "Store No",
+            "description": "当前门店编号——入口带入（一人可能对应多店，跨店各开各会话）"
+          }
+        },
+        "type": "object",
+        "required": [
+          "store_no"
+        ],
+        "title": "SessionStart"
       },
       "SubmitResult": {
         "properties": {
