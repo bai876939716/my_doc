@@ -130,7 +130,7 @@
   <header>
     <div class="hd-top">
       <div>
-        <h1>AI 智能填报 Agent · 实施待办清单 v2</h1>
+        <h1>AI 智能填报 Agent · 实施待办清单 v2（2026-11-13 更新）</h1>
         <p class="sub">门店报修 · 对话式填报 ｜节奏：每周三 / 周六 过进度</p>
       </div>
       <div class="bigpct-wrap">
@@ -183,9 +183,9 @@
       </div>
       <div class="track"><i style="width:0%"></i></div>
       <ul>
-        <li data-s="0"><span class="st"></span><span>模型 API key </span></li>
-        <li data-s="0"><span class="st"></span><span>明道云建单接口和权限</span></li>
-        <li data-s="0"><span class="st"></span><span>报修类别字典真值</span></li>
+        <li data-s="1"><span class="st"></span><span>模型 API key（共用可用，专用待发）</span></li>
+        <li data-s="1"><span class="st"></span><span>明道云建单接口和权限</span></li>
+        <li data-s="2"><span class="st"></span><span>报修类别字典真值</span></li>
         <li data-s="0"><span class="st"></span><span>员工手机号、姓名查询接口</span></li>
         <li data-s="0"><span class="st"></span><span>店铺查询</span></li>
       </ul>
@@ -199,7 +199,7 @@
       </div>
       <div class="track"><i style="width:83%"></i></div>
       <ul>
-        <li data-s="2"><span class="st"></span><span>接口文档定稿（六接口 · 消息协议 · 错误码 · 全场景示例）</span></li>
+        <li data-s="2"><span class="st"></span><span>接口文档定稿（五接口 · 消息协议 · 错误码 · 全场景示例，upload 已废除）</span></li>
         <li data-s="2"><span class="st"></span><span>工具罗列（工具清单与依赖接口清单）</span></li>
         <li data-s="1"><span class="st"></span><span>对接人拉会对齐（前端、测试）</span></li>
       </ul>
@@ -235,13 +235,14 @@
       <div class="track"><i style="width:57%"></i></div>
       <ul>
         <li data-s="2"><span class="st"></span><span>核心引擎（通用采集图 · 闸门校验 · 降级链路）</span></li>
-        <li data-s="1"><span class="st"></span><span>工具（四工具框架就绪，真实切换挂依赖）</span></li>
+        <li data-s="1"><span class="st"></span><span>工具（框架就绪；照片改前端直传明道云，upload 工具废除）</span></li>
         <li data-s="2"><span class="st"></span><span>会话（草稿保存 · 断点续填）</span></li>
-        <li data-s="2"><span class="st"></span><span>接口接入（六接口 HTTP 层）</span></li>
-        <li data-s="1"><span class="st"></span><span>模型接入（百炼 Qwen 代码就绪，待 key 点火）</span></li>
-        <li data-s="0"><span class="st"></span><span>pgsql 接入（检查点存储 · 归档表）</span></li>
+        <li data-s="2"><span class="st"></span><span>接口接入（五接口 HTTP 层，upload 已废除）</span></li>
+        <li data-s="2"><span class="st"></span><span>模型接入（qwen-flash 对拍定版 · 快 2.2 倍）</span></li>
+        <li data-s="2"><span class="st"></span><span>pgsql 接入（检查点存储 · 归档表）</span></li>
         <li data-s="0"><span class="st"></span><span>灰度开关（放流开关 · 试点门店控制）</span></li>
-      </ul>
+      
+        <li data-s="1"><span class="st"></span><span>Redis 残留清除（检查点/字典缓存已迁 PG，收尾清理）</span></li></ul>
     </section>
 
     <section class="card item p-doing" data-id="转发层实现">
@@ -254,7 +255,9 @@
       <ul>
         <li data-s="1"><span class="st"></span><span>转发 Controller 实现（参照公司既有模式 · 本机段已通）</span></li>
         <li data-s="0"><span class="st"></span><span>网关接口登记（common-center 审批）</span></li>
-      </ul>
+      
+        <li data-s="1"><span class="st"></span><span>转发 URL 配置化（环境区分 · 不硬编码）</span></li>
+        <li data-s="0"><span class="st"></span><span>网关超时时间调整（对齐长耗时轮次）</span></li></ul>
     </section>
   </div>
 
@@ -269,10 +272,11 @@
       </div>
       <div class="track"><i style="width:17%"></i></div>
       <ul>
-        <li data-s="0"><span class="st"></span><span>dev 首次部署（K8s 命名空间）</span></li>
+        <li data-s="1"><span class="st"></span><span>dev 首次部署（K8s 命名空间）</span></li>
         <li data-s="1"><span class="st"></span><span>转发链路调通（HTTP → 网关 → 中间层 → Python）</span></li>
         <li data-s="0"><span class="st"></span><span>流水线建立（测试 → 镜像构建 → 部署）</span></li>
-      </ul>
+      
+        <li data-s="1"><span class="st"></span><span>Python 项目配置引入（.env 替换方案落地）</span></li></ul>
     </section>
   </div>
 
@@ -291,8 +295,9 @@
         <li data-s="2"><span class="st"></span><span>引擎执行验证（POC）</span></li>
         <li data-s="2"><span class="st"></span><span>Mock 端到端（剧本 A / B 全流程）</span></li>
         <li data-s="2"><span class="st"></span><span>重启续填演示（进程销毁 → 恢复续填 → 提交出单）</span></li>
-        <li data-s="0"><span class="st"></span><span>真实模型端到端（等 key）</span></li>
-      </ul>
+        <li data-s="2"><span class="st"></span><span>真实模型端到端（对拍 30 场景）</span></li>
+      
+        <li data-s="2"><span class="st"></span><span>模型对拍 + 全量 e2e 基线（对拍 30 场景 / e2e 32 用例 ~40s 全绿）</span></li></ul>
     </section>
 
     <section class="card item p-doing" data-id="前后端对接联调">
@@ -304,7 +309,7 @@
       <div class="track"><i style="width:33%"></i></div>
       <ul>
         <li data-s="2"><span class="st"></span><span>对接文档与调试指南交付</span></li>
-        <li data-s="0"><span class="st"></span><span>联调启动 </span></li>
+        <li data-s="1"><span class="st"></span><span>联调启动（11.13 起 dev 联调）</span></li>
         <li data-s="0"><span class="st"></span><span>场景验证，问题闭环</span></li>
       </ul>
     </section>
@@ -317,9 +322,9 @@
       </div>
       <div class="track"><i style="width:0%"></i></div>
       <ul>
-        <li data-s="0"><span class="st"></span><span>会话内容核对（消息留档与会话摘要）</span></li>
-        <li data-s="0"><span class="st"></span><span>数据埋点（埋点事件与 SQL 报表）</span></li>
-        <li data-s="0"><span class="st"></span><span>明道云建单字段映射核对</span></li>
+        <li data-s="1"><span class="st"></span><span>会话内容核对（消息留档与会话摘要）</span></li>
+        <li data-s="2"><span class="st"></span><span>数据埋点（埋点事件与 SQL 报表）</span></li>
+        <li data-s="1"><span class="st"></span><span>明道云建单字段映射核对</span></li>
       </ul>
     </section>
 
@@ -331,7 +336,7 @@
       </div>
       <div class="track"><i style="width:33%"></i></div>
       <ul>
-        <li data-s="2"><span class="st"></span><span>测试方案（43 场景 + 红线用例）</span></li>
+        <li data-s="2"><span class="st"></span><span>测试方案（pytest 46 + e2e 32 + 对拍 30 · 红线 S27）</span></li>
         <li data-s="0"><span class="st"></span><span>真依赖场景测试 </span></li>
         <li data-s="0"><span class="st"></span><span> 验收清单走查</span></li>
       </ul>
@@ -366,7 +371,7 @@
 
 <script>
 (function(){
-  var KEY='hotmaxx-agent-todo-v7';
+  var KEY='hotmaxx-agent-todo-v8';
   var HKEY='hotmaxx-agent-todo-hist-v2';
   var SKEY='hotmaxx-agent-todo-stages-v2';
   var W=[0,0.5,1];
