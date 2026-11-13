@@ -53,10 +53,10 @@ pg的数据过期是怎么实现的？
 数据核验(会话内容，数据埋点 明道云建单字段映射核对)
 整体测试
 
-
-
-
-
+更新一下这里的相关文档  比如设计变更 数据留存埋点  最主要的是前端对接相关的
+/Users/harvey/Documents/projects/my/my_doc/src/main/hotmaxx/需求点/输入优化
+ 这个你以后要记住  我一般都会在
+/Users/harvey/Documents/projects/my/my_doc 做一下项目相关的记录 要实时的更新的
 
 
 
