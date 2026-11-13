@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>核心步骤 · 数据变化与节点变化</title>
+<style>
+:root{--blue:#2475ef;--red:#d84315;--ink:#263238;--sub:#607d8b;--line:#e7ecf1;--bg:#f5f7fa}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"PingFang SC","Microsoft YaHei",-apple-system,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.65}
+.wrap{max-width:960px;margin:0 auto;padding:28px 20px 60px}
+header.hd{text-align:center;margin-bottom:8px}
+h1{font-size:22px;margin:18px 0 6px}
+.sub{color:var(--sub);font-size:13.5px}
+.mainline{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin:18px 0 14px;font-size:14px}
+.mainline b{color:var(--blue)}
+.legend{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:6px 0 4px;font-size:12.5px}
+.legend span{padding:2px 10px;border-radius:20px;border:1px solid var(--line)}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;margin:16px 0;overflow:hidden;box-shadow:0 1px 3px rgba(38,50,56,.04)}
+.chead{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.no{width:38px;height:38px;border-radius:50%;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600;flex-shrink:0}
+.cname{font-size:16px;font-weight:600}
+.badge{font-size:12px;padding:2px 10px;border-radius:20px;border:1px solid rgba(0,0,0,.06);white-space:nowrap}
+.trigger{width:100%;color:var(--sub);font-size:13px;padding-left:50px;margin-top:-4px}
+.cbody{padding:14px 18px}
+.sec{margin-bottom:12px}
+.sec h4{font-size:13px;color:var(--sub);font-weight:600;margin-bottom:6px;letter-spacing:.5px}
+.chain{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chip{font-size:12.5px;padding:3px 11px;border-radius:16px;background:#eef2f6;color:#546e7a;border:1px dashed #cfd8dc}
+.chip.done{background:#e3f2fd;color:#1565c0;border:1px solid #bbdefb}
+.chip.cur{background:var(--blue);color:#fff;border:1px solid var(--blue);font-weight:600}
+.arrow{color:#b0bec5;font-size:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#f5f7fa;color:var(--sub);font-weight:600;text-align:left;padding:7px 10px;border:1px solid var(--line);white-space:nowrap}
+td{padding:7px 10px;border:1px solid var(--line);vertical-align:top}
+td.p{font-family:Menlo,Consolas,monospace;font-size:12px;color:#455a64;white-space:nowrap}
+td.ch{color:var(--red)}
+td.ch b{color:var(--red)}
+ul.msgs{list-style:none;font-size:13px}
+ul.msgs li{padding:5px 10px;border-left:3px solid #a5d6a7;background:#f6fbf6;margin:4px 0;border-radius:0 8px 8px 0}
+ul.msgs li .sq{font-family:Menlo,monospace;color:#2e7d32;font-weight:600;margin-right:8px;font-size:12px}
+ul.msgs li .ty{color:#546e7a;font-size:12px;margin-right:8px}
+.coderef{font-family:Menlo,Consolas,monospace;font-size:12px;color:#78909c;background:#fafbfc;border:1px dashed var(--line);border-radius:8px;padding:6px 10px;display:inline-block}
+.btn{display:inline-block;margin-top:4px;font-size:12.5px;color:var(--blue);border:1px solid var(--blue);background:#fff;border-radius:18px;padding:3px 14px;cursor:pointer}
+.btn:hover{background:#eef4ff}
+pre.json{display:none;background:#fafbfc;border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-family:Menlo,Consolas,monospace;font-size:12px;line-height:1.55;overflow-x:auto;margin-top:10px;white-space:pre-wrap;word-break:break-all}
+pre.json .k{color:#455a64}
+pre.json .chg{color:var(--red);font-weight:600;background:#fff3ed;border-radius:3px;padding:0 2px}
+.note{font-size:12.5px;color:var(--sub);background:#fffde7;border:1px solid #f0e6a8;border-radius:8px;padding:6px 12px;margin-top:8px}
+.ckpt{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:20px 0}
+.ckline{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.ckv{flex:1;min-width:100px;background:#fafbfc;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:12px;text-align:center}
+.ckv b{display:block;color:var(--blue);font-size:13px;margin-bottom:2px}
+footer{text-align:center;color:#90a4ae;font-size:12px;margin-top:26px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="hd">
+<h1>核心步骤 · 数据变化与节点变化</h1>
+<div class="sub">与《01-系统核心执行流程图.puml》12 步编号一一对应 · 示例数据全程用剧本A（冷柜不制冷）真实流转</div>
+</header>
+
+<div class="mainline">
+一条消息进来：<b>校验取锁 → 入口路由分流 →（打字才调 LLM）→ 闸门写槽 → 路由裁决 → 下发下一个待办/确认单 → 检查点落档 → 返回本轮新增消息</b>；点提交后走 ⑨~⑫ 校验、幂等建单、出结果卡。改字段随时可以，改的是数据，不打断流程。
+</div>
+<div class="legend">
+<span style="background:#E3F2FD">接口层 app/api/routes.py</span>
+<span style="background:#ECEFF1">引擎层 app/core/engine.py</span>
+<span style="background:#FFF8E1">LLM 网关 app/core/llm.py</span>
+<span style="background:#E8F5E9">技能包 app/skills/repair</span>
+<span style="background:#FFF3E0">工具 / 存储</span>
+</div>
+
+<div id="steps"></div>
+
+<div class="ckpt">
+<h4 style="font-size:13px;color:var(--sub)">横切机制（每轮都发生，不在步骤编号内）</h4>
+<table style="margin-top:8px">
+<tr><th style="width:110px">机制</th><th>说明</th><th style="width:200px">代码</th></tr>
+<tr><td>检查点</td><td>每轮 invoke 结束自动落档（下面版本线 v1~v8）；刷新 / 断线 / 重启都从这里恢复现场</td><td class="p">LangGraph checkpointer</td></tr>
+<tr><td>会话锁</td><td>session_guard 同会话串行，读-改-写全程持锁；已出单的会话拒改（终态拒改）</td><td class="p">routes.py L194</td></tr>
+<tr><td>seq 单调</td><td>seq_counter 只增不减，merge_by_seq 按 seq 合并（同 seq 覆盖 = 崩溃自愈）</td><td class="p">state.py L15</td></tr>
+<tr><td>LLM 账本</td><td>只有打字轮调 LLM（配额 6/会话）；点选 / 上传 / 默认电话 / 提交全部 0 LLM。剧本A全程只调 2 次</td><td class="p">engine.py L208</td></tr>
+</table>
+<div class="ckline" id="ckline"></div>
+</div>
+
+<footer>State 为精简视图：messages 只显示 seq 摘要，完整卡片内容见各步骤「产出消息」· 值依据 AgentServerCenter 当前代码推演</footer>
+</div>
+
+<script>
+const LAYERS = {
+  api:   {name:"接口层", file:"app/api/routes.py", bg:"#E3F2FD"},
+  engine:{name:"引擎层", file:"app/core/engine.py", bg:"#ECEFF1"},
+  llm:   {name:"LLM 网关", file:"app/core/llm.py", bg:"#FFF8E1"},
+  skill: {name:"技能包", file:"app/skills/repair", bg:"#E8F5E9"},
+  tool:  {name:"工具/存储", file:"skills/repair/tools.py · 检查点", bg:"#FFF3E0"},
+};
+
+const T = "2026-11-13T09:0";
+function sv(value, source, at){ return {value, source, updated_at: at}; }
+const LINE1 = "冷柜不制冷了，今天早上开始的，鲜奶都不敢卖了，尽快派人来修";
+
+const SLOTS1 = {
+  store:    sv("11522 安徽商之都OK店","system_default",T+"0:00"),
+  reporter: sv("白云翔","system_default",T+"0:00"),
+  date:     sv("2026-11-13","system_default",T+"0:00"),
+  category: sv(null,"system_default","-"),
+  detail:   sv(null,"system_default","-"),
+  photos:   sv([],"system_default","-"),
+  expect_visit: sv(null,"system_default","-"),
+  impact_business: sv(null,"system_default","-"),
+  phone:    sv("13800001234","system_default",T+"0:00"),
+  expect_process: sv(null,"system_default","-"),
+};
+function msgs(from, to){ const a=[]; for(let i=from;i<=to;i++) a.push({seq:i}); return a; }
+const MSGTYPES = {1:"status_bar",2:"text",3:"quick_cards",4:"text",5:"text",6:"enum_card",7:"text",8:"photo_guide",9:"text",10:"phone_confirm",11:"text",12:"confirm_card",13:"text",14:"confirm_card",15:"result"};
+function msgSum(n){ const a=[]; for(let i=1;i<=n;i++) a.push({seq:i, role:(i===4? "server":"server"), type:MSGTYPES[i]}); return a; }
+
+function meta(o){ return Object.assign({branch:"a",mode:"normal",fail_count:0,llm_calls:0,confirm_pending:false,seq_counter:0,exit_status:null,order:null,pending_update:null}, o); }
+
+const STATES = {};
+STATES.v1 = {
+  skill:"repair", session_id:"rp_demo01",
+  incoming:{}, extract_result:{},
+  context:{store_no:"11522", store:"11522 安徽商之都OK店", reporter:"白云翔", date:"2026-11-13", phone_masked:"138****1234"},
+  slots:JSON.parse(JSON.stringify(SLOTS1)),
+  agenda:["category","detail","photos","expect_visit","impact_business","phone"],
+  focus:"category",
+  messages:msgSum(3),
+  meta:meta({seq_counter:3}),
+  rows:[],
+};
+STATES.v2 = (()=>{ const s=JSON.parse(JSON.stringify(STATES.v1));
+  s.incoming={type:"text", content:LINE1};
+  s.extract_result={intent:"provide",
+    slots_delta:{detail:"故障现象："+LINE1, impact_business:"是", expect_visit:"维修人员尽快上门"},
+    category_candidates:["日常营运用具类 - 冷柜","门店工程类 - 空调"]};
+  s.meta.llm_calls=1;
+  return s; })();
+STATES.v3 = (()=>{ const s=JSON.parse(JSON.stringify(STATES.v2));
+  s.slots.detail=sv("故障现象："+LINE1,"ai_filled",T+"2:10");
+  s.slots.impact_business=sv("是","ai_filled",T+"2:10");
+  s.slots.expect_visit=sv("维修人员尽快上门","ai_filled",T+"2:10");
+  s.agenda=["category","photos","phone"];
+  s.messages=msgSum(4);
+  s.meta.seq_counter=4;
+  return s; })();
+STATES.v4 = (()=>{ const s=JSON.parse(JSON.stringify(STATES.v3));
+  s.messages=msgSum(6);
+  s.meta.seq_counter=6;
+  return s; })();
+STATES.v5 = (()=>{ const s=JSON.parse(JSON.stringify(STATES.v4));
+  s.incoming={type:"enum_pick", field:"category", value:"日常营运用具类 - 冷柜"};
+  s.slots.category=sv("日常营运用具类 - 冷柜","user_edited",T+"4:20");
+  s.agenda=["photos","phone"]; s.focus="photos";
+  s.messages=msgSum(8); s.meta.seq_counter=8;
+  return s; })();
+STATES.v6 = (()=>{ const s=JSON.parse(JSON.stringify(STATES.v5));
+  s.incoming={type:"phone", use_default:true};
+  s.slots.photos=sv([{name:"冷柜整体.jpg",url:"https://b.hotmaxx.cn/file/mdpic/xx1.jpg"},{name:"故障部位.jpg",url:"https://b.hotmaxx.cn/file/mdpic/xx2.jpg"}],"user_edited",T+"5:30");
+  s.agenda=[]; s.focus=null;
+  s.messages=msgSum(12); s.meta.seq_counter=12;
+  s.meta.confirm_pending=true;
+  return s; })();
+STATES.v7 = (()=>{ const s=JSON.parse(JSON.stringify(STATES.v6));
+  s.incoming={type:"text", content:"电话改成 13900001111"};
+  s.extract_result={intent:"update", slots_delta:{phone:"13900001111"}, category_candidates:[], update_targets:[]};
+  s.slots.phone=sv("13900001111","user_edited",T+"6:40");
+  s.messages=msgSum(14); s.meta.seq_counter=14;
+  s.meta.llm_calls=2;
+  return s; })();
+STATES.v8 = (()=>{ const s=JSON.parse(JSON.stringify(STATES.v7));
+  s.incoming={}; s.extract_result={};
+  s.messages=msgSum(15); s.meta.seq_counter=15;
+  s.meta.confirm_pending=false;
+  s.meta.order={order_no:"MDY-8f3a21c6", status:"联调记录已创建（未触发派单工作流）"};
+  return s; })();
+
+function diff(a, b, path, out){
+  if (Array.isArray(a) && Array.isArray(b)){
+    if (JSON.stringify(a)!==JSON.stringify(b)) out.add(path);
+    return;
+  }
+  if (a && b && typeof a==="object" && typeof b==="object"){
+    for (const k of new Set([...Object.keys(a), ...Object.keys(b)]))
+      diff(a[k], b[k], path? path+"."+k : k, out);
+    return;
+  }
+  if (JSON.stringify(a)!==JSON.stringify(b)) out.add(path);
+}
+
+function jrender(v, changed, path, depth){
+  const pad = "  ".repeat(depth);
+  if (v===null) return span("null", path, changed);
+  if (typeof v!=="object") return span(JSON.stringify(v), path, changed);
+  const isArr = Array.isArray(v);
+  const keys = isArr? v.map((_,i)=>i) : Object.keys(v);
+  if (keys.length===0) return span(isArr?"[]":"{}", path, changed);
+  let inner = keys.map((k,i)=>{
+    const key = isArr? "" : `"${k}": `;
+    const val = jrender(v[k], changed, path? path+"."+k : String(k), depth+1);
+    return "  ".repeat(depth+1) + key + val + (i<keys.length-1? ",":"");
+  }).join("\n");
+  const open = isArr? "[" : "{", close = isArr? "]" : "}";
+  const tag = span2(open+"…"+close, path, changed);
+  return open + "\n" + inner + "\n" + pad + close;
+}
+function span(txt, path, changed){ return changed.has(path)? `<span class="chg">${txt}</span>` : txt; }
+function span2(txt, path, changed){ return ""; }
+
+const STEPS = [
+{no:"①",name:"手势进来 · 校验与取锁",layer:"api",trigger:"用户每发一条消息（打字 / 点卡片 / 传照片 / 点提交）都从这里进",
+ chain:[{n:"routes.send_message",s:"cur"}],
+ mech:[["请求校验","Pydantic 在进图之前拦截：点选值不在字典、未知卡片、手机号格式错 → 直接 422，不碰检查点"],["取会话锁","session_guard(sid) 同会话串行——同一会话并发两条消息不会互相覆盖 State"],["记 prev_seq","拿到当前 seq_counter，本轮结束后只返回 seq 大于它的消息（响应 = 本轮新增）"],["终态拒改","已出单的会话再发消息 → 422「本单已提交」（锁内复查，防提交竞态）"]],
+ code:"routes.py L180（校验 L25 · 锁 L194）",
+ note:"校验不过的请求零副作用：不写检查点、不改 State——非法输入到不了引擎。"},
+
+{no:"②",name:"entry_router 分流",layer:"engine",trigger:"每条消息按 incoming.type 走不同链路，决定后面经过哪些节点",
+ chain:[{n:"entry_router",s:"cur"},{n:"load_context",s:"dim"},{n:"extract",s:"dim"},{n:"update",s:"dim"},{n:"submit",s:"dim"}],
+ mech:[["context 为空","首轮建会话 → load_context：工具带出门店/报修人/日期/电话，生成首屏三件套（状态条+开场白+6 张高频卡）"],["type = text","打字轮 → extract（全流程唯一调 LLM 的入口）"],["type = 点选/上传","结构化手势 → update 直写，0 LLM"],["type = submit","仅 /submit 接口能注入的内部手势 → 直达 submit 节点（外部消息枚举里没有 submit，伪造不进来）"]],
+ code:"engine.py L142",
+ note:"分流依据是纯数据判断，不是模型判断——模型没有任何「走哪条路」的权力。"},
+
+{no:"③",name:"extract 联合抽取 ★ 唯一 LLM 点",layer:"llm",trigger:"只有打字轮进这里；点选 / 上传 / 提交永远不会调 LLM",
+ chain:[{n:"entry_router",s:"done"},{n:"extract",s:"cur"},{n:"update",s:"dim"},{n:"route",s:"dim"},{n:"ask",s:"dim"}],
+ snap:"v2", base:"v1",
+ table:[
+  ["meta.llm_calls","0 → <b>1</b>","会话 LLM 计数（配额 6，超限不再调、按边界轮降级）"],
+  ["extract_result","{} → <b>{intent, slots_delta, category_candidates}</b>","一次拿全：意图 provide · 直填 detail/影响营业/期望上门 · 类别候选 2 个（只提名，永不入槽）"],
+ ],
+ msgs:[["seq1-3","（上一轮）","首屏三件套在轮0已发过，本轮不重复"]],
+ code:"engine.py L206 · llm.py L178（normalize L57 · 流程状态注入 L185）",
+ note:"喂给模型的内容：业务段+协议壳系统词、30 项类别字典、流程状态行（正在问什么）、已填槽位快照（手机号剔除）、三引号包裹的原话。解析失败重试 1 次，仍失败按边界轮兜底（计一次失败）。"},
+
+{no:"④",name:"update 闸门写槽",layer:"engine",trigger:"打字轮消费 extract_result；点选/上传轮跳过 LLM 直接进这里——两条路共用同一个 write() 写入口",
+ chain:[{n:"entry_router",s:"done"},{n:"extract",s:"done"},{n:"update",s:"cur"},{n:"route",s:"dim"},{n:"ask",s:"dim"}],
+ snap:"v3", base:"v2",
+ table:[
+  ["slots.detail","null → <b>「故障现象：冷柜不制冷了…」</b>","source=ai_filled，闸6 按槽位声明截断 ≤100 字"],
+  ["slots.impact_business","null → <b>是</b>","枚举白名单 ✓ + 原话印证（「不敢卖」命中 evidence 词）"],
+  ["slots.expect_visit","null → <b>维修人员尽快上门</b>","同上，「尽快」命中——这就是「说到的直接填，没说到的才发卡」"],
+  ["agenda","6 项 → <b>3 项</b>","[category, photos, phone]——答掉一项划掉一项"],
+  ["messages","+1（seq4）","复述「都记下了：描述具体故障、影响营业、期望上门」——AI 预填必须可见"],
+ ],
+ msgs:[["seq4","text","都记下了：描述具体故障、影响营业、期望上门——确认单里都能改"]],
+ sub:{title:"同一个 write() 的其他路径",rows:[
+  ["点选手势（0 LLM）","enum_pick/seg_pick 过枚举白名单 → 写槽；轮2 点「日常营运用具类 - 冷柜」后：slots.category=user_edited、agenda 3→2"],
+  ["上传","upload_done 附件按 URL 去重合并进 photos"],
+  ["改字段（update 意图）","电话/报修人：格式+原话印证双闸；类别只能点选——塞回议程重开卡；非法值（「可能」）被拦后点名善后，带卡字段挪到议程最前立刻重发"],
+  ["OnChange 钩子","改类别 → 照片无条件作废重采（拍摄清单与类别强相关）、用户描述保留、系统派生的默认描述重算；作废会明说（system_tip）"],
+ ]},
+ code:"engine.py L227（write L236 · attested 原话印证 L278 · OnChange L245）",
+ note:"闸门链顺序：字段白名单 → 枚举白名单 → 原话印证 → 落槽。系统没问过、原话里没有的值一律拦——防幻觉不松。"},
+
+{no:"⑤",name:"route_router 裁决",layer:"engine",trigger:"写槽完成后决定本轮以什么收尾——不变量：每轮都以「下一个待办」收尾",
+ chain:[{n:"entry_router",s:"done"},{n:"extract",s:"done"},{n:"update",s:"done"},{n:"route",s:"cur"},{n:"ask / confirm",s:"dim"}],
+ mech:[["议程非空","→ ask：下发下一个待办（任何轮次绕路回来，最后一屏永远是当前问题卡）"],["议程空","→ confirm：组确认单，confirm_pending=true（此刻起 state=confirm）"],["边界轮（闲聊/跑题）","拉回话术收尾；议程空则拉回后重发确认单"],["连续失败 ≥3","→ fallback：卡片向导接管（0 LLM 照样交单，免描述）"]],
+ code:"engine.py L512",
+ note:"「确认等待」在这里变成数据：confirm_pending=True 落在 State 里，而不是控制流挂起——刷新/恢复时它就是确认态的唯一依据。"},
+
+{no:"⑥",name:"下发 · 话术模板 + 卡片（0 LLM）",layer:"skill",trigger:"ask 下发议程首项 / confirm 组确认单——所有话术来自模板库，不让模型说话",
+ chain:[{n:"entry_router",s:"done"},{n:"extract",s:"done"},{n:"update",s:"done"},{n:"route",s:"done"},{n:"ask",s:"cur"}],
+ snap:"v4", base:"v3",
+ table:[
+  ["messages","+2（seq5/6）","本轮 ask 的产出：话术 + 卡片"],
+  ["focus","category（不变）","下发不改数据——卡片是对「当前焦点」的提问"],
+ ],
+ msgs:[["seq5","text","听下来了。我认出的类别如下——怕报错被驳回，点一下确认（不对就选别的）"],["seq6","enum_card","top3 模式 · 首位预选（冷柜✦ / 空调）——AI 有提名时才 Top3，没把握发全量卡，永不替用户选"]],
+ sub:{title:"confirm 模式（议程空时，轮4 真实流转 v6）",rows:[
+  ["agenda","3 项 → <b>[]</b>","轮3 传照片（photos 2 附件 user_edited）、轮4 点「用本人号码」划掉最后一项"],
+  ["meta.confirm_pending","false → <b>true</b>","state 从 collecting 变 confirm"],
+  ["messages","+2（seq11/12）","「信息齐了，请核对：」+ 确认单（2 组 10 字段 · store/date 只读 · 每项带 source · 蓝色字段可点改）"],
+  ["DefaultFill","branch=a 不触发","卡片路径（branch=b）才会补默认描述「类别细分，详见现场照片」"],
+ ]},
+ code:"engine.py ask L553 / confirm L605 · talks.py · cards.py",
+ note:"静默重挂：本轮已经说过话（追问/拉回/改值）时 confirm_quiet=True，只重发确认单、不再说「信息齐了」。"},
+
+{no:"⑦",name:"检查点落档",layer:"tool",trigger:"每轮 invoke 结束自动写入，不是某个节点的代码——LangGraph 的超步机制",
+ chain:[{n:"每轮结束",s:"cur"}],
+ mech:[["写什么","本轮结束时的 State 全量快照（v1~v8 版本线见页底）"],["什么时候用","刷新（GET 重放）/ 响应超时对齐 / 服务重启 → 从检查点恢复现场，对话不断"],["活跃索引","rp:active:{uid}:{store_no} → session_id，重进自动续上未完成的单；TTL 滑动续期"],["提交后","drop_active 清索引——重进就是新单；abandon 退出 = 检查点一并销毁"]],
+ code:"LangGraph checkpointer · sessions.py",
+ note:"「会话即草稿」的根基：State 落在哪，现场就在哪。"},
+
+{no:"⑧",name:"返回本轮响应",layer:"api",trigger:"每次 POST /messages 的同步 JSON 返回",
+ chain:[{n:"routes 返回",s:"cur"}],
+ mech:[["响应体","{state, focus, messages[]}——messages 只含 seq > prev_seq 的本轮新增（复述/话术/卡片）"],["state 计算","done（有单）> confirm（confirm_pending）> fallback > collecting，读的是 meta 数据"],["刷新对齐","GET /sessions/{id} 全量重放（prev_seq=0），响应超时后前端对齐用同一接口"]],
+ code:"routes.py L140（_api_state）· L151（_round_messages）",
+ note:"用户消息不回显在响应里（前端本地渲染），刷新时由 GET 全量重放补齐。"},
+
+{no:"⑨",name:"POST /submit · 幂等预检",layer:"api",trigger:"用户在确认单上点「提交」——确认态才受理",
+ chain:[{n:"routes.submit",s:"cur"},{n:"submit",s:"dim"}],
+ mech:[["幂等预检","已出过单 → 原样返回同一单号（重复点、重放都安全）"],["非确认态","42201「当前不在确认态」（消息不够、缺必填时点不了）"],["注入内部手势","invoke({incoming:{type:'submit'}})——submit 这个 type 只能从这里进，外部消息枚举没有它"]],
+ code:"routes.py L230",
+ note:"提交和发消息共用会话锁：同一会话「边提交边发消息」不会交错。"},
+
+{no:"⑩",name:"submit 全量校验",layer:"engine",trigger:"进入 submit 节点第一件事：议程清空 ≠ 数据有效（历史草稿恢复的会话也要重新验）",
+ chain:[{n:"entry_router",s:"done"},{n:"submit 校验",s:"cur"},{n:"建单",s:"dim"}],
+ mech:[["逐槽校验","必填齐 · 枚举值在字典内 · 手机号正则 · 文本长度 · 照片数量上限"],["SubmitCheck","包级横切钩子（照片 ≥1 张）"],["校验不过","缺项塞回议程最前 + system_tip 点名——回到采集态，补完自动再走到确认"],["校验不过的另一头","建单失败：submit_error → 回 confirm 保持可重试，绝不返回「请重试」诱导重复建单"]],
+ code:"engine.py L628（校验 L636）",
+ note:"入库前最后一道闸：前面每轮的闸门拦「过程」，这里拦「终稿」。"},
+
+{no:"⑪",name:"create_repair_order 幂等建单",layer:"tool",trigger:"校验全过后调用（order_key = 会话ID）",
+ chain:[{n:"submit",s:"done"},{n:"create_repair_order",s:"cur"}],
+ mech:[["幂等","order_key 进程内去重，同一会话重复提交返回同一单号"],["Mock / 真实","REAL_ORDER_ENABLED=false 返回 MOCK-{会话ID}；true 走明道云 saveRow → 回查自动编号"],["字段映射真值","store/store_no/detail/date/reporter/photos 六项可写；手机号(PhoneNumber)、报修类别(CascadingSelect) 控件类型 API 封死 → 记 skipped 不静默丢"],["工作流开关","测试单不触发派单工作流，正式放量再开"]],
+ code:"tools.py L62（幂等缓存 L83 · saveRow L129 · skipped L122）",
+ note:"expect_visit / impact_business 旧表无对应控件，记 skipped——加控件或并入详情，出路都写在建单函数注释里。"},
+
+{no:"⑫",name:"result 结果卡 · 终态",layer:"skill",trigger:"建单成功，会话进入终态",
+ chain:[{n:"entry_router",s:"done"},{n:"submit",s:"done"},{n:"END",s:"cur"}],
+ snap:"v8", base:"v7",
+ table:[
+  ["meta.order","null → <b>{order_no: MDY-8f3a21c6, status}</b>","单号落 State——此后幂等预检靠它原样返回"],
+  ["meta.confirm_pending","true → <b>false</b>","state=done，会话终态拒改"],
+  ["incoming / extract_result","→ <b>清空</b>","本轮中间产物用后即清"],
+  ["messages","+1（seq15）","结果卡入档——刷新重放时能看到单号"],
+ ],
+ msgs:[["seq15","result","报修单号 MDY-8f3a21c6 · 状态 · 「可在报修记录查看处理进度」"]],
+ code:"engine.py L696 · cards.py result · routes.py drop_active L254",
+ note:"接口层收尾 drop_active：清活跃索引，店员重进就是新单。"},
+];
+
+const CKPTS = [
+ ["v1","轮0 建会话","context+agenda 初始化"],
+ ["v2","轮1 extract","LLM 第 1 次 · 抽取结果暂存"],
+ ["v3","轮1 update","3 项直填 · agenda 6→3"],
+ ["v4","轮1 ask","Top3 卡下发"],
+ ["v5","轮2 点类别","category 入槽 · agenda 3→2"],
+ ["v6","轮4 confirm","photos 2 张 · 议程空 · 确认单"],
+ ["v7","轮5 改电话","LLM 第 2 次 · 静默重挂"],
+ ["v8","提交","order 落位 · 终态"],
+];
+
+function chipHtml(c){
+  const cls = c.s==="cur"? "cur" : (c.s==="done"? "done":"");
+  return `<span class="chip ${cls}">${c.n}</span>`;
+}
+function chainHtml(chain){
+  return `<div class="sec"><h4>节点变化</h4><div class="chain">${chain.map((c,i)=> (i? '<span class="arrow">→</span>':'') + chipHtml(c)).join("")}</div></div>`;
+}
+function tableHtml(rows, head){
+  return `<table><tr>${head.map(h=>`<th>${h}</th>`).join("")}</tr>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</table>`;
+}
+function msgsHtml(list){
+  if(!list||!list.length) return "";
+  return `<div class="sec"><h4>产出消息</h4><ul class="msgs">${list.map(m=>`<li><span class="sq">${m[0]}</span><span class="ty">${m[1]}</span>${m[2]}</li>`).join("")}</ul></div>`;
+}
+function subHtml(sub){
+  if(!sub) return "";
+  return `<div class="sec"><h4>${sub.title}</h4><table><tr><th style="width:130px">路径</th><th>行为</th></tr>${sub.rows.map(r=>`<tr><td class="p">${r[0]}</td><td>${r[1]}</td></tr>`).join("")}</table></div>`;
+}
+function snapHtml(snap, base){
+  if(!snap) return "";
+  const cur = STATES[snap], prev = STATES[base];
+  const changed = new Set(); diff(prev, cur, "", changed);
+  const json = jrender(cur, changed, "", 0);
+  const n = changed.size;
+  return `<div class="sec"><h4>State 数据变化（点开看完整快照 · <span style="color:var(--red)">${n} 处变化标红</span>）</h4>
+  <button class="btn" onclick="const p=this.nextElementSibling;p.style.display=p.style.display==='block'?'none':'block';this.textContent=p.style.display==='block'?'收起 State 完整快照':'展开 State 完整快照'">展开 State 完整快照</button>
+  <pre class="json">${json}</pre></div>`;
+}
+function render(){
+  const host = document.getElementById("steps");
+  host.innerHTML = STEPS.map((s,i)=>{
+    const L = LAYERS[s.layer];
+    const body = chainHtml(s.chain)
+      + (s.table? `<div class="sec"><h4>数据变化</h4>${tableHtml(s.table, ["State 路径","变化","说明"])}</div>` : "")
+      + (s.mech? `<div class="sec"><h4>这一步做什么</h4>${tableHtml(s.mech, ["情形","行为"])}</div>` : "")
+      + snapHtml(s.snap, s.base)
+      + subHtml(s.sub)
+      + msgsHtml(s.msgs)
+      + `<div class="sec"><h4>代码位置</h4><span class="coderef">${s.code}</span></div>`
+      + (s.note? `<div class="note">${s.note}</div>` : "");
+    return `<div class="card"><div class="chead"><div class="no">${s.no}</div><div class="cname">${s.name}</div><span class="badge" style="background:${L.bg}">${L.name} · ${L.file}</span><div class="trigger">${s.trigger}</div></div><div class="cbody">${body}</div></div>`;
+  }).join("");
+  document.getElementById("ckline").innerHTML = CKPTS.map(c=>`<div class="ckv"><b>${c[0]}</b>${c[1]}<br><span style="color:#90a4ae">${c[2]}</span></div>`).join("");
+}
+render();
+window.__T = {STEPS, STATES, diff};
+</script>
+</body>
+</html>

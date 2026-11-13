@@ -1,0 +1,52 @@
+@startuml
+title 剧本A · 代码过程走查\n「冷柜不制冷」从建会话到出单 —— 依据 AgentServerCenter 当前实现（engine.py / routes.py / llm.py）
+start
+partition "轮 0 · 建会话（POST /sessions）" #FCFCFC {
+#E3F2FD:**POST /agent/repair/v1/sessions**\n{"store_no": "11522"} · 头 X-Uid\n（一人多店：门店由入口带入，跨店各开各会话）;
+#ECEFF1:⚙ **entry_router**：context 为空 → **load_context**\n调工具 get_user_context(uid, store_no)\n门店名=base-shop 主数据；报修人/手机号=员工档案（暂 Mock）;
+#FFF8E1:📦 context={store:"11522 安徽商之都OK店", reporter:"白云翔",\ndate:"2026-11-13", phone_masked:"138****1234"}\nslots 10 格初始化（带出组 3 项有值 · photos=[]）\n**agenda=[category, detail, photos, expect_visit, impact_business, phone]**\nmeta：seq=3 · llm_calls=0 · **检查点 v1 落档**;
+#E8F5E9:🤖 200 {session_id:"rp_xxx", is_resumed:false}\nseq1 status_bar（门店/报修人/掩码电话）\nseq2 text 开场白「白云翔你好！直接说哪儿坏了就行…」\nseq3 quick_cards（6 张高频卡）;
+}
+partition "轮 1 · 说一句故障（打字轮 · 全流程唯一 LLM 调用点）" #FCFCFC {
+#E3F2FD:👤 **POST …/sessions/rp_xxx/messages**\n{"type":"text", "content":"冷柜不制冷了，今天早上开始的，\n鲜奶都不敢卖了，尽快派人来修"};
+#ECEFF1:⚙ **entry_router**：type=text → **extract** → **update** → **route_router** → **ask**\nextract：第 1/6 次 LLM 联合抽取（业务段+协议壳+30 项类别字典\n+流程状态行+已填槽位快照+三引号包裹原话）\n→ intent=provide · 直填 detail/影响营业/期望上门 · 类别候选 2 个\nupdate：闸4 字段白名单 → 闸5 枚举白名单 → 闸7 原话印证\n（"尽快""不敢卖"命中 evidence 词）→ 3 项落槽\nask：focus=category · 候选过滤后非空 + MustPick → Top3 卡（永不入槽）;
+#FFF8E1:📦 slots +3：detail=ai_filled · impact_business=是·ai_filled\nexpect_visit=维修人员尽快上门·ai_filled\n**agenda 6→3**：[category, photos, phone]\nmeta：llm_calls=1 · seq→6 · **检查点 v2**;
+#E8F5E9:🤖 200 {state:"collecting", focus:"category"}\nseq4 text「都记下了：描述具体故障、影响营业、期望上门——确认单里都能改」\nseq5 text「听下来了。我认出的类别如下——点一下确认」\nseq6 **enum_card** top3（冷柜✦预选 / 空调）;
+}
+partition "轮 2 · 点类别（结构化手势 · 0 LLM）" #FCFCFC {
+#E3F2FD:👤 **POST …/messages**\n{"type":"enum_pick", "field":"category", "value":"日常营运用具类 - 冷柜"}\n（routes 层 Pydantic 先拦：字段/值不在字典 → 422，不进图）;
+#ECEFF1:⚙ **entry_router**：非 text/submit → **update**（不调 LLM）\n闸5 枚举白名单 ✓ → write(category, user_edited)（首填不触发 OnChange）\n**route_router** → **ask**：focus=photos;
+#FFF8E1:📦 slots：category=日常营运用具类 - 冷柜·user_edited\n**agenda 3→2**：[photos, phone] · seq→8 · **检查点 v3**;
+#E8F5E9:🤖 200 {state:"collecting", focus:"photos"}\nseq7 text「类别登记好了。麻烦拍两张现场照片…」\nseq8 **photo_guide**（need_count=2 · 设备整体外观/故障部位特写 · 仅建议不拦截）;
+}
+partition "轮 3 · 传照片（附件先经明道云上传拿 URL · 0 LLM）" #FCFCFC {
+#E3F2FD:👤 **POST …/messages**\n{"type":"upload_done", "attachments":[{name,url} × 2]};
+#ECEFF1:⚙ **update**：URL 去重合并（上限拦截）→ write(photos, user_edited)\n**route_router** → **ask**：focus=phone\n（expect_visit/影响营业轮1已直填，跳过不问）;
+#FFF8E1:📦 slots：photos=2 附件·user_edited\n**agenda 2→1**：[phone] · seq→10 · **检查点 v4**;
+#E8F5E9:🤖 200 {state:"collecting", focus:"phone"}\nseq9 text「联系电话就用你本人的 138****1234 吗？替别人报修可以改」\nseq10 **phone_confirm**（掩码号码 · use_default=true）;
+}
+partition "轮 4 · 用默认电话 → 议程清空 → 确认单（0 LLM）" #FCFCFC {
+#E3F2FD:👤 **POST …/messages** {"type":"phone", "use_default":true};
+#ECEFF1:⚙ **update**：use_default → 议程划掉 phone（槽位用带出值，不写）\n**route_router**：议程空 → **confirm**\nconfirm：DefaultFill（branch=a 不触发默认描述）→ 组确认单\nconfirm_pending=true → **confirm→END**（普通节点，消息直接落档——已无 interrupt 挂起）;
+#FFF8E1:📦 agenda=[] · meta：**confirm_pending=true** · seq→12 · **检查点 v5**\n（此刻起 state=confirm —— 唯一信号是这个数据，不是控制流）;
+#E8F5E9:🤖 200 {state:"confirm", focus:null}\nseq11 text「信息齐了，请核对：」\nseq12 **confirm_card**（2 组 10 字段 · store/date 只读\n· 每项带 source=ai_filled/user_edited/system_default · 蓝色字段可点改）;
+}
+partition "轮 5 ·（可选）随时改：换电话（第 2 次 LLM）" #FCFCFC {
+#E3F2FD:👤 **POST …/messages** {"type":"text", "content":"电话改成 13900001111"};
+#ECEFF1:⚙ extract（2/6）→ intent=update · slots_delta={phone}\n**update**：正则 1[3-9] 开头 11 位 ✓ + 原话印证（值原词在原话）→ write user_edited\n（模型漏抽时代码兜底：从原话正则捞号，零 LLM）\n**route_router**：update 轮议程空 → **confirm**（confirm_quiet 静默重挂）;
+#FFF8E1:📦 slots：phone=13900001111·user_edited · llm_calls=2 · seq→14 · **检查点 v6**;
+#E8F5E9:🤖 200 {state:"confirm"}\nseq13 text「已更新：联系电话」\nseq14 **confirm_card**（只重挂卡，不再说"信息齐了"）;
+}
+partition "提交 · POST /submit（内部手势，外部 type 枚举进不来）" #FFFEF5 {
+#E3F2FD:👤 **POST …/sessions/rp_xxx/submit**\n（routes 先查幂等：已出单 → 原样返回同一单号）;
+#ECEFF1:⚙ invoke({"incoming":{"type":"submit"}}) → **entry_router** → **submit**\n逐槽校验（必填齐/枚举白名单/电话正则/描述长度/照片上限）\n→ SubmitCheck（照片 ≥1 张）\n→ create_repair_order(order_key=会话ID 幂等)\nMock：MOCK-rp_xxx ｜ 真实：明道云 saveRow → 回查自动编号\n（手机号/类别控件类型封死不可写 → 记 skipped，不静默丢）\nsubmit 条件边：无 submit_error → END;
+#FFF8E1:📦 meta：**order={order_no, status}** · confirm_pending=false\nseq→15 · **检查点 v7（终态快照）**;
+#E8F5E9:🤖 200 {order_no:"MDY-xxxx", status:"联调记录已创建"}\nseq15 **result**（单号+状态+「可在报修记录查看处理进度」）\n接口层收尾：drop_active 清活跃索引（重进=新单）;
+}
+stop
+legend
+字体色块：👤 蓝=用户请求 · ⚙ 灰=节点流转 · 📦 琥珀=State 数据变化 · 🟢 绿=响应消息
+横切（每轮都发生）：invoke 结束自动写检查点 + 活跃索引滑动续期 · 同会话 session_guard 串行锁 · seq 单调递增（merge_by_seq 合并）
+LLM 账本：全程仅打字轮调 2 次（配额 6/会话）——点选/上传/默认电话/提交全部 0 LLM
+endlegend
+@enduml

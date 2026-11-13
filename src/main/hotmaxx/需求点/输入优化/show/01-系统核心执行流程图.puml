@@ -1,0 +1,48 @@
+@startuml 系统核心执行流程图
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam ActivityBackgroundColor #FFFFFF
+skinparam ActivityBorderColor #90A4AE
+skinparam ActivityDiamondBackgroundColor #FFFDE7
+skinparam ActivityDiamondBorderColor #E0C96B
+skinparam ArrowColor #607D8B
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #E0C96B
+
+title 系统核心执行步骤 —— 一条消息进来，12 个步骤点走到出单
+
+legend left
+  <#E3F2FD>  接口层 routes.py
+  <#ECEFF1>  引擎层 engine.py
+  <#FFF8E1>  LLM 网关 llm.py
+  <#E8F5E9>  技能包 skills/repair
+  <#FFF3E0>  工具 / 存储
+endlegend
+
+start
+repeat
+  :**① 手势进来**（POST /messages）\nPydantic 校验（字典白名单·422 拦非法）· session_guard 会话锁 · 记 prev_seq; <<#E3F2FD>>
+  :**② entry_router 分流**\n打字 → 走 LLM ｜ 点选/上传 → 直进写槽 ｜ submit 内部手势 → 直达提交; <<#ECEFF1>>
+  :**③ extract 联合抽取 ★ 全流程唯一 LLM 点**\n意图 + 字段增量 + 类别候选（配额 6/会话 · 超限按边界轮降级）; <<#FFF8E1>>
+  note right
+    只打字轮调 LLM
+    手机号不进 Prompt（脱敏）
+  end note
+  :**④ update 闸门写槽**\n字段白名单 → 枚举白名单 → 原话印证 → 落槽\n（OnChange 作废关联 · 挂起追问解除）; <<#ECEFF1>>
+  note right
+    打字增量与点选手势
+    共用同一个写入口 write()
+  end note
+  :**⑤ route_router 裁决**\n议程非空 → ask ｜ 空 → confirm ｜ 边界连败 → fallback; <<#ECEFF1>>
+  :**⑥ 下发（话术模板 + 卡片 · 0 LLM）**\nask：下一个待办的卡 ｜ confirm：确认单 + confirm_pending=true; <<#E8F5E9>>
+  :**⑦ 检查点落档**（每轮自动）+ 活跃索引续期; <<#FFF3E0>>
+  :**⑧ 返回本轮** {state, focus, messages[seq > prev_seq]}; <<#E3F2FD>>
+repeat while (还有下一条手势?) is (继续)
+->  点了提交;
+:**⑨ POST /submit**（幂等预检 → 注入内部手势）; <<#E3F2FD>>
+:**⑩ submit 全量校验**\n必填齐 · 枚举白名单 · 手机正则 · 长度上限 · 照片 ≥1; <<#ECEFF1>>
+:**⑪ create_repair_order 幂等建单**\norder_key=会话ID · 明道云 saveRow（不可写字段记 skipped）; <<#FFF3E0>>
+:**⑫ result 结果卡** → 终态快照 · 清活跃索引; <<#E8F5E9>>
+stop
+@enduml

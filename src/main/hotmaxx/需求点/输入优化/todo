@@ -2,20 +2,38 @@ sk-ws-H.YEXPIML.gFlt.MEYCIQCJxUCSrkJn9PmbPt-BLbeR7GvWNqnJWvue6dXSf9nBoAIhAKbPmnU
 
 
 
+
+
+
 接口罗列 工具!!!!!!!!!!!!!!!
 
+
+
+新版明道云接口的表id 以及页面权限
+分类从明道云接口去找
 项目部署
-
-
 上传接口咨询  icon显示方案
-
 门店查询
 langgrah 断点保存 改pg
-
 转发url配置
 网关时间调整
+python 项目配置引入  怎么替换env
 
-python 项目配置引入
+redis 相关的都清除一下 幂等是怎么做的
+
+pg的数据过期是怎么实现的？
+
+
+
+
+
+待完成	当前情况
+会话持久化	仍用内存，重启丢失、多实例不共享
+同一会话的并发请求 提交幂等与并发控制 redis配置处理
+完整建单与派单	类别、手机号、上门安排等字段尚未全部写入；工作流与提交审批还需确认
+
+
+
 
 
 
