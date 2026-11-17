@@ -47,7 +47,7 @@
 | `status_bar` | 顶部状态条 | [修改] 本地弹层 | 改完以 `text` 发出 | 固定吸顶，不进时间线 |
 | `text` | AI 对话气泡 | 无 | — | — |
 | `quick_cards` | 高频卡墙（6 张） | 每张可点 | `card`（card_id） | 点后整组置灰标记已选 |
-| `enum_card` | 类别候选单选卡 | 每项可点 | `enum_pick`（field+value） | **仅限点选**；`preselect` 只是把 AI 首选排第一，不是默认值；mode=full 时是全量列表 |
+| `enum_card` | 类别候选单选卡 | 每项可点 | `enum_pick`（field+value） | **仅限点选**；`preselect` 只是把 AI 首选排第一，不是默认值；mode=grouped 时为两级联动全量卡（一级类→细分，无细分的一级类如「购物袋」点选即成），mode=full 平铺兜底保留 |
 | `photo_guide` | 拍照引导卡 | [拍照上传] | 调上传接口拿 media_id → 自动发 `upload_done` | 按 need_count 与 tips 文字渲染 |
 | `system_tip` | 系统提示条 | 无 | — | level 三级配色（info/warn/error），非对话语气 |
 | `seg_card` | 二选一卡 | 两个选项 | `seg_pick`（field+value） | 期望上门/影响营业复用同一形态 |
