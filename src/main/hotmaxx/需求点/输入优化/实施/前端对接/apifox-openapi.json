@@ -14,10 +14,9 @@
           {
             "name": "X-Uid",
             "in": "header",
-            "required": false,
+            "required": true,
             "schema": {
               "type": "string",
-              "default": "anonymous",
               "title": "X-Uid"
             }
           }
@@ -73,10 +72,9 @@
           {
             "name": "X-Uid",
             "in": "header",
-            "required": false,
+            "required": true,
             "schema": {
               "type": "string",
-              "default": "anonymous",
               "title": "X-Uid"
             }
           }
@@ -169,10 +167,9 @@
           {
             "name": "X-Uid",
             "in": "header",
-            "required": false,
+            "required": true,
             "schema": {
               "type": "string",
-              "default": "anonymous",
               "title": "X-Uid"
             }
           }
@@ -218,10 +215,9 @@
           {
             "name": "X-Uid",
             "in": "header",
-            "required": false,
+            "required": true,
             "schema": {
               "type": "string",
-              "default": "anonymous",
               "title": "X-Uid"
             }
           }

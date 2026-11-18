@@ -466,6 +466,16 @@ def mean_ms(vals: list[float]) -> int:
     return int(sum(vals) / len(vals)) if vals else 0
 
 
+def trimmed_mean(vals: list[float], trim: float = 0.10) -> int:
+    """截尾均值：去掉最慢 trim 比例的请求后取平均（抗离群值口径）。"""
+    if not vals:
+        return 0
+    s = sorted(vals)
+    cut = int(len(s) * trim)
+    keep = s[: len(s) - cut] if cut else s
+    return int(sum(keep) / len(keep))
+
+
 def html_escape(s) -> str:
     return (str(s).replace("&", "&amp;").replace("<", "&lt;")
             .replace(">", "&gt;").replace('"', "&quot;"))
@@ -485,8 +495,19 @@ def build_html(per_model: dict[str, dict]) -> str:
     max_lat = max([mean_ms(st["lat_core"]) for st in per_model.values()] or [1]) or 1
 
     def dim_details(layer: str, title: str) -> str:
-        items = "".join(f"<details><summary><b>{html_escape(d)}</b>：{html_escape(i[:40])}…</summary>"
-                        f"<p>{html_escape(i)}</p></details>" for d, i in DIM_INFO[layer].items())
+        dim_cases: dict[str, list] = {}
+        if layer == "l2":   # 业务维度附实际用例，口径+样本对照着看
+            for c in load_jsonl(HERE / "dataset_l2.jsonl"):
+                dim_cases.setdefault(c["dim"], []).append(c)
+        items = ""
+        for d, i in DIM_INFO[layer].items():
+            case_html = "".join(
+                f"<li><code>{html_escape(c['id'])}</code> 用户说「{html_escape(c.get('text', ''))}」"
+                f"｜{html_escape(c.get('desc', ''))}</li>"
+                for c in dim_cases.get(d, []))
+            case_block = f"<ul class='cases'>{case_html}</ul>" if case_html else ""
+            items += (f"<details><summary><b>{html_escape(d)}</b>：{html_escape(i[:40])}…</summary>"
+                      f"<p>{html_escape(i)}</p>{case_block}</details>")
         return f"<h2>{title}</h2><div class='dims'>{items}</div>"
 
     css = """
@@ -507,6 +528,8 @@ def build_html(per_model: dict[str, dict]) -> str:
                   padding:8px 12px;margin:6px 0;font-size:13px}
     .dims summary{cursor:pointer;color:#2563eb}
     .dims p{margin:8px 0 0;color:#3f4550}
+    .cases{margin:6px 0 0;padding-left:18px;color:#4b5058;font-size:12px}
+    .cases code{background:#eef1f5;padding:1px 4px;border-radius:3px;font-size:11px}
     .ok{color:#15803d;font-weight:600} .bad{color:#b91c1c;font-weight:600}
     """
 
@@ -536,14 +559,14 @@ def build_html(per_model: dict[str, dict]) -> str:
         l2 = pct(st["l2_pass"], st["l2_total"])
         l1 = pct(st["l1_pass"], st["l1_total"])
         js = pct(st["l2_json_ok"], st["l2_json_total"])
-        core, l2lat, p95 = mean_ms(st["lat_core"]), mean_ms(st["lat_l2"]), pctl(st["lat"], 0.95)
+        core, l2lat, p95 = mean_ms(st["lat_core"]), mean_ms(st["lat_l2"]), pctl(st["lat_core"], 0.95)
         bar_w = int(core / max_lat * 100)
         l2_style = "ok" if st["l2_total"] and st["l2_pass"] / st["l2_total"] >= 0.9 else (
             "bad" if st["l2_total"] else "")
         to_rate = pct(st["err_timeout"], st["attempts"])
         other_rate = pct(st["err_other"], st["attempts"])
         to_style = "bad" if st["err_timeout"] / max(1, st["attempts"]) >= 0.05 else ""
-        core_p95 = pctl(st["lat_core"], 0.95)
+        tmean = trimmed_mean(st["lat"])
         main_rows += (
             f"<tr><td>{html_escape(mid)}<br><span style='color:#8a8f98;font-size:11px'>"
             f"{html_escape(m.get('brand',''))}·{html_escape(m.get('tier',''))}</span></td>"
@@ -551,7 +574,8 @@ def build_html(per_model: dict[str, dict]) -> str:
             f"<td class='{to_style}'>{to_rate}</td><td>{other_rate if st['err_other'] else '0%'}</td>"
             f"<td>{core}ms</td>"
             f"<td><span class='bar' style='width:{bar_w}px'></span></td>"
-            f"<td>{l2lat}ms</td><td>{core_p95}ms</td><td>{p95}ms</td>"
+            f"<td>{p95}ms</td>"
+            f"<td>{l2lat}ms</td><td>{tmean}ms</td>"
             f"<td>{st['tok_in']//1000}k/{st['tok_out']//1000}k</td></tr>")
 
     now = time.strftime("%Y-%m-%d %H:%M")
@@ -562,9 +586,9 @@ def build_html(per_model: dict[str, dict]) -> str:
 
 <h2>总表</h2>
 <table><tr><th>模型</th><th>L2 业务通过率</th><th>L1 通用通过率</th><th>L2 JSON 合法率</th>
-<th>超时率</th><th>其他失败</th><th>常规耗时均值*</th><th></th><th>L2 轮次耗时</th><th>常规 P95*</th><th>全量 P95</th><th>tokens 入/出</th></tr>
+<th>超时率</th><th>其他失败</th><th>常规耗时均值*</th><th></th><th>P95</th><th>L2 轮次耗时</th><th>截尾均值（去最慢10%）</th><th>tokens 入/出</th></tr>
 {main_rows}</table>
-<div class="warn">* 常规耗时/常规 P95 已剔除长上下文（8k/16k/32k 埋针）用例；「全量 P95」含长上下文，衡量最坏情况。
+<div class="warn">* 常规耗时均值与 P95 均剔除长上下文（8k/16k/32k 埋针）用例；截尾均值 = 全部成功请求去掉最慢 10% 后的平均耗时（含长上下文、抗离群值）。
 L2 轮次耗时 = 业务仿真层平均单轮，最贴近生产一问一答。超时/请求失败<b>不计入通过率</b>，单独列出。行序=L2 通过率降序。</div>
 
 {dim_details("l2", "L2 业务维度 · 判定口径（先读这个再看表）")}
@@ -687,8 +711,8 @@ def cmd_grade(_: argparse.Namespace) -> None:
              "- ⚠️ 未跑满 3 轮的模型数字只代表已跑轮次；SMOKE 冒烟行不计入", ""]
 
     lines += ["## 总表", "",
-              "| 模型 | L1 通过率 | L2 通过率 | L2 JSON合法率 | 超时率 | 其他请求失败 | 常规耗时均值* | L2轮次均值 | 常规P95* | 全量P95 | tokens(入/出) |",
-              "|---|---|---|---|---|---|---|---|---|---|---|"]
+              "| 模型 | L1 通过率 | L2 通过率 | L2 JSON合法率 | 超时率 | 其他请求失败 | 常规耗时均值* | L2轮次均值 | 截尾均值(去最慢10%) | tokens(入/出) |",
+              "|---|---|---|---|---|---|---|---|---|---|"]
     for mid in model_order:
         st = per_model[mid]
         l2c = pct(st["l2_pass"], st["l2_total"]) if st["l2_total"] else "-"
@@ -698,9 +722,10 @@ def cmd_grade(_: argparse.Namespace) -> None:
             f"| {pct(st['err_timeout'], st['attempts'])} "
             f"| {pct(st['err_other'], st['attempts'])} "
             f"| {mean_ms(st['lat_core'])}ms | {mean_ms(st['lat_l2'])}ms "
-            f"| {pctl(st['lat_core'], 0.95)}ms | {pctl(st['lat'], 0.95)}ms "
+            f"| {trimmed_mean(st['lat'])}ms "
             f"| {st['tok_in']}/{st['tok_out']} |")
-    lines += ["", "* 常规耗时/常规P95 均剔除长上下文（8k/16k/32k 埋针）用例；全量 P95 含长上下文。",
+    lines += ["", "* 常规耗时剔除长上下文（8k/16k/32k 埋针）用例；"
+              "截尾均值=全部成功请求去掉最慢 10% 后的平均（含长上下文、抗离群值）。",
               "* 超时/请求失败（HTTP 错、风控 400 等）**不计入通过率**，单独列出，避免污染能力判定；"
               "kimi 系被平台输入风控拦截的「该拒」用例按等效拒答计过。", ""]
     lines += ["## L2 分维度", ""] + dims_table("l2") + [""]
