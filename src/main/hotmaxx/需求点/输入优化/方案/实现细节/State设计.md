@@ -17,8 +17,7 @@
     "photos":          { "value": [],   "source": "system_default", "updated_at": "-" },
     "expect_visit":    { "value": null, "source": "system_default", "updated_at": "-" },
     "impact_business": { "value": null, "source": "system_default", "updated_at": "-" },
-    "phone":           { "value": "13800001234", "source": "system_default", "updated_at": "2026-11-05T09:41:03+08:00" },
-    "expect_process":  { "value": null, "source": "system_default", "updated_at": "-" }
+    "phone":           { "value": "13800001234", "source": "system_default", "updated_at": "2026-11-05T09:41:03+08:00" }
   },
   "agenda": ["category", "detail", "photos", "expect_visit", "impact_business", "phone"],
   "focus": "category",
@@ -115,7 +114,7 @@ class AgentState(TypedDict):
     skill: str                      # "repair"（恢复时定位技能包）
     session_id: str                 # rp_xxx = thread_id（冗余存一份：归档/排查免反查）
     context: dict                   # 带出字段 {store, reporter, date, phone_masked}
-    slots: dict[str, SlotValue]     # 7 个槽位（定义见技能包实例 §2）
+    slots: dict[str, SlotValue]     # 9 个槽位（定义见技能包实例 §2）
     agenda: list[str]               # 待问必填槽位名（schema 顺序）
     focus: str | None               # 当前焦点 = agenda 首项（对外渲染 done.focus）
     messages: Annotated[list[MessageEntry], add_messages]   # append-only · 滑动窗口 10 轮（裁剪前必已入库）

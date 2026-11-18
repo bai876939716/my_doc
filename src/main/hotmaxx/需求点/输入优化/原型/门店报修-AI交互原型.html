@@ -251,7 +251,6 @@ dialog input{width:100%;padding:11px;border-radius:7px;font-size:14px;border:1px
         </div>
         <div id="formFiles"></div>
         <p class="hint">拍清设备整体与问题部位，维修师傅好提前判断。</p></div>
-      <div class="field"><label>期望处理（可不填）</label><textarea name="expect" placeholder="期望的解决方式…" style="min-height:60px"></textarea></div>
       <div class="frow"><label class="req">期望上门</label><button type="button" class="fr fbtn" id="fExpectBtn" onclick="fExpectModal()">请选择 ›</button></div>
       <div class="frow"><label class="req">影响营业</label><div class="seg" id="fImpact" style="flex:1">
         <button type="button" onclick="fPick(this,'impactVal','是')">是</button>
@@ -369,7 +368,7 @@ function mask(p){return String(p).replace(/(\d{3})\d{4}(\d{4})/,'$1****$2')}
 let E=null,seq=0,msgs=[],cands=[],resumePending=false;
 const DRAFT_KEY='hotmaxx5-ai-draft';
 function newE(){return{state:'collecting',focus:'category',bPath:false,pendingTarget:'',fail:0,orderNo:'',
- slots:{category:'',detail:'',photos:[],expect_visit:'',impact_business:'',phone:'',expect_process:'',reporter:BASE.reporter},
+ slots:{category:'',detail:'',photos:[],expect_visit:'',impact_business:'',phone:'',reporter:BASE.reporter},
  src:{}}}
 function pushMsg(role,type,data){seq++;const m={seq,role,type,data};msgs.push(m);renderMsg(m);return m}
 const say=(type,data)=>pushMsg('server',type,data);
@@ -468,7 +467,6 @@ function handleText(raw){
  if(/影响营业/.test(t)&&/改成?|改为/.test(t))return segFix('impact_business','影响营业');
  if(/期望上门/.test(t)&&/改成?|改为/.test(t))return segFix('expect_visit','期望上门');
  if(/报修人/.test(t)&&/改成?|改为|换成?/.test(t)){const v=t.split(/改成?|改为|换成?/)[1];if(v)return updateDone('报修人员',()=>{E.slots.reporter=v.trim();E.src.reporter='user_edited'})}
- if(/期望处理/.test(t)&&/改成?|改为/.test(t)){const v=t.split(/改成?|改为/)[1];if(v)return updateDone('期望处理',()=>{E.slots.expect_process=v.trim();E.src.expect_process='user_edited'})}
  /* ⑥ 边界：应和 + 拉回；连续 3 次降级点选向导 */
  for(const[re,reply]of BOUNDARY){
   if(re.test(t)){
@@ -577,8 +575,7 @@ function buildConfirm(){
    {field:'detail',label:'描述具体故障',value:detailVal,editable:true,badge:ai('detail')},
    {field:'photos',label:'现场照片',photos:s.photos,editable:false,badge:false},
    {field:'expect_visit',label:'期望上门',value:s.expect_visit,editable:true,badge:ai('expect_visit')},
-   {field:'impact_business',label:'影响营业',value:s.impact_business,editable:true,badge:ai('impact_business')},
-   {field:'expect_process',label:'期望处理（选填）',value:s.expect_process||'填写',editable:true,badge:false}]}
+   {field:'impact_business',label:'影响营业',value:s.impact_business,editable:true,badge:ai('impact_business')}]}
  ],missing:[]};
 }
 function submitOrder(){
@@ -850,7 +847,6 @@ function editField(field){
   pickModal('修改影响营业',['是','否'],v=>gesture({type:'seg_pick',field:'impact_business',value:v}));
  }else if(field==='phone'){phoneModal(false)}
  else if(field==='detail'){textModal('修改故障描述','现象 / 时间 / 影响范围，≤100 字')}
- else if(field==='expect_process'){textModal('期望处理（选填）','期望的解决方式，如：今晚紧急处理 / 更换新设备…','期望处理改成')}
  else if(field==='reporter'){textModal('修改报修人','替店员报修时可修改姓名','报修人改成')}
  else toast('该字段请通过对话修改');
 }
@@ -882,14 +878,14 @@ $('#submitBar').addEventListener('click',()=>{if(E&&E.state==='confirm')submitOr
  * ===================================================================== */
 const now0=new Date(),mmdd=x=>String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');
 const RECORDS_SEED=[
- {id:'MDY-3f9a2c71',cat:'门店广告类 - Led灯和牌匾灯不亮',status:'repairing',statusText:'维修中',submitted:'10-28 14:20',expect:'维修人员尽快上门',person:'白云翔',impact:'否',phone:'138****1234',detail:'门店招牌灯箱右半段不亮，晚间影响顾客识别门店，需上门更换灯管。',expectTxt:'期望尽快上门更换灯管。',photos:['招牌灯箱故障现场.jpg'],tl:[{t:'提交报修',time:'10-28 14:20',s:'done'},{t:'派单 · 维修工王师傅',time:'10-28 16:05',s:'done'},{t:'上门维修',time:'10-29 10:12',s:'doing'},{t:'完工验收',time:'—',s:''}]},
- {id:'MDY-8d1e6b40',cat:'日常营运用品类 - 收银机',status:'done',statusText:'已完成',submitted:'10-19 09:03',expect:'可等待安排',person:'白云翔',impact:'是',phone:'138****1234',detail:'2 号收银机扫码后无反应，重启无效，已切换备用机收银。',expectTxt:'尽快维修或更换。',photos:['收银机故障现场.jpg'],tl:[{t:'提交报修',time:'10-19 09:03',s:'done'},{t:'派单 · 信息部处理',time:'10-19 11:40',s:'done'},{t:'上门维修',time:'10-20 09:30',s:'done'},{t:'完工验收',time:'10-21 15:40',s:'done'}]},
- {id:'MDY-5c7f3a92',cat:'门店工程类 - 工程（断电、着火、漏）',status:'done',statusText:'已完成',submitted:'10-12 18:47',expect:'维修人员尽快上门',person:'店长-李敏',impact:'是',phone:'139****5678',detail:'门店后区水管爆裂漏水，地面积水影响通行，已临时关闭阀门并放置警示牌。',expectTxt:'当晚紧急处理。',photos:['后区漏水现场.jpg'],tl:[{t:'提交报修',time:'10-12 18:47',s:'done'},{t:'紧急派单 · 工程班组',time:'10-12 19:05',s:'done'},{t:'上门维修',time:'10-12 20:30',s:'done'},{t:'完工验收',time:'10-13 09:10',s:'done'}]}
+ {id:'MDY-3f9a2c71',cat:'门店广告类 - Led灯和牌匾灯不亮',status:'repairing',statusText:'维修中',submitted:'10-28 14:20',expect:'维修人员尽快上门',person:'白云翔',impact:'否',phone:'138****1234',detail:'门店招牌灯箱右半段不亮，晚间影响顾客识别门店，需上门更换灯管。',photos:['招牌灯箱故障现场.jpg'],tl:[{t:'提交报修',time:'10-28 14:20',s:'done'},{t:'派单 · 维修工王师傅',time:'10-28 16:05',s:'done'},{t:'上门维修',time:'10-29 10:12',s:'doing'},{t:'完工验收',time:'—',s:''}]},
+ {id:'MDY-8d1e6b40',cat:'日常营运用品类 - 收银机',status:'done',statusText:'已完成',submitted:'10-19 09:03',expect:'可等待安排',person:'白云翔',impact:'是',phone:'138****1234',detail:'2 号收银机扫码后无反应，重启无效，已切换备用机收银。',photos:['收银机故障现场.jpg'],tl:[{t:'提交报修',time:'10-19 09:03',s:'done'},{t:'派单 · 信息部处理',time:'10-19 11:40',s:'done'},{t:'上门维修',time:'10-20 09:30',s:'done'},{t:'完工验收',time:'10-21 15:40',s:'done'}]},
+ {id:'MDY-5c7f3a92',cat:'门店工程类 - 工程（断电、着火、漏）',status:'done',statusText:'已完成',submitted:'10-12 18:47',expect:'维修人员尽快上门',person:'店长-李敏',impact:'是',phone:'139****5678',detail:'门店后区水管爆裂漏水，地面积水影响通行，已临时关闭阀门并放置警示牌。',photos:['后区漏水现场.jpg'],tl:[{t:'提交报修',time:'10-12 18:47',s:'done'},{t:'紧急派单 · 工程班组',time:'10-12 19:05',s:'done'},{t:'上门维修',time:'10-12 20:30',s:'done'},{t:'完工验收',time:'10-13 09:10',s:'done'}]}
 ];
 let records=JSON.parse(JSON.stringify(RECORDS_SEED)),recTab='all';
 function newRecord(E){
  const s=E.slots,t=mmdd(now0)+' 09:41';
- return{id:E.orderNo,cat:s.category,status:'pending',statusText:'待派单',submitted:t,expect:s.expect_visit,person:s.reporter,impact:s.impact_business,phone:mask(s.phone),detail:s.detail,expectTxt:s.expect_process||'',photos:s.photos.map(p=>p.name),tl:[{t:'提交报修',time:t,s:'done'},{t:'派单',time:'—',s:''},{t:'上门维修',time:'—',s:''},{t:'完工验收',time:'—',s:''}]};
+ return{id:E.orderNo,cat:s.category,status:'pending',statusText:'待派单',submitted:t,expect:s.expect_visit,person:s.reporter,impact:s.impact_business,phone:mask(s.phone),detail:s.detail,photos:s.photos.map(p=>p.name),tl:[{t:'提交报修',time:t,s:'done'},{t:'派单',time:'—',s:''},{t:'上门维修',time:'—',s:''},{t:'完工验收',time:'—',s:''}]};
 }
 function renderRecords(){
  document.querySelectorAll('.stab').forEach(b=>b.classList.toggle('active',b.textContent===(recTab==='all'?'全部':recTab==='doing'?'处理中':'已完成')));
@@ -900,7 +896,7 @@ function openRecord(id){
  const r=records.find(x=>x.id===id);if(!r)return;
  $('#dTitle').textContent=r.id;$('#dPill').textContent=r.statusText;$('#dPill').className='pill '+(r.status==='done'?'ok':'doing');
  $('#dBody').innerHTML='<div class="sectionlabel">处理进度</div><div class="tl">'+r.tl.map(s=>'<div class="tl-item '+(s.s==='done'?'done':s.s==='doing'?'doing':'dim')+'"><span class="tl-dot"></span><span><div class="tlabel">'+esc(s.t)+(s.s==='doing'?' · 进行中':'')+'</div><div class="ttime">'+esc(s.time)+'</div></span></div>').join('')+'</div>'+
-  '<div class="sectionlabel">基础信息</div>'+[['门店名称','11522 安徽商之都OK店'],['报修类别',r.cat],['报修人员',r.person],['期望上门',r.expect],['影响营业',r.impact],['联系电话',r.phone],['期望处理',r.expectTxt||'—']].map(([l,v])=>'<div class="data-row"><span>'+l+'</span><b>'+esc(v)+'</b></div>').join('')+
+  '<div class="sectionlabel">基础信息</div>'+[['门店名称','11522 安徽商之都OK店'],['报修类别',r.cat],['报修人员',r.person],['期望上门',r.expect],['影响营业',r.impact],['联系电话',r.phone]].map(([l,v])=>'<div class="data-row"><span>'+l+'</span><b>'+esc(v)+'</b></div>').join('')+
   '<div class="sectionlabel">描述具体故障</div><div class="detail">'+esc(r.detail)+'</div>'+
   '<div class="sectionlabel">现场照片（'+r.photos.length+'）</div>'+r.photos.map(p=>'<div class="attachment">▧ '+esc(p)+'</div>').join('');
  showPage('detail');

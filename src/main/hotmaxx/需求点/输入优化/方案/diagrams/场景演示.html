@@ -49,7 +49,7 @@ const slot=(v,src,ts)=>({value:v===undefined?null:v,source:src||"system_default"
 function initialState(){CLK=40;return{
  skill:"repair",session_id:"rp_9f3k2m",
  context:{store:"11522 安徽商之都OK店",reporter:"白云翔",date:"2026-11-05",phone_masked:"138****1234"},
- slots:{category:slot(),detail:slot(),photos:slot([]),expect_visit:slot(),impact_business:slot(),phone:slot("13800001234","system_default","2026-11-05T09:41:03+08:00"),expect_process:slot()},
+ slots:{category:slot(),detail:slot(),photos:slot([]),expect_visit:slot(),impact_business:slot(),phone:slot("13800001234","system_default","2026-11-05T09:41:03+08:00")},
  agenda:["category","detail","photos","expect_visit","impact_business","phone"],focus:"category",
  messages:[
   {seq:1,role:"server",type:"status_bar",data:{store:"11522 安徽商之都OK店",reporter:"白云翔",phone_masked:"138****1234"}},
@@ -73,8 +73,7 @@ function confirmData(S){return{groups:[
   {field:"photos",label:"现场照片",value:(S.slots.photos.value||[]).length+" 张",editable:true,source:S.slots.photos.source},
   {field:"expect_visit",label:"期望上门",value:S.slots.expect_visit.value,editable:true,source:S.slots.expect_visit.source},
   {field:"impact_business",label:"影响营业",value:S.slots.impact_business.value,editable:true,source:S.slots.impact_business.source},
-  {field:"phone",label:"联系电话",value:pm(S),editable:true,source:"system_default"},
-  {field:"expect_process",label:"期望处理（选填）",value:"",editable:true,source:"system_default"}]}
+  {field:"phone",label:"联系电话",value:pm(S),editable:true,source:"system_default"}]}
 ],missing:[]}}
 const DETAIL_A="故障现象：冷藏风幕柜不制冷，柜内温度 15℃；发生时间：今天早上开始；影响范围：柜内鲜奶已下架，暂无法销售";
 const DETAIL_C="故障现象：招牌灯箱右半段不亮；发生时间：近一周晚间明显；影响范围：影响顾客识别门店";
