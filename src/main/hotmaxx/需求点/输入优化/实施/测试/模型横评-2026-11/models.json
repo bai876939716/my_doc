@@ -1,0 +1,15 @@
+{
+  "comment": "2026-11-17 定稿清单（官方模型广场核对）。tier=智能/快速按各品牌成对；Qwen 额外带均衡款与现役基线。价格单位：元/千 token，填了才折算成本，没填报告只出 token 量。",
+  "models": [
+    {"id": "qwen4-max",           "brand": "Qwen",     "tier": "智能",       "qwen": true,  "price_in": null, "price_out": null},
+    {"id": "qwen3.7-plus",        "brand": "Qwen",     "tier": "均衡",       "qwen": true,  "price_in": null, "price_out": null},
+    {"id": "qwen-plus",           "brand": "Qwen",     "tier": "现役基线",   "qwen": true,  "price_in": null, "price_out": null},
+    {"id": "qwen3.8-flash",       "brand": "Qwen",     "tier": "快速",       "qwen": true,  "price_in": null, "price_out": null},
+    {"id": "deepseek-v4-pro-0813","brand": "DeepSeek", "tier": "智能",       "qwen": false, "price_in": null, "price_out": null},
+    {"id": "deepseek-v4.1-flash-1017", "brand": "DeepSeek", "tier": "快速",  "qwen": false, "price_in": null, "price_out": null},
+    {"id": "kimi-k3.1-pro",       "brand": "月之暗面", "tier": "智能",       "qwen": false, "price_in": null, "price_out": null},
+    {"id": "kimi-k3",             "brand": "月之暗面", "tier": "快速",       "qwen": false, "price_in": null, "price_out": null},
+    {"id": "glm-5.3",             "brand": "智谱",     "tier": "智能(无快速款)", "qwen": false, "price_in": null, "price_out": null},
+    {"id": "MiniMax-M2.5",        "brand": "MiniMax",  "tier": "智能(无快速款)", "qwen": false, "price_in": null, "price_out": null, "note": "官方标注不支持结构化输出参数；本测全部 prompt-only（与生产一致），其 JSON 合法率单看"}
+  ]
+}
