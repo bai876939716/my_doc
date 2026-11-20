@@ -1,0 +1,51 @@
+flowchart TB
+    subgraph L1["接入层"]
+        NGINX["Nginx 反向代理"]
+        SSO["SSO 认证<br/>OIDC / LDAP"]
+    end
+
+    subgraph L2["应用层(FastAPI)"]
+        WEB["Web 前端<br/>React + AntD"]
+        API["API 服务<br/>知识管理 / 权限 / 检索"]
+        ASK["问答服务<br/>RAG 编排"]
+        WORKER["Celery 异步任务<br/>解析 / 切分 / 向量化"]
+    end
+
+    subgraph L3["数据层"]
+        PG[("PostgreSQL 16<br/>元数据 + 权限 + pgvector")]
+        MINIO[("MinIO<br/>原始文件 / 解析产物")]
+        ES[("Elasticsearch 8<br/>BM25 全文检索")]
+        REDIS[("Redis<br/>缓存 + 任务队列")]
+    end
+
+    subgraph L4["AI 能力层"]
+        GW["LiteLLM 网关<br/>kb-service 虚拟 key"]
+        LLM["国内大模型<br/>DeepSeek 主力 / 故障转移组"]
+        EMB["BGE-M3 Embedding<br/>TEI 部署"]
+        RER["BGE-reranker-v2-m3"]
+    end
+
+    subgraph L5["运维层"]
+        OBS["Prometheus + Grafana + Loki"]
+    end
+
+    USER(["用户"]) --> NGINX --> WEB
+    SSO --> API
+    WEB --> API
+    API --> PG
+    API --> MINIO
+    API --> ES
+    API --> REDIS
+    API --> ASK
+    ASK --> ES
+    ASK --> PG
+    ASK --> GW
+    ASK --> EMB
+    ASK --> RER
+    GW --> LLM
+    WORKER --> MINIO
+    WORKER --> PG
+    WORKER --> ES
+    WORKER --> EMB
+    OBS -.-> API
+    OBS -.-> GW

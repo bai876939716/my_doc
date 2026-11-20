@@ -1,0 +1,56 @@
+curl --url 'https://b.hotmaxx.cn/file/mingdao/upload' \
+  -H 'Accept: */*' \
+  -H 'Accept-Language: zh-CN,zh;q=0.9' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: multipart/form-data; boundary=----WebKitFormBoundarySGKfPpiMWBeBwiMj' \
+  -b 'i18n_langtag=zh-Hans; md_pss_id=0140be0b905601c05b08901208604e05f0ce0d706f02d0bd' \
+  -H 'Origin: https://b.hotmaxx.cn' \
+  -H 'Referer: https://b.hotmaxx.cn/app/402fd7ec-f003-4411-bfa3-a9f459454ee8/6a62cd9cc1750a8ce968f8a0/6a62cd9c80061a3387736fc8?from=insite' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36' \
+  -H 'sec-ch-ua: "Not:A-Brand";v="8", "Chromium";v="156", "Google Chrome";v="156"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "macOS"' \
+  --data-raw $'------WebKitFormBoundarySGKfPpiMWBeBwiMj\r\nContent-Disposition: form-data; name="name"\r\n\r\n1625149155723.jpg\r\n------WebKitFormBoundarySGKfPpiMWBeBwiMj\r\nContent-Disposition: form-data; name="chunk"\r\n\r\n0\r\n------WebKitFormBoundarySGKfPpiMWBeBwiMj\r\nContent-Disposition: form-data; name="chunks"\r\n\r\n1\r\n------WebKitFormBoundarySGKfPpiMWBeBwiMj\r\nContent-Disposition: form-data; name="token"\r\n\r\nstorage:wGqNzeGF48nc9XaxT_V9Ecd_BqY=:eyJzY29wZSI6Im1kcGljOjhmMmE0MmM3LTQyN2ItNGJjNi1hNjk3LWM1ZjA1MzY4ZjYyOS80MDJmZDdlYy1mMDAzLTQ0MTEtYmZhMy1hOWY0NTk0NTRlZTgvNmE2MmNkOWM4MDA2MWEzMzg3NzM2ZmM4LzIwMjYxMTEwLzNSOEoxbGRqNHY0RjhnZU9hMGZpOTc2ZzhyNFU3dGVWYk9ld2VFNHk0UjZhNkQ0TzZKZEEwN2Q5NEQyVDNyZE4uanBnIiwicmV0dXJuQm9keSI6IntcImtleVwiOlwiJChrZXkpXCIsXCJldGFnXCI6XCIkKGV0YWcpXCIsXCJidWNrZXRcIjpcIiQoYnVja2V0KVwiLFwiZnNpemVcIjpcIiQoZnNpemUpXCIsXCJzZXJ2ZXJOYW1lXCI6XCIkKHg6c2VydmVyTmFtZSlcIixcImZpbGVQYXRoXCI6XCIkKHg6ZmlsZVBhdGgpXCIsXCJmaWxlTmFtZVwiOlwiJCh4OmZpbGVOYW1lKVwiLFwib3JpZ2luYWxGaWxlTmFtZVwiOlwiJCh4Om9yaWdpbmFsRmlsZU5hbWUpXCIsXCJmaWxlRXh0XCI6XCIkKHg6ZmlsZUV4dClcIn0iLCJkZWFkbGluZSI6MTc5NDMyNTQwNSwiaW5zZXJ0T25seSI6MSwiZGV0ZWN0TWltZSI6MCwibWltZUxpbWl0IjoiaW1hZ2UvKiIsImZzaXplTGltaXQiOjQyOTQ5NjcyOTZ9\r\n------WebKitFormBoundarySGKfPpiMWBeBwiMj\r\nContent-Disposition: form-data; name="key"\r\n\r\n8f2a42c7-427b-4bc6-a697-c5f05368f629/402fd7ec-f003-4411-bfa3-a9f459454ee8/6a62cd9c80061a3387736fc8/20261110/3R8J1ldj4v4F8geOa0fi976g8r4U7teVbOeweE4y4R6a6D4O6JdA07d94D2T3rdN.jpg\r\n------WebKitFormBoundarySGKfPpiMWBeBwiMj\r\nContent-Disposition: form-data; name="x:serverName"\r\n\r\nhttps://b.hotmaxx.cn/file/mdpic/\r\n------WebKitFormBoundarySGKfPpiMWBeBwiMj\r\nContent-Disposition: form-data; name="x:filePath"\r\n\r\n8f2a42c7-427b-4bc6-a697-c5f05368f629/402fd7ec-f003-4411-bfa3-a9f459454ee8/6a62cd9c80061a3387736fc8/20261110/\r\n------WebKitFormBoundarySGKfPpiMWBeBwiMj\r\nContent-Disposition: form-data; name="x:fileName"\r\n\r\n3R8J1ldj4v4F8geOa0fi976g8r4U7teVbOeweE4y4R6a6D4O6JdA07d94D2T3rdN\r\n------WebKitFormBoundarySGKfPpiMWBeBwiMj\r\nContent-Disposition: form-data; name="x:originalFileName"\r\n\r\n1625149155723\r\n------WebKitFormBoundarySGKfPpiMWBeBwiMj\r\nContent-Disposition: form-data; name="x:fileExt"\r\n\r\n.jpg\r\n------WebKitFormBoundarySGKfPpiMWBeBwiMj\r\nContent-Disposition: form-data; name="file"; filename="1625149155723.jpg"\r\nContent-Type: image/jpeg\r\n\r\n\r\n------WebKitFormBoundarySGKfPpiMWBeBwiMj--\r\n'
+
+  curl --url 'https://b.hotmaxx.cn/wwwapi/Kc/GetUsage' \
+    -H 'Accept: application/json, text/plain, */*' \
+    -H 'Accept-Language: zh-CN,zh;q=0.9' \
+    -H 'AccountId: 83230520-c2df-4e73-b91e-f4e58930f31a' \
+    -H 'Authorization: md_pss_id 0140be0b905601c05b08901208604e05f0ce0d706f02d0bd' \
+    -H 'Connection: keep-alive' \
+    -H 'Content-Type: application/json' \
+    -b 'i18n_langtag=zh-Hans; md_pss_id=0140be0b905601c05b08901208604e05f0ce0d706f02d0bd' \
+    -H 'Origin: https://b.hotmaxx.cn' \
+    -H 'Referer: https://b.hotmaxx.cn/app/402fd7ec-f003-4411-bfa3-a9f459454ee8/6a62cd9cc1750a8ce968f8a0/6a62cd9c80061a3387736fc8?from=insite' \
+    -H 'Sec-Fetch-Dest: empty' \
+    -H 'Sec-Fetch-Mode: cors' \
+    -H 'Sec-Fetch-Site: same-origin' \
+    -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36' \
+    -H 'X-Requested-With: XMLHttpRequest' \
+    -H 'sec-ch-ua: "Not:A-Brand";v="8", "Chromium";v="156", "Google Chrome";v="156"' \
+    -H 'sec-ch-ua-mobile: ?0' \
+    -H 'sec-ch-ua-platform: "macOS"' \
+    --data-raw '{"projectId":"8f2a42c7-427b-4bc6-a697-c5f05368f629","appId":"402fd7ec-f003-4411-bfa3-a9f459454ee8","fromType":9}'
+
+    curl --url 'https://b.hotmaxx.cn/wwwapi/Qiniu/GetUploadToken' \
+      -H 'Accept: application/json, text/plain, */*' \
+      -H 'Accept-Language: zh-CN,zh;q=0.9' \
+      -H 'AccountId: 83230520-c2df-4e73-b91e-f4e58930f31a' \
+      -H 'Authorization: md_pss_id 0140be0b905601c05b08901208604e05f0ce0d706f02d0bd' \
+      -H 'Connection: keep-alive' \
+      -H 'Content-Type: application/json' \
+      -b 'i18n_langtag=zh-Hans; md_pss_id=0140be0b905601c05b08901208604e05f0ce0d706f02d0bd' \
+      -H 'Origin: https://b.hotmaxx.cn' \
+      -H 'Referer: https://b.hotmaxx.cn/app/402fd7ec-f003-4411-bfa3-a9f459454ee8/6a62cd9cc1750a8ce968f8a0/6a62cd9c80061a3387736fc8?from=insite' \
+      -H 'Sec-Fetch-Dest: empty' \
+      -H 'Sec-Fetch-Mode: cors' \
+      -H 'Sec-Fetch-Site: same-origin' \
+      -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36' \
+      -H 'X-Requested-With: XMLHttpRequest' \
+      -H 'sec-ch-ua: "Not:A-Brand";v="8", "Chromium";v="156", "Google Chrome";v="156"' \
+      -H 'sec-ch-ua-mobile: ?0' \
+      -H 'sec-ch-ua-platform: "macOS"' \
+      --data-raw '{"files":[{"bucket":4,"ext":".jpg"}],"type":0,"projectId":"8f2a42c7-427b-4bc6-a697-c5f05368f629","appId":"402fd7ec-f003-4411-bfa3-a9f459454ee8","worksheetId":"6a62cd9c80061a3387736fc8"}'
