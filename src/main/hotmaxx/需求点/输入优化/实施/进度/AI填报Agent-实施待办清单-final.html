@@ -163,6 +163,7 @@
     <div class="btns">
       <button id="snapBtn" type="button" class="primary">保存快照</button>
       <button id="impBtn" type="button">导入快照</button>
+      <button id="impDirBtn" type="button">导入文件夹</button>
       <button id="resetBtn" type="button">重置</button>
     </div>
     <p class="hist-tip" id="histTip"></p>
@@ -170,6 +171,7 @@
       <table class="hist" id="histTable"></table>
     </div>
     <input type="file" id="impFile" accept=".json,application/json" hidden>
+    <input type="file" id="impDir" webkitdirectory directory multiple hidden>
   </div>
 
   <div class="group">
@@ -475,8 +477,10 @@
     renderHist();
     flash(ok?'快照已留档，JSON 备份已开始下载':'快照已留档（JSON 下载未成功，历史仍保存在本机）');
   }
-  function hasStatus(o,k,i,j){
-    return Object.prototype.hasOwnProperty.call(o,k)||Object.prototype.hasOwnProperty.call(o,i+'-'+j);
+  function statusOf(o,k,i,j){
+    if(Object.prototype.hasOwnProperty.call(o,k))return +o[k];
+    if(Object.prototype.hasOwnProperty.call(o,i+'-'+j))return +o[i+'-'+j];
+    return 0;
   }
   function renderNewTags(h){
     var old=document.querySelectorAll('.new-tag');
@@ -489,7 +493,7 @@
       var k=cardKey(is[i],i),lis=is[i].querySelectorAll('li[data-s]');
       for(var j=0;j<lis.length;j++){
         var key=k+'-'+j;
-        if(hasStatus(latest.statuses,key,i,j)&&!hasStatus(prev.statuses,key,i,j)){
+        if(statusOf(latest.statuses,key,i,j)===2&&statusOf(prev.statuses,key,i,j)!==2){
           var tag=document.createElement('span');
           tag.className='new-tag';tag.textContent='新增';
           lis[j].appendChild(tag);
@@ -592,31 +596,55 @@
     }
     var snapBtn=document.getElementById('snapBtn');
     if(snapBtn)snapBtn.addEventListener('click',takeSnapshot);
+    function readJson(f){
+      return new Promise(function(resolve,reject){
+        var rd=new FileReader();
+        rd.onload=function(){try{resolve(JSON.parse(rd.result));}catch(e){reject(e);}};
+        rd.onerror=reject;
+        rd.readAsText(f);
+      });
+    }
+    function importSnapshot(data){
+      var st=data&&data.statuses;
+      if(!st||typeof st!=='object')throw new Error('bad');
+      if(data.ts&&data.rows){
+        var h=loadHist(),dup=false;
+        for(var k=0;k<h.length;k++){if(h[k].ts===data.ts){dup=true;h[k].statuses=st;break;}}
+        if(!dup)h.push({ts:data.ts,label:snapLabel(data.ts)+' 导入',overall:data.overall,counts:data.counts||{},rows:data.rows,statuses:st});
+        saveHist(h);
+      }
+      return st;
+    }
     var impBtn=document.getElementById('impBtn'),impFile=document.getElementById('impFile');
     if(impBtn&&impFile){
       impBtn.addEventListener('click',function(){impFile.click();});
       impFile.addEventListener('change',function(){
         var f=impFile.files&&impFile.files[0];
         if(!f)return;
-        var rd=new FileReader();
-        rd.onload=function(){
-          try{
-            var data=JSON.parse(rd.result);
-            var st=data&&data.statuses;
-            if(!st||typeof st!=='object')throw new Error('bad');
-            applyStatuses(st);save();render();
-            if(data.ts&&data.rows){
-              var h=loadHist(),dup=false;
-              for(var k=0;k<h.length;k++){if(h[k].ts===data.ts){dup=true;h[k].statuses=st;break;}}
-              if(!dup)h.push({ts:data.ts,label:snapLabel(data.ts)+' 导入',overall:data.overall,counts:data.counts||{},rows:data.rows,statuses:st});
-              saveHist(h);
-            }
-            renderHist();
-            flash('导入成功：看板已恢复到该快照状态');
-          }catch(err){flash('导入失败：不是有效的进度快照 JSON 文件',true);}
-          impFile.value='';
-        };
-        rd.readAsText(f);
+        readJson(f).then(function(data){
+          var st=importSnapshot(data);
+          applyStatuses(st);save();render();renderHist();
+          flash('导入成功：看板已恢复到该快照状态');
+        }).catch(function(){flash('导入失败：不是有效的进度快照 JSON 文件',true);});
+        impFile.value='';
+      });
+    }
+    var impDirBtn=document.getElementById('impDirBtn'),impDir=document.getElementById('impDir');
+    if(impDirBtn&&impDir){
+      impDirBtn.addEventListener('click',function(){impDir.click();});
+      impDir.addEventListener('change',function(){
+        var files=Array.prototype.slice.call(impDir.files||[]).filter(function(f){
+          return f.name.indexOf('待办进度快照-')===0&&/\.json$/i.test(f.name);
+        });
+        if(!files.length){flash('所选文件夹里没有待办进度快照 JSON 文件',true);return;}
+        Promise.all(files.map(readJson)).then(function(list){
+          list.sort(function(a,b){return a.ts-b.ts;});
+          var st=null,count=0;
+          for(var i=0;i<list.length;i++){st=importSnapshot(list[i]);count++;}
+          applyStatuses(st);save();render();renderHist();
+          flash('已导入 '+count+' 份快照：看板已恢复到最新快照状态');
+        }).catch(function(){flash('导入失败：文件夹里有无效的进度快照 JSON 文件',true);});
+        impDir.value='';
       });
     }
     var tbl=document.getElementById('histTable');
