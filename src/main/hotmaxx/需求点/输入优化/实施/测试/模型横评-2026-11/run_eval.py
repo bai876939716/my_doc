@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import sys
@@ -492,7 +493,7 @@ def build_html(per_model: dict[str, dict]) -> str:
     meta = {m["id"]: m for m in json.loads((HERE / "models.json").read_text(encoding="utf-8"))["models"]}
     order = sorted(per_model, key=lambda m: (-per_model[m]["l2_pass"] / max(1, per_model[m]["l2_total"]),
                                              mean_ms(per_model[m]["lat_core"])))
-    max_lat = max([mean_ms(st["lat_core"]) for st in per_model.values()] or [1]) or 1
+    max_lat = max([trimmed_mean(st["lat_l2"]) for st in per_model.values()] or [1]) or 1
 
     def dim_details(layer: str, title: str) -> str:
         dim_cases: dict[str, list] = {}
@@ -531,6 +532,18 @@ def build_html(per_model: dict[str, dict]) -> str:
     .cases{margin:6px 0 0;padding-left:18px;color:#4b5058;font-size:12px}
     .cases code{background:#eef1f5;padding:1px 4px;border-radius:3px;font-size:11px}
     .ok{color:#15803d;font-weight:600} .bad{color:#b91c1c;font-weight:600}
+    th{position:relative}
+    .tip,.spark i{cursor:help}
+    .tip{color:#2563eb;font-weight:400;margin-left:3px;font-size:11px}
+    .tip:hover::after,.spark i:hover::after{content:attr(data-tip);position:absolute;top:calc(100% + 5px);left:50%;
+      transform:translateX(-50%);background:#24272e;color:#fff;padding:6px 10px;border-radius:6px;
+      font-size:12px;font-weight:400;line-height:1.5;white-space:normal;width:max-content;
+      max-width:280px;z-index:20;text-align:left;box-shadow:0 4px 12px rgba(0,0,0,.25)}
+    .tip.tr:hover::after{left:auto;right:0;transform:none}
+    .spark{position:relative;display:inline-block;width:104px;height:24px;vertical-align:middle}
+    .spark i{position:absolute;bottom:0;background:#2563eb;opacity:.55}
+    .spark i:hover{opacity:.9}
+    .spark .mk{position:absolute;top:0;bottom:0;width:1.5px;background:#b45309}
     """
 
     def dim_rows(layer: str) -> str:
@@ -552,6 +565,68 @@ def build_html(per_model: dict[str, dict]) -> str:
             rows.append(f"<tr><td>{html_escape(mid)}</td>{cells}</tr>")
         return (f"<table><tr><th>模型</th>{head}</tr>{''.join(rows)}</table>")
 
+    # 列头口径：ⓘ 悬浮显示，右缘列用 tr 右对齐防被表格 overflow:hidden 裁掉
+    COL_TIPS = {
+        "L2 业务通过率": "L2=报修业务仿真，选型主依据。超时/请求失败不计入通过率（见超时率/其他失败列）",
+        "L2 JSON 合法率": "L2 输出可解析为 JSON 的比例",
+        "L1 通用通过率": "L1=通用能力集（结构化抽取/指令遵循/安全边界/长上下文/推理计算）。超时/请求失败不计入通过率",
+        "超时率": "ReadTimeout 占全部请求的比例；不计入通过率，单独列出",
+        "其他失败": "HTTP 错/风控 400 等请求失败占比；不计入通过率。kimi 系被平台输入风控拦的「该拒」题按等效拒答计过",
+        "常规耗时均值": "成功请求平均耗时，剔除长上下文（8k/16k/32k 埋针）用例",
+        "L2 P95": "L2 业务轮次耗时的 95 分位（L2 用例本身不含长上下文）",
+        "L2 P90 均值": "L2 轮次耗时去掉最慢 10% 后取平均（=P90 以内的均值，抗离群）；蓝条长度按此列比例",
+        "L2 耗时分布": "L2 单轮耗时直方图：横轴=耗时（对数刻度，全表统一，越右越慢），纵轴=请求数（按各模型峰值归一）。拖右尾=抖动大；橙竖线=该模型 L2 P90 均值位置",
+        "tokens 入/出": "全部用例累计（含长上下文用例）",
+    }
+
+    def th(label: str, right_edge: bool = False) -> str:
+        tip = COL_TIPS.get(label)
+        if not tip:
+            return f"<th>{html_escape(label)}</th>"
+        cls = "tip tr" if right_edge else "tip"
+        return (f"<th>{html_escape(label)}<span class='{cls}' "
+                f'data-tip="{html_escape(tip)}">ⓘ</span></th>')
+
+    # L2 耗时分布 sparkline：全局统一对数刻度直方图 + 该模型 P90 均值位置线
+    NBINS = 16
+    l2_all = [v for st in per_model.values() for v in st["lat_l2"]]
+    lg_lo = math.log(max(200.0, min(l2_all))) if l2_all else math.log(200.0)
+    lg_hi = math.log(max(l2_all)) if l2_all else math.log(2000.0)
+
+    def _ms(v: float) -> str:
+        return f"{v / 1000:.1f}s" if v >= 1000 else f"{v:.0f}ms"
+
+    def spark(lat: list, t90: int) -> str:
+        if not lat:
+            return "<span style='color:#8a8f98'>-</span>"
+        bins = [0] * NBINS
+        for v in lat:
+            k = int((math.log(v) - lg_lo) / (lg_hi - lg_lo) * NBINS)
+            bins[max(0, min(NBINS - 1, k))] += 1
+        hmax = max(bins)
+        W, H, gap = 104, 24, 1
+        bw = (W - gap * (NBINS - 1)) / NBINS
+        span = lg_hi - lg_lo
+
+        def bin_lo(i: int) -> float:
+            return math.exp(lg_lo + i / NBINS * span)
+
+        def bin_hi(i: int) -> float:
+            return math.exp(lg_lo + min(NBINS, i + 1) / NBINS * span)
+
+        bars = ""
+        for i, h in enumerate(bins):
+            if not h:
+                continue
+            tip_t = (f"{_ms(bin_lo(i))}–{_ms(bin_hi(i))}"
+                     f"｜{h} 次（{100 * h / len(lat):.0f}%）")
+            bars += (f"<i style='left:{i * (bw + gap):.1f}px;width:{bw:.1f}px;"
+                     f"height:{h / hmax * H:.1f}px' data-tip=\"{html_escape(tip_t)}\"></i>")
+        mx = (math.log(t90) - lg_lo) / span * W
+        mx = max(0.0, min(W, mx))
+        return (f"<span class='spark'>{bars}"
+                f"<span class='mk' style='left:{mx:.1f}px'></span></span>")
+
     main_rows = ""
     for mid in order:
         st = per_model[mid]
@@ -559,23 +634,24 @@ def build_html(per_model: dict[str, dict]) -> str:
         l2 = pct(st["l2_pass"], st["l2_total"])
         l1 = pct(st["l1_pass"], st["l1_total"])
         js = pct(st["l2_json_ok"], st["l2_json_total"])
-        core, l2lat, p95 = mean_ms(st["lat_core"]), mean_ms(st["lat_l2"]), pctl(st["lat_core"], 0.95)
-        bar_w = int(core / max_lat * 100)
+        l2p95, l2t90 = pctl(st["lat_l2"], 0.95), trimmed_mean(st["lat_l2"])
+        bar_w = int(l2t90 / max_lat * 100)
         l2_style = "ok" if st["l2_total"] and st["l2_pass"] / st["l2_total"] >= 0.9 else (
             "bad" if st["l2_total"] else "")
         to_rate = pct(st["err_timeout"], st["attempts"])
         other_rate = pct(st["err_other"], st["attempts"])
         to_style = "bad" if st["err_timeout"] / max(1, st["attempts"]) >= 0.05 else ""
-        tmean = trimmed_mean(st["lat"])
+        core = mean_ms(st["lat_core"])
         main_rows += (
             f"<tr><td>{html_escape(mid)}<br><span style='color:#8a8f98;font-size:11px'>"
             f"{html_escape(m.get('brand',''))}·{html_escape(m.get('tier',''))}</span></td>"
-            f"<td class='{l2_style}'>{l2}</td><td>{l1}</td><td>{js}</td>"
+            f"<td class='{l2_style}'>{l2}</td>"
+            f"<td>{l2p95}ms</td><td>{l2t90}ms</td>"
+            f"<td><span class='bar' style='width:{bar_w}px'></span></td>"
+            f"<td>{spark(st['lat_l2'], l2t90)}</td>"
+            f"<td>{js}</td><td>{l1}</td>"
             f"<td class='{to_style}'>{to_rate}</td><td>{other_rate if st['err_other'] else '0%'}</td>"
             f"<td>{core}ms</td>"
-            f"<td><span class='bar' style='width:{bar_w}px'></span></td>"
-            f"<td>{p95}ms</td>"
-            f"<td>{l2lat}ms</td><td>{tmean}ms</td>"
             f"<td>{st['tok_in']//1000}k/{st['tok_out']//1000}k</td></tr>")
 
     now = time.strftime("%Y-%m-%d %H:%M")
@@ -585,11 +661,11 @@ def build_html(per_model: dict[str, dict]) -> str:
 <div class="sub">生成 {now}｜temperature=0·prompt-only·每条 3 轮｜按 L2 业务通过率排序（L2=报修场景，权重最高）</div>
 
 <h2>总表</h2>
-<table><tr><th>模型</th><th>L2 业务通过率</th><th>L1 通用通过率</th><th>L2 JSON 合法率</th>
-<th>超时率</th><th>其他失败</th><th>常规耗时均值*</th><th></th><th>P95</th><th>L2 轮次耗时</th><th>截尾均值（去最慢10%）</th><th>tokens 入/出</th></tr>
+<table><tr><th>模型</th>{th("L2 业务通过率")}{th("L2 P95")}{th("L2 P90 均值")}<th></th>{th("L2 耗时分布")}{th("L2 JSON 合法率")}{th("L1 通用通过率")}
+{th("超时率")}{th("其他失败")}{th("常规耗时均值", True)}{th("tokens 入/出", True)}</tr>
 {main_rows}</table>
-<div class="warn">* 常规耗时均值与 P95 均剔除长上下文（8k/16k/32k 埋针）用例；截尾均值 = 全部成功请求去掉最慢 10% 后的平均耗时（含长上下文、抗离群值）。
-L2 轮次耗时 = 业务仿真层平均单轮，最贴近生产一问一答。超时/请求失败<b>不计入通过率</b>，单独列出。行序=L2 通过率降序。</div>
+<div class="warn">各列口径见列头 ⓘ（鼠标放上去显示）。耗时列均已剔除长上下文（8k/16k/32k 埋针）用例——L2 两列按层天然不含；tokens 为全部用例累计（含长上下文）。
+超时/请求失败<b>不计入通过率</b>，单独列出。行序=L2 通过率降序。</div>
 
 {dim_details("l2", "L2 业务维度 · 判定口径（先读这个再看表）")}
 <h2>L2 业务 · 分维度通过率（选型主依据）</h2>
@@ -711,7 +787,7 @@ def cmd_grade(_: argparse.Namespace) -> None:
              "- ⚠️ 未跑满 3 轮的模型数字只代表已跑轮次；SMOKE 冒烟行不计入", ""]
 
     lines += ["## 总表", "",
-              "| 模型 | L1 通过率 | L2 通过率 | L2 JSON合法率 | 超时率 | 其他请求失败 | 常规耗时均值* | L2轮次均值 | 截尾均值(去最慢10%) | tokens(入/出) |",
+              "| 模型 | L1 通过率 | L2 通过率 | L2 JSON合法率 | 超时率 | 其他请求失败 | 常规耗时均值* | L2 P95 | L2 P90均值 | tokens(入/出) |",
               "|---|---|---|---|---|---|---|---|---|---|"]
     for mid in model_order:
         st = per_model[mid]
@@ -721,11 +797,11 @@ def cmd_grade(_: argparse.Namespace) -> None:
             f"| {pct(st['l2_json_ok'], st['l2_json_total'])} "
             f"| {pct(st['err_timeout'], st['attempts'])} "
             f"| {pct(st['err_other'], st['attempts'])} "
-            f"| {mean_ms(st['lat_core'])}ms | {mean_ms(st['lat_l2'])}ms "
-            f"| {trimmed_mean(st['lat'])}ms "
+            f"| {mean_ms(st['lat_core'])}ms | {pctl(st['lat_l2'], 0.95)}ms "
+            f"| {trimmed_mean(st['lat_l2'])}ms "
             f"| {st['tok_in']}/{st['tok_out']} |")
-    lines += ["", "* 常规耗时剔除长上下文（8k/16k/32k 埋针）用例；"
-              "截尾均值=全部成功请求去掉最慢 10% 后的平均（含长上下文、抗离群值）。",
+    lines += ["", "* 常规耗时均值剔除长上下文（8k/16k/32k 埋针）用例；"
+              "L2 P95/L2 P90均值=纯 L2 轮次（按层不含长上下文），P90均值=去最慢 10% 后平均。tokens 为全部用例累计（含长上下文）。",
               "* 超时/请求失败（HTTP 错、风控 400 等）**不计入通过率**，单独列出，避免污染能力判定；"
               "kimi 系被平台输入风控拦截的「该拒」用例按等效拒答计过。", ""]
     lines += ["## L2 分维度", ""] + dims_table("l2") + [""]

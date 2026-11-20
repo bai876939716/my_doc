@@ -1,0 +1,5 @@
+查看 Pod 名称
+kubectl -n python get pods
+kubectl -n python logs dev-python-provider-agent-server-center-xxxxxx --tail=200 | grep -E ""
+
+kubectl -n python logs deployment/dev-python-provider-agent-server-center --tail=200 -f | grep --line-buffered -E "xxx"
