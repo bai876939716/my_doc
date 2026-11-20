@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
-<title>AI 智能填报 Agent · 实施待办清单 v2</title>
+<title>AI 智能填报 Agent · 实施待办清单</title>
 <style>
   :root{
     --ink:#1e293b; --sub:#64748b; --line:#e2e8f0; --bg:#f4f6f8;
@@ -84,6 +84,7 @@
   li[data-s="1"] .st{border-color:var(--blue);background:linear-gradient(90deg,var(--blue) 50%,#fff 50%)}
   li[data-s="2"] .st{border-color:var(--green);background:var(--green)}
   li[data-s="2"] .st::after{content:"✓";color:#fff;font-size:10px;font-weight:700;line-height:1}
+  .new-tag{margin-left:auto;font-size:11px;line-height:16px;padding:0 6px;border-radius:999px;background:var(--blue-bg);color:var(--blue);flex:none}
 
   .hist-title{margin:0;font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
   .hist-count{font-size:12px;color:var(--sub);font-weight:400}
@@ -130,7 +131,7 @@
   <header>
     <div class="hd-top">
       <div>
-        <h1>AI 智能填报 Agent · 实施待办清单 v2</h1>
+        <h1>AI 智能填报 Agent · 实施待办清单</h1>
         <p class="sub">门店报修 · 对话式填报 ｜节奏：每周三 / 周六 过进度</p>
       </div>
       <div class="bigpct-wrap">
@@ -474,10 +475,33 @@
     renderHist();
     flash(ok?'快照已留档，JSON 备份已开始下载':'快照已留档（JSON 下载未成功，历史仍保存在本机）');
   }
+  function hasStatus(o,k,i,j){
+    return Object.prototype.hasOwnProperty.call(o,k)||Object.prototype.hasOwnProperty.call(o,i+'-'+j);
+  }
+  function renderNewTags(h){
+    var old=document.querySelectorAll('.new-tag');
+    for(var n=0;n<old.length;n++)old[n].parentNode.removeChild(old[n]);
+    if(h.length<2)return;
+    var latest=h[h.length-1],prev=h[h.length-2];
+    if(!latest.statuses||!prev.statuses)return;
+    var is=items();
+    for(var i=0;i<is.length;i++){
+      var k=cardKey(is[i],i),lis=is[i].querySelectorAll('li[data-s]');
+      for(var j=0;j<lis.length;j++){
+        var key=k+'-'+j;
+        if(hasStatus(latest.statuses,key,i,j)&&!hasStatus(prev.statuses,key,i,j)){
+          var tag=document.createElement('span');
+          tag.className='new-tag';tag.textContent='新增';
+          lis[j].appendChild(tag);
+        }
+      }
+    }
+  }
   function renderHist(){
     var box=document.getElementById('histCount'),tbl=document.getElementById('histTable');
     if(!box||!tbl)return;
-    var h=loadHist();
+    var h=loadHist().sort(function(a,b){return a.ts-b.ts;});
+    renderNewTags(h);
     box.textContent=h.length?('· '+h.length+' 份快照'):'· 暂无快照';
     if(!h.length){
       tbl.innerHTML='<tbody><tr><td class="empty">暂无快照——每次过进度（周三 / 周六）后点「保存快照」，这里会累积历次完成度，方便周会对比进展</td></tr></tbody>';
@@ -583,11 +607,9 @@
             applyStatuses(st);save();render();
             if(data.ts&&data.rows){
               var h=loadHist(),dup=false;
-              for(var k=0;k<h.length;k++){if(h[k].ts===data.ts){dup=true;break;}}
-              if(!dup){
-                h.push({ts:data.ts,label:snapLabel(data.ts)+' 导入',overall:data.overall,counts:data.counts||{},rows:data.rows});
-                saveHist(h);
-              }
+              for(var k=0;k<h.length;k++){if(h[k].ts===data.ts){dup=true;h[k].statuses=st;break;}}
+              if(!dup)h.push({ts:data.ts,label:snapLabel(data.ts)+' 导入',overall:data.overall,counts:data.counts||{},rows:data.rows,statuses:st});
+              saveHist(h);
             }
             renderHist();
             flash('导入成功：看板已恢复到该快照状态');
