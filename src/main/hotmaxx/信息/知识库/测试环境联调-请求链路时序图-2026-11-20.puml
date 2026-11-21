@@ -1,0 +1,51 @@
+@startuml 测试环境联调-请求链路时序图
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam sequence {
+  ArrowColor #607D8B
+  LifeLineBorderColor #B0BEC5
+  ParticipantBackgroundColor #E3F2FD
+  ParticipantBorderColor #90A4AE
+  ActorBackgroundColor #FFFDE7
+}
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #E0C96B
+
+title 报修 Agent · 测试环境请求链路时序图（每一站的目的 · 当前卡点在第③步）
+
+actor "店员 App / curl" as APP #FFFDE7
+participant "Ingress 指路牌\n（大门·域名证书）" as ING
+participant "Go 网关 · 前台\ngo-dev 层" as GW
+database "登记簿 eb_sys_api\nMySQL（60秒自动刷新）" as DB
+participant "Java 中转层 · 翻译员\ndev 层 ai-middle" as JAVA
+participant "Python Agent · 干活的\npython 层 FastAPI:8000" as PY
+
+APP -> ING : ① HTTPS 请求\n/agent/repair/v1/sessions\n带工牌 Authorization + 平台号 X-PlatformId:1
+note right of ING : 目的：统一大门。全公司外部请求\n只开一个域名，证书、防攻击都在这层收口
+
+ING -> GW : ② 按域名把请求交给前台
+note right of GW : 目的：指路，不含业务。\ngateway-dev.hotmaxx.cn → 网关工位
+
+GW -> DB : ③ 查登记簿\nkey = 路径_平台ID
+note right of DB : **当前就死在这一步**：\ndev 簿上 /agent、/ai 开头 0 条记录\n→ 401「未获取到接口信息」原路劝返\n（登记既是放行、也是路由——\n查到了才知道转给谁）
+
+DB --> GW : ④ 命中：返回转发内线号\n+ 方法 + 鉴权档位(is_auth)
+note right of DB : 簿子 60 秒重读一次库\n登记完 ≤1 分钟生效，无需重启
+
+GW -> GW : ⑤ 验工牌：解析 token\n（is_auth=2 → 只验工牌，不查个人权限）
+GW -> JAVA : ⑥ 贴身份便利贴转发\nX-UserInfo / X-HeaderUid\n原路径不变，目标=登记簿里的内线号
+note right of GW : 目的：身份由前台统一盖章。\n后端只信前台贴的条，不信 App 自称是谁
+
+JAVA -> PY : ⑦ 翻译转发\n便利贴上抄工号 → X-Uid 头\nbase-url(已随包配好) + 原路径
+note right of JAVA : 目的：Python 不懂公司工牌体系，\nJava 这层把身份翻译成 X-Uid、\n把公司协议（同步 HTTP+JSON）接上\n（RestTemplate，30 秒超时）
+
+PY -> PY : ⑧ 认 X-Uid · LangGraph 跑对话\n下游：LLM 模型 / 明道云建单 / PG 检查点
+note right of PY : 目的：真正的业务都在这站，\n上游三站只为把「可信的身份 + 完整的请求」\n安全地送进来
+
+PY --> JAVA : ⑨ JSON 响应
+JAVA --> GW : ⑩ 原样透传（错误码不改写）
+GW --> APP : ⑪ 原样透传
+note right of JAVA : 目的：响应原路返回、一处出口。\n前端只认 Agent 一套错误码口径
+
+@enduml
