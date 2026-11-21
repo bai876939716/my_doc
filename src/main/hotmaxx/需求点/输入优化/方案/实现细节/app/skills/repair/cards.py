@@ -1,8 +1,10 @@
 """报修技能包 · 消息组装（State 快照 → 卡片消息的 data 结构）
 
-输出的 type 与 data 字段严格对齐《接口文档.md》§2.2 的 10 种服务端消息。
-引擎 ask/confirm 节点调用这里的函数，不自己拼报文。
+type 和 data 字段是前端契约，改这里要同步改接口文档。
+引擎调用点：status_bar/quick_cards（建会话首屏）、confirm_card（confirm 节点）、result（出单）；
+采集类卡片（enum_card/seg_card/photo_guide/phone_confirm）由引擎 ask 节点现拼，不在本文件。
 """
+from app.core.redact import mask_phone
 
 
 def status_bar(ctx: dict) -> dict:
@@ -17,48 +19,28 @@ def quick_cards(skill) -> list[dict]:
                                for c in skill.quick_cards]}}
 
 
-def enum_card(slot: str, options: list[str], preselect: int, mode: str = "top3") -> dict:
-    return {"type": "enum_card",
-            "data": {"field": slot, "mode": mode, "options": options, "preselect": preselect}}
-
-
-def photo_guide(tips: list, warning: str | None, need_count: int) -> dict:
-    return {"type": "photo_guide",
-            "data": {"need_count": need_count, "tips": tips, "warning": warning}}
-
-
-def seg_card(slot: str, question: str, options: list[tuple[str, str]]) -> dict:
-    return {"type": "seg_card",
-            "data": {"field": slot, "question": question,
-                     "options": [{"value": v, "label": l} for v, l in options]}}
-
-
-def phone_confirm(masked: str) -> dict:
-    return {"type": "phone_confirm", "data": {"phone_masked": masked, "use_default": True}}
-
-
 def confirm_card(state) -> dict:
-    """10 字段确认单：从 State 组装，全部可编辑，带 source。"""
+    """确认单以槽位为准：store/date 不给改，其余条目带来源。
+
+    这里的 label 是 slots.py 声明的手抄副本，改那边记得改这里。
+    """
     def item(field, label, value, source):
         return {"field": field, "label": label, "value": value,
-                "editable": True, "source": source}
+                "editable": field not in ("store", "date"), "source": source}
     ctx, s = state["context"], state["slots"]
     def v(n): return s[n]["value"]
     def src(n): return s[n]["source"]
     return {"type": "confirm_card", "data": {"groups": [
         {"group_name": "基础信息（系统带出）", "items": [
-            item("store", "门店名称", ctx["store"], "system_default"),
-            item("reporter", "报修人员", ctx["reporter"], "system_default"),
-            item("date", "报修日期", ctx["date"], "system_default"),
+            item("store", "门店名称", v("store"), src("store")),
+            item("reporter", "报修人员", v("reporter"), src("reporter")),
+            item("date", "报修日期", v("date"), src("date")),
         ]},
         {"group_name": "报修内容（AI 采集整理）", "items": [
             item("category", "报修类别", v("category"), src("category")),
-            item("detail", "描述具体故障", v("detail"), src("detail")),
-            item("photos", "现场照片", f"{len(v('photos'))} 张", src("photos")),
-            item("expect_visit", "期望上门", v("expect_visit"), src("expect_visit")),
-            item("impact_business", "影响营业", v("impact_business"), src("impact_business")),
-            item("phone", "联系电话", ctx["phone_masked"], "system_default"),
-            item("expect_process", "期望处理（选填）", v("expect_process") or "", "system_default"),
+            item("detail", "故障情况", v("detail"), src("detail")),
+            item("photos", "现场照片", v("photos"), src("photos")),
+            item("phone", "联系电话", mask_phone(v("phone")), src("phone")),
         ]},
     ], "missing": []}}
 

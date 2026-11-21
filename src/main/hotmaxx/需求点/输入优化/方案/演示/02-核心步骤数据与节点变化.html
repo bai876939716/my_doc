@@ -109,8 +109,6 @@ const SLOTS1 = {
   category: sv(null,"system_default","-"),
   detail:   sv(null,"system_default","-"),
   photos:   sv([],"system_default","-"),
-  expect_visit: sv(null,"system_default","-"),
-  impact_business: sv(null,"system_default","-"),
   phone:    sv("13800001234","system_default",T+"0:00"),
 };
 function msgs(from, to){ const a=[]; for(let i=from;i<=to;i++) a.push({seq:i}); return a; }
@@ -125,7 +123,7 @@ STATES.v1 = {
   incoming:{}, extract_result:{},
   context:{store_no:"11522", store:"11522 安徽商之都OK店", reporter:"白云翔", date:"2026-11-13", phone_masked:"138****1234"},
   slots:JSON.parse(JSON.stringify(SLOTS1)),
-  agenda:["category","detail","photos","expect_visit","impact_business","phone"],
+  agenda:["category","detail","photos","phone"],
   focus:"category",
   messages:msgSum(3),
   meta:meta({seq_counter:3}),
@@ -134,14 +132,12 @@ STATES.v1 = {
 STATES.v2 = (()=>{ const s=JSON.parse(JSON.stringify(STATES.v1));
   s.incoming={type:"text", content:LINE1};
   s.extract_result={intent:"provide",
-    slots_delta:{detail:"故障现象："+LINE1, impact_business:"是", expect_visit:"维修人员尽快上门"},
+    slots_delta:{detail:"故障现象："+LINE1},
     category_candidates:["日常营运用具类 - 冷柜","门店工程类 - 空调"]};
   s.meta.llm_calls=1;
   return s; })();
 STATES.v3 = (()=>{ const s=JSON.parse(JSON.stringify(STATES.v2));
   s.slots.detail=sv("故障现象："+LINE1,"ai_filled",T+"2:10");
-  s.slots.impact_business=sv("是","ai_filled",T+"2:10");
-  s.slots.expect_visit=sv("维修人员尽快上门","ai_filled",T+"2:10");
   s.agenda=["category","photos","phone"];
   s.messages=msgSum(4);
   s.meta.seq_counter=4;
@@ -227,7 +223,7 @@ const STEPS = [
  snap:"v2", base:"v1",
  table:[
   ["meta.llm_calls","0 → <b>1</b>","会话 LLM 计数（配额 6，超限不再调、按边界轮降级）"],
-  ["extract_result","{} → <b>{intent, slots_delta, category_candidates}</b>","一次拿全：意图 provide · 直填 detail/影响营业/期望上门 · 类别候选 2 个（只提名，永不入槽）"],
+  ["extract_result","{} → <b>{intent, slots_delta, category_candidates}</b>","一次拿全：意图 provide · 直填 detail · 类别候选 2 个（只提名，永不入槽）"],
  ],
  msgs:[["seq1-3","（上一轮）","首屏三件套在轮0已发过，本轮不重复"]],
  code:"engine.py L206 · llm.py L178（normalize L57 · 流程状态注入 L185）",
@@ -238,14 +234,12 @@ const STEPS = [
  snap:"v3", base:"v2",
  table:[
   ["slots.detail","null → <b>「故障现象：冷柜不制冷了…」</b>","source=ai_filled，闸6 按槽位声明截断 ≤100 字"],
-  ["slots.impact_business","null → <b>是</b>","枚举白名单 ✓ + 原话印证（「不敢卖」命中 evidence 词）"],
-  ["slots.expect_visit","null → <b>维修人员尽快上门</b>","同上，「尽快」命中——这就是「说到的直接填，没说到的才发卡」"],
-  ["agenda","6 项 → <b>3 项</b>","[category, photos, phone]——答掉一项划掉一项"],
-  ["messages","+1（seq4）","复述「都记下了：描述具体故障、影响营业、期望上门」——AI 预填必须可见"],
+  ["agenda","4 项 → <b>3 项</b>","[category, photos, phone]——答掉一项划掉一项"],
+  ["messages","+1（seq4）","复述「都记下了：故障情况」——AI 预填必须可见"],
  ],
- msgs:[["seq4","text","都记下了：描述具体故障、影响营业、期望上门——确认单里都能改"]],
+ msgs:[["seq4","text","都记下了：故障情况——确认单里都能改"]],
  sub:{title:"同一个 write() 的其他路径",rows:[
-  ["点选手势（0 LLM）","enum_pick/seg_pick 过枚举白名单 → 写槽；轮2 点「日常营运用具类 - 冷柜」后：slots.category=user_edited、agenda 3→2"],
+  ["点选手势（0 LLM）","enum_pick 过枚举白名单 → 写槽；轮2 点「日常营运用具类 - 冷柜」后：slots.category=user_edited、agenda 3→2"],
   ["上传","upload_done 附件按 URL 去重合并进 photos"],
   ["改字段（update 意图）","电话/报修人：格式+原话印证双闸；类别只能点选——塞回议程重开卡；非法值（「可能」）被拦后点名善后，带卡字段挪到议程最前立刻重发"],
   ["OnChange 钩子","改类别 → 照片无条件作废重采（拍摄清单与类别强相关）、用户描述保留、系统派生的默认描述重算；作废会明说（system_tip）"],
@@ -304,7 +298,7 @@ const STEPS = [
  chain:[{n:"submit",s:"done"},{n:"create_repair_order",s:"cur"}],
  mech:[["幂等","order_key 进程内去重，同一会话重复提交返回同一单号"],["Mock / 真实","REAL_ORDER_ENABLED=false 返回 MOCK-{会话ID}；true 走明道云 saveRow → 回查自动编号"],["字段映射真值","store/store_no/detail/date/reporter/photos 六项可写；手机号(PhoneNumber)、报修类别(CascadingSelect) 控件类型 API 封死 → 记 skipped 不静默丢"],["工作流开关","测试单不触发派单工作流，正式放量再开"]],
  code:"tools.py L62（幂等缓存 L83 · saveRow L129 · skipped L122）",
- note:"expect_visit / impact_business 旧表无对应控件，记 skipped——加控件或并入详情，出路都写在建单函数注释里。"},
+ note:"报修表当前无可写性异常的采集字段；控件类型被封死的（手机号/类别）按 controlId 契约走，映射真值见 fields.py。"},
 
 {no:"⑫",name:"result 结果卡 · 终态",layer:"skill",trigger:"建单成功，会话进入终态",
  chain:[{n:"entry_router",s:"done"},{n:"submit",s:"done"},{n:"END",s:"cur"}],

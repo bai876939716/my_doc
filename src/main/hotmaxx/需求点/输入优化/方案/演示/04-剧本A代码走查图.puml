@@ -4,14 +4,14 @@ start
 partition "轮 0 · 建会话（POST /sessions）" #FCFCFC {
 #E3F2FD:**POST /agent/repair/v1/sessions**\n{"store_no": "11522"} · 头 X-Uid\n（一人多店：门店由入口带入，跨店各开各会话）;
 #ECEFF1:⚙ **entry_router**：context 为空 → **load_context**\n调工具 get_user_context(uid, store_no)\n门店名=base-shop 主数据；报修人/手机号=员工档案（暂 Mock）;
-#FFF8E1:📦 context={store:"11522 安徽商之都OK店", reporter:"白云翔",\ndate:"2026-11-13", phone_masked:"138****1234"}\nslots 10 格初始化（带出组 3 项有值 · photos=[]）\n**agenda=[category, detail, photos, expect_visit, impact_business, phone]**\nmeta：seq=3 · llm_calls=0 · **检查点 v1 落档**;
+#FFF8E1:📦 context={store:"11522 安徽商之都OK店", reporter:"白云翔",\ndate:"2026-11-13", phone_masked:"138****1234"}\nslots 7 格初始化（带出组 3 项有值 · photos=[]）\n**agenda=[category, detail, photos, phone]**\nmeta：seq=3 · llm_calls=0 · **检查点 v1 落档**;
 #E8F5E9:🤖 200 {session_id:"rp_xxx", is_resumed:false}\nseq1 status_bar（门店/报修人/掩码电话）\nseq2 text 开场白「白云翔你好！直接说哪儿坏了就行…」\nseq3 quick_cards（6 张高频卡）;
 }
 partition "轮 1 · 说一句故障（打字轮 · 全流程唯一 LLM 调用点）" #FCFCFC {
 #E3F2FD:👤 **POST …/sessions/rp_xxx/messages**\n{"type":"text", "content":"冷柜不制冷了，今天早上开始的，\n鲜奶都不敢卖了，尽快派人来修"};
-#ECEFF1:⚙ **entry_router**：type=text → **extract** → **update** → **route_router** → **ask**\nextract：第 1/6 次 LLM 联合抽取（业务段+协议壳+30 项类别字典\n+流程状态行+已填槽位快照+三引号包裹原话）\n→ intent=provide · 直填 detail/影响营业/期望上门 · 类别候选 2 个\nupdate：闸4 字段白名单 → 闸5 枚举白名单 → 闸7 原话印证\n（"尽快""不敢卖"命中 evidence 词）→ 3 项落槽\nask：focus=category · 候选过滤后非空 + MustPick → Top3 卡（永不入槽）;
-#FFF8E1:📦 slots +3：detail=ai_filled · impact_business=是·ai_filled\nexpect_visit=维修人员尽快上门·ai_filled\n**agenda 6→3**：[category, photos, phone]\nmeta：llm_calls=1 · seq→6 · **检查点 v2**;
-#E8F5E9:🤖 200 {state:"collecting", focus:"category"}\nseq4 text「都记下了：描述具体故障、影响营业、期望上门——确认单里都能改」\nseq5 text「听下来了。我认出的类别如下——点一下确认」\nseq6 **enum_card** top3（冷柜✦预选 / 空调）;
+#ECEFF1:⚙ **entry_router**：type=text → **extract** → **update** → **route_router** → **ask**\nextract：第 1/6 次 LLM 联合抽取（业务段+协议壳+30 项类别字典\n+流程状态行+已填槽位快照+三引号包裹原话）\n→ intent=provide · 直填 detail · 类别候选 2 个\nupdate：闸4 字段白名单 → 闸7 描述长度闸 → detail 落槽\nask：focus=category · 候选过滤后非空 + MustPick → Top3 卡（永不入槽）;
+#FFF8E1:📦 slots +1：detail=ai_filled\n**agenda 4→3**：[category, photos, phone]\nmeta：llm_calls=1 · seq→6 · **检查点 v2**;
+#E8F5E9:🤖 200 {state:"collecting", focus:"category"}\nseq4 text「都记下了：故障情况——确认单里都能改」\nseq5 text「听下来了。我认出的类别如下——点一下确认」\nseq6 **enum_card** top3（冷柜✦预选 / 空调）;
 }
 partition "轮 2 · 点类别（结构化手势 · 0 LLM）" #FCFCFC {
 #E3F2FD:👤 **POST …/messages**\n{"type":"enum_pick", "field":"category", "value":"日常营运用具类 - 冷柜"}\n（routes 层 Pydantic 先拦：字段/值不在字典 → 422，不进图）;
@@ -21,7 +21,7 @@ partition "轮 2 · 点类别（结构化手势 · 0 LLM）" #FCFCFC {
 }
 partition "轮 3 · 传照片（附件先经明道云上传拿 URL · 0 LLM）" #FCFCFC {
 #E3F2FD:👤 **POST …/messages**\n{"type":"upload_done", "attachments":[{name,url} × 2]};
-#ECEFF1:⚙ **update**：URL 去重合并（上限拦截）→ write(photos, user_edited)\n**route_router** → **ask**：focus=phone\n（expect_visit/影响营业轮1已直填，跳过不问）;
+#ECEFF1:⚙ **update**：URL 去重合并（上限拦截）→ write(photos, user_edited)\n**route_router** → **ask**：focus=phone\n;
 #FFF8E1:📦 slots：photos=2 附件·user_edited\n**agenda 2→1**：[phone] · seq→10 · **检查点 v4**;
 #E8F5E9:🤖 200 {state:"collecting", focus:"phone"}\nseq9 text「联系电话就用你本人的 138****1234 吗？替别人报修可以改」\nseq10 **phone_confirm**（掩码号码 · use_default=true）;
 }

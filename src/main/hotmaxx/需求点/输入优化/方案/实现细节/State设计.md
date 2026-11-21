@@ -15,11 +15,9 @@
     "category":        { "value": null, "source": "system_default", "updated_at": "-" },
     "detail":          { "value": null, "source": "system_default", "updated_at": "-" },
     "photos":          { "value": [],   "source": "system_default", "updated_at": "-" },
-    "expect_visit":    { "value": null, "source": "system_default", "updated_at": "-" },
-    "impact_business": { "value": null, "source": "system_default", "updated_at": "-" },
     "phone":           { "value": "13800001234", "source": "system_default", "updated_at": "2026-11-05T09:41:03+08:00" }
   },
-  "agenda": ["category", "detail", "photos", "expect_visit", "impact_business", "phone"],
+  "agenda": ["category", "detail", "photos", "phone"],
   "focus": "category",
   "messages": [
     { "seq": 1, "role": "server", "type": "status_bar", "data": { "store": "11522 安徽商之都OK店", "reporter": "白云翔", "phone_masked": "138****1234" } },
