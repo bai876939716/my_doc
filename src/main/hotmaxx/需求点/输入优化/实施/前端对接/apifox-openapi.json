@@ -119,6 +119,61 @@
         "operationId": "get_session_agent_repair_v1_sessions__sid__get",
         "parameters": [
           {
+            "name": "X-Uid",
+            "in": "header",
+            "required": true,
+            "description": "用户身份（网关/Java 转发层从认证结果注入；缺头 401/40101）",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "description": "GET/POST 同义：公网网关通配按「地址+平台」索引，同地址 GET/POST 登记会互斥，App 侧统一用 POST 查会话；本地/内网直连用 GET 亦可。返回 state/focus/collected/context/messages（消息含用户回显，刷新/断线重连对齐用）。"
+      },
+      "post": {
+        "summary": "Get Session（GET/POST 同义，App 走这个）",
+        "operationId": "get_session_agent_repair_v1_sessions__sid__post",
+        "description": "GET/POST 同义：公网网关通配按「地址+平台」索引，同地址 GET/POST 登记会互斥，App 侧统一用 POST 查会话；本地/内网直连用 GET 亦可。返回 state/focus/collected/context/messages（消息含用户回显，刷新/断线重连对齐用）。",
+        "parameters": [
+          {
+            "name": "X-Uid",
+            "in": "header",
+            "required": true,
+            "description": "(POST 同义入口) 用户身份（网关/Java 转发层从认证结果注入；缺头 401/40101）",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "sid",
             "in": "path",
             "required": true,
