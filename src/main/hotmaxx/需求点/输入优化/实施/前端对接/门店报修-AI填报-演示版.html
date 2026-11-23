@@ -1,0 +1,1515 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>门店报修 · AI 填报（演示版）</title>
+<!--
+ 门店报修 AI 填报 · 演示版单页（正式版内核 + 左侧场景模拟面板，给评审和演示用）
+ - 渲染只看每轮响应的 state + focus，前端不存业务状态；接口五个：sessions / messages / get / submit / exit
+ - 嵌入：整页放进 WebView，配置用 window.__REPAIR_CONFIG__ 注入；临时联调可用 ?api=&uid=&store_no=&store_name= 覆盖
+ - 前端必接三个钩子：uploadPhotos / onViewRecords / onLeave（见下方 CONFIG）；色系对齐现行 App（主色 #EE8745 · 页面底 #F0F0F0）
+
+ 入口卡片片段（拷贝到现有表单页顶部，点击打开本页并带 store_no/uid）：
+-----------------------------------------------------------------------
+<style>
+.ai-entry{display:flex;align-items:center;gap:12px;width:100%;background:#fff;
+  border:0;border-radius:12px;padding:14px;box-shadow:0 2px 10px rgba(0,0,0,.04);
+  cursor:pointer;text-align:left;font:inherit;margin-bottom:12px}
+.ai-entry .ic{width:42px;height:42px;border-radius:11px;background:#fdeee1;
+  color:#ee8745;font-size:20px;display:grid;place-items:center;flex-shrink:0}
+.ai-entry b{display:block;font-size:15px;color:#262626}
+.ai-entry small{display:block;font-size:11px;color:#9a9a9a;margin-top:2px}
+.ai-entry .go{margin-left:auto;color:#ee8745;font-size:13px;flex-shrink:0}
+</style>
+<button class="ai-entry" onclick="打开AI填报页(携带store_no/uid)">
+  <span class="ic">✦</span>
+  <span><b>AI 智能填报</b><small>说句话，自动填好报修单 · 每步由你确认</small></span>
+  <span class="go">去报修 ›</span>
+</button>
+-----------------------------------------------------------------------
+-->
+<style>
+:root{color-scheme:light}
+:root{
+  --accent:#ee8745;        /* App 主色（橙） */
+  --accent-deep:#c9682a;   /* 主色文字/描边加深 */
+  --accent-bg:#fdeee1;     /* 主色浅底 */
+  --accent-line:#f5c9a9;   /* 主色浅描边 */
+  --ink:#262626; --muted:#8f8f8f; --line:#ececec; --bg:#f0f0f0;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:#f0f0f0;color:var(--ink);
+  font:14px/1.6 -apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif}
+button,input,textarea,select{font:inherit}
+button{cursor:pointer;border:0;background:none;color:inherit}
+button:disabled{cursor:default;opacity:.55}
+button:focus-visible{outline:3px solid #f6b98d;outline-offset:2px}
+input,textarea,select{border:1px solid #e3e3e3;border-radius:8px;background:#fff;color:var(--ink);outline:none}
+input:focus,textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px #ee874522}
+
+/* ============ 页面容器（整页嵌入；桌面预览时居中一列） ============ */
+.app{max-width:520px;margin:0 auto;height:100dvh;min-height:480px;display:flex;
+  flex-direction:column;background:#fff;position:relative;overflow:hidden}
+@media(min-width:600px){
+  body{background:#e8e8e8}
+  .app{height:100dvh;box-shadow:0 0 44px rgba(0,0,0,.10)}
+}
+
+/* ============ 顶部 ============ */
+.chathead{padding:10px 12px 10px 8px;border-bottom:1px solid var(--line);display:flex;
+  align-items:center;gap:10px;background:#fff;flex-shrink:0;
+  padding-top:calc(10px + env(safe-area-inset-top))}
+.backbtn{width:34px;height:34px;border-radius:9px;font-size:20px;line-height:1;
+  color:#555;background:#f5f5f5;flex-shrink:0;display:grid;place-items:center}
+.backbtn:active{background:#ececec}
+.spark{font-size:20px;color:var(--accent);background:var(--accent-bg);border-radius:10px;
+  width:38px;height:38px;display:grid;place-items:center;flex-shrink:0}
+.chathead strong{font-size:15px;display:block;line-height:1.3}
+.chathead small{display:block;color:var(--muted);font-size:10px}
+.statebadge{margin-left:auto;font-size:10px;color:#8a8a8a;background:#f5f5f5;
+  border-radius:12px;padding:4px 9px;white-space:nowrap;flex-shrink:0}
+.context{background:#fdf7f1;padding:9px 16px;border-bottom:1px solid #f3e4d7;font-size:11px;
+  color:#9c8370;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-shrink:0}
+.context strong{font-size:12px;color:var(--accent-deep);display:block;margin-bottom:1px}
+.textbtn{color:var(--accent);padding:0;font-size:12px}
+
+/* ============ 消息流 ============ */
+.scroll{overflow-y:auto;flex:1;min-height:0;scroll-behavior:smooth;-webkit-overflow-scrolling:touch}
+.chatbody{background:var(--bg);padding:16px 14px}
+.date{text-align:center;color:#b5b5b5;font-size:10px;margin-bottom:14px}
+.msg{display:flex;gap:8px;margin:14px 0;align-items:flex-start;animation:fin .18s ease}
+@keyframes fin{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.avatar{width:28px;height:28px;background:var(--accent-bg);color:var(--accent);border-radius:9px;
+  display:grid;place-items:center;flex-shrink:0;font-weight:700;font-size:15px}
+.bubble{max-width:calc(100% - 36px);background:#fff;border:1px solid var(--line);
+  padding:11px 13px;border-radius:3px 13px 13px 13px;font-size:13px;line-height:1.75;min-width:0}
+.msg.user{justify-content:flex-end}
+.user .bubble{background:var(--accent);color:#fff;border:0;border-radius:13px 3px 13px 13px}
+.bubble p{margin:0 0 8px}
+.bubble p:last-child{margin:0}
+.bubble small{color:#9a9a9a;font-size:11px;display:block;margin-top:6px}
+.user .bubble small{color:#ffe4cf}
+.dots{display:inline-flex;gap:3px;margin-right:5px;vertical-align:middle}
+.dots i{width:5px;height:5px;border-radius:50%;background:#c4b0a2;animation:blink 1s infinite}
+.dots i:nth-child(2){animation-delay:.18s}
+.dots i:nth-child(3){animation-delay:.36s}
+@keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+
+/* 高频卡片墙 */
+.quickgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.quick{border:1px solid #f0e6dd;border-radius:9px;padding:11px 7px;text-align:left;
+  font-size:11px;background:#fffdfb;color:var(--ink)}
+.quick i{display:block;font-style:normal;font-size:19px;margin-bottom:3px}
+.quick.selected{border-color:var(--accent);background:var(--accent-bg);color:var(--accent-deep)}
+
+/* 类别单选（enum_card） */
+.options{display:grid;gap:8px;margin-top:8px}
+.options.full{max-height:262px;overflow-y:auto;padding-right:2px}
+.option{border:1px solid #ececec;text-align:left;border-radius:9px;padding:10px 11px;
+  font-size:12px;background:#fff;color:var(--ink)}
+.option.grp{font-weight:600;background:#fffdfb}
+.option.back{color:#9a9a9a;background:#fafafa;font-weight:400}
+.option.pre{border-color:var(--accent-line);background:#fff4ea;color:var(--accent-deep);font-weight:600}
+.option.cur{border-color:#9fd4b8;background:#f2faf6;color:#1e7a4f;font-weight:600}
+.option.selected{border-color:var(--accent);background:var(--accent-bg);color:var(--accent-deep);font-weight:600}
+.option small{display:block;color:#a8a8a8;font-size:10px;margin-top:2px;font-weight:400}
+
+/* 二选一（seg_card）：等宽两列、永不换行——「可等待安排」5 字也一行放下 */
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px;margin-top:10px}
+.seg button{border:1px solid #e8e8e8;border-radius:10px;background:#fff;padding:9px 10px;
+  min-width:64px;font-size:13px;font-weight:500;text-align:center;white-space:nowrap}
+.seg button.selected{border-color:var(--accent);background:var(--accent-bg);color:var(--accent-deep);font-weight:600}
+
+/* 拍照引导（photo_guide） */
+.ptips{margin:9px 0 0;display:grid;gap:6px}
+.ptip{font-size:12px;color:#5c5c5c;display:flex;gap:7px;align-items:flex-start;line-height:1.5}
+.ptip i{font-style:normal;flex-shrink:0}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}
+.actions button{font-size:12px}
+.primary{background:var(--accent);color:#fff;border-radius:10px;padding:10px 16px;font-weight:600}
+.primary:active{background:#e07a35}
+.outline{border:1px solid var(--line);border-radius:8px;background:#fff;padding:10px 14px;color:#555}
+.pill{font-size:12px;border-radius:20px;background:var(--accent-bg);color:var(--accent-deep);padding:3px 10px}
+.pill.doing{color:#b07a2a;background:#fdf3e3}
+.pill.ok{color:#279b70;background:#e9f7ef}
+
+/* 系统提示条（system_tip） */
+.stip{margin:14px auto;max-width:88%;text-align:center;font-size:11px;border-radius:8px;
+  padding:8px 12px;line-height:1.6;animation:fin .18s ease}
+.stip.info{background:#f5f5f5;color:#777}
+.stip.warn{background:#fdf3e3;color:#b07a2a}
+.stip.error{background:#fdf1f0;color:#b3543f}
+
+/* 确认单（confirm_card） */
+.confirmwrap{display:block}               /* 确认单独立成卡：左右各让出 36px（同头像列宽），与对话文字对齐且左右对称 */
+.confirmwrap .avatar{display:none}
+.confirmwrap .bubble{width:calc(100% - 72px);margin:0 auto;max-width:100%;border-radius:12px}
+.confirm{margin-top:2px;min-width:0}
+.confirm h3{font-size:15px;margin:0 0 3px}
+.confirm>small{display:block;color:#a5a5a5;font-size:10px;margin-bottom:2px}
+.sectionlabel{font-size:10px;color:#9a9a9a;padding:14px 0 5px;border-top:1px solid var(--line);margin-top:10px}
+.confirm .sectionlabel:first-of-type{border-top:0;margin-top:6px}
+.data-row{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:7px 0;align-items:flex-start}
+.data-row>span{color:#8f8f8f;flex-shrink:0}
+.data-row b,.data-row button{font-weight:500;text-align:right;overflow-wrap:anywhere;margin-left:auto;color:#4a4a4a;font-size:12px;padding:0}
+.data-row button{color:var(--accent-deep)}
+.data-row button::after{content:' ›'}
+.badge-ai{display:inline-block;font-size:9px;background:var(--accent-bg);color:var(--accent-deep);
+  border-radius:3px;padding:1px 5px;margin-left:6px;vertical-align:1px;font-weight:600}
+.detail{background:#fafafa;border-radius:6px;padding:10px;font-size:12px;white-space:pre-wrap;margin:6px 0;overflow-wrap:anywhere}
+.missnote{color:#b3543f;font-size:11px;background:#fdf1f0;border-radius:6px;padding:7px 10px;margin-top:8px}
+.stale{opacity:.5}
+.stale button{pointer-events:none}
+.attachment{padding:8px;background:#faf6f2;border-radius:7px;font-size:11px;margin-top:8px;
+  overflow-wrap:anywhere;display:flex;gap:8px;align-items:center}
+.athumb{width:52px;height:40px;border-radius:5px;overflow:hidden;flex-shrink:0;background:#f0e9e2;
+  display:inline-block}
+.athumb svg,.athumb img{width:100%;height:100%;object-fit:cover;display:block}
+.ph-inline .athumb{width:30px;height:24px;margin-left:3px;vertical-align:middle}
+
+/* 结果卡（result） */
+.success{text-align:center}
+.success-icon{display:grid;place-items:center;background:#e6f6ee;color:#29a976;border-radius:50%;
+  height:48px;width:48px;margin:8px auto;font-size:26px}
+.success h3{margin:10px 0 4px}
+.success .number{background:#f7f7f7;padding:11px;border-radius:8px;font-size:12px;margin:14px 0}
+.success .number strong{font-size:15px;letter-spacing:.5px;overflow-wrap:anywhere}
+.success .number strong.long{font-size:12px;letter-spacing:0}
+
+/* 底栏 */
+.composer{background:#fff;padding:10px 14px;border-top:1px solid var(--line);flex-shrink:0;
+  padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+#submitBar{display:none;width:100%;padding:12px;font-size:14px;margin-bottom:9px}
+#submitBar.on{display:block}
+.composer-row{display:flex;align-items:flex-end;gap:9px}
+.composer textarea{flex:1;min-height:43px;height:43px;max-height:110px;font-size:13px;
+  background:#f5f5f5;border:0;border-radius:10px;padding:11px;resize:none}
+.composer .primary{padding:10px 14px;flex-shrink:0}
+.fineprint{text-align:center;font-size:10px;color:#b5b5b5;margin-top:7px}
+
+/* 弹窗 / Toast */
+dialog{border:0;border-radius:15px;width:min(360px,88vw);max-height:85dvh;padding:22px;
+  box-shadow:0 20px 80px #3a3a3a55}
+dialog::backdrop{background:#26262666}
+dialog h3{margin:0 0 4px;font-size:16px}
+dialog .field{margin:12px 0}
+dialog .field label{display:block;margin:0 0 7px;color:#6b6b6b;font-weight:600;font-size:13px}
+dialog textarea{width:100%;padding:11px;border-radius:8px;resize:vertical;min-height:96px;font-size:13px}
+dialog input{width:100%;padding:11px;border-radius:8px;font-size:14px}
+dialog .actions{justify-content:flex-end;flex-direction:column;gap:8px}
+dialog .actions .row{display:flex;gap:8px;justify-content:flex-end}
+dialog .options{margin-top:10px}
+.toast{position:absolute;bottom:96px;left:50%;transform:translateX(-50%);background:#3a3a3aee;
+  color:#fff;padding:10px 16px;border-radius:8px;font-size:12px;z-index:8;width:max-content;
+  max-width:90%;display:none;line-height:1.5}
+
+/* 忙碌态：请求期间禁点 */
+body.busy #messages button,body.busy .composer #submitBar,body.busy #sendBtn{pointer-events:none;opacity:.6}
+
+/* ============ 演示版增量（正式版无此段）：stage 布局 + 场景模拟面板 + 样例照片弹层 ============ */
+body{background:#e6e6e6}
+.stage{display:flex;gap:24px;align-items:flex-start;justify-content:center;padding:14px 10px 22px}
+.maincol{display:flex;flex-direction:column;align-items:center}
+.app{height:min(880px,calc(100dvh - 28px));min-height:540px;border:1px solid #e0e0e0;border-radius:18px;
+  box-shadow:0 24px 70px #3a3a3a1e}
+.chathead{padding-top:10px}
+body.busy #storeSel,body.busy #resetBtn,body.busy #apiHost{pointer-events:none;opacity:.6}
+
+/* 模拟控制区 */
+.scen{width:318px;max-height:calc(100dvh - 28px);overflow-y:auto;background:#fff;border:1px solid #e0e0e0;
+  border-radius:16px;box-shadow:0 14px 44px #3a3a3a14;padding:13px 13px 8px;position:sticky;top:14px;flex-shrink:0}
+.scen h2{margin:0;font-size:14px;display:flex;align-items:center;gap:7px}
+.scen .cnt{font-size:10px;background:var(--accent-bg);color:var(--accent-deep);border-radius:10px;
+  padding:2px 8px;font-weight:600}
+.scen .stip{font-size:11px;color:#8f8f8f;margin:7px 0 9px;line-height:1.65}
+.demo-tools{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.demo-tools:last-of-type{margin-bottom:12px}
+#resetBtn{font-size:12px;color:#fff;background:var(--accent);border-radius:8px;padding:7px 11px;font-weight:600;white-space:nowrap}
+#storeSel,#envSel,#uidInput{padding:6px 8px;border-radius:8px;font-size:12px;flex:1;min-width:0}
+.chip{font-size:11px;color:#6b6b6b;background:#fff;border:1px solid #ececec;border-radius:20px;padding:5px 10px;white-space:nowrap}
+#apiHost{flex:1;min-width:0;padding:6px 8px;border-radius:8px;font-size:12px;border:1px solid #ececec}
+#apiHost:focus{outline:none;border-color:var(--accent)}
+.dot{width:9px;height:9px;border-radius:50%;background:#c6c6c6;flex-shrink:0;transition:background .2s}
+.dot.ok{background:#2faa72;box-shadow:0 0 0 3px #2faa7226}
+.dot.down{background:#e5484d;box-shadow:0 0 0 3px #e5484d26}
+
+/* 场景剧本 */
+details.sc{border:1px solid #ececec;border-radius:10px;margin-bottom:7px;background:#fffdfb}
+details.sc summary{list-style:none;cursor:pointer;padding:9px 11px;font-size:12.5px;font-weight:600;
+  display:flex;gap:8px;align-items:center;user-select:none}
+details.sc summary::-webkit-details-marker{display:none}
+details.sc summary .no{width:18px;height:18px;border-radius:50%;background:var(--accent-bg);color:var(--accent);
+  font-size:10px;display:grid;place-items:center;flex-shrink:0;font-weight:700}
+details.sc[open]{border-color:var(--accent-line);background:#fffaf5}
+details.sc[open] summary{border-bottom:1px solid #f7e8db;color:var(--accent-deep)}
+details.sc .bd{padding:8px 11px 11px;font-size:11.5px;color:#5c5c5c;line-height:1.7}
+.bd .k{display:block;margin:6px 0 1px;font-size:10.5px;color:#4a4a4a;font-weight:700}
+.bd .k:first-child{margin-top:0}
+.bd .log{display:block;background:#101216;color:#9fd6a8;font:10px/1.75 ui-monospace,Menlo,Consolas,monospace;
+  border-radius:7px;padding:7px 9px;margin-top:3px;white-space:pre-line;word-break:break-all}
+.bd .say{display:inline-block;background:#fff4ea;border:1px dashed var(--accent-line);color:var(--accent-deep);
+  border-radius:6px;padding:1px 8px;font-size:11px;margin:3px 4px 0 0;cursor:pointer}
+.bd .say:hover{background:var(--accent-bg)}
+.bd ol{margin:2px 0 0;padding-left:17px}
+.bd ol li{margin:2px 0}
+.scen .foot{font-size:10px;color:#b5b5b5;text-align:center;margin-top:6px;line-height:1.6}
+.step{border-top:1px dashed #ececec;padding:8px 0 4px;margin-top:3px}
+.bd .step:first-of-type{border-top:0;padding-top:2px}
+.step .sh{font-size:12px;font-weight:700;color:#3a3a3a;display:flex;gap:7px;align-items:center}
+.step .sh .no{width:18px;height:18px;border-radius:50%;background:var(--accent-bg);color:var(--accent);
+  font-size:10px;display:grid;place-items:center;flex-shrink:0;font-weight:700}
+.step p{margin:3px 0 0;font-size:11px;color:#5c5c5c;line-height:1.65}
+.step p b{color:#8f8f8f;font-weight:700;margin-right:5px;font-size:10px}
+.step .log{margin-top:4px}
+
+/* 样例照片选择器（底部弹层） */
+.sheet{position:absolute;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);
+  border-radius:16px 16px 0 0;box-shadow:0 -12px 40px #3a3a3a26;padding:14px 16px 16px;display:none;z-index:6}
+.sheet.on{display:block;animation:fin .18s ease}
+.sheet h4{margin:0 0 3px;font-size:14px}
+.sheet .sub{font-size:11px;color:#8f8f8f}
+.ph-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0 13px}
+.ph-item{border:1.5px solid #ececec;border-radius:9px;overflow:hidden;background:#fffdfb;text-align:center;
+  padding:0 0 6px;font-size:10px;color:#6b6b6b}
+.ph-item svg{width:100%;height:62px;display:block}
+.ph-item.sel{border-color:var(--accent);background:var(--accent-bg)}
+.ph-item.used{opacity:.45}
+.ph-item .nm{display:block;padding:4px 3px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sheet-act{display:flex;gap:8px}
+.sheet-act .primary{flex:1}
+
+/* 手机端：手机在上、面板在下 */
+@media(max-width:900px){
+  .stage{flex-direction:column-reverse;align-items:center;gap:14px;padding:10px 0 16px}
+  .scen{position:static;width:min(430px,100%);max-height:none}
+}
+@media(max-width:560px){
+  body{background:#f0f0f0}
+  .app{width:100%;height:auto;min-height:100dvh;border:0;border-radius:0;box-shadow:none}
+}
+</style>
+</head>
+<body>
+
+<!-- ======== 演示版增量：左侧场景模拟面板（正式版无此段） ======== -->
+<div class="stage">
+<aside class="scen">
+  <h2>🎛 场景模拟 <span class="cnt">13 个场景</span></h2>
+  <div class="stip">与正式版同一页面，仅多本面板。每个场景都从「↺ 重新演练」开始，步骤可照抄执行；虚线框台词点击即填。</div>
+  <div class="demo-tools">
+    <button id="resetBtn" title="清空本地会话，重开新单">↺ 重新演练</button>
+    <select id="storeSel" aria-label="切换演示门店">
+      <option value="11522">11522 · 安徽商之都OK店</option>
+      <option value="11551">11551 · 南京新街口店</option>
+      <option value="__custom__">✎ 自定义门店编码…</option>
+    </select>
+  </div>
+  <div class="demo-tools">
+    <select id="envSel" title="后端环境切换：默认测试网关（dev 公共网关，网关自动注入真实身份，需 token）；本地=本机 8000；本地代理=scripts/test_env_proxy.py">
+      <option value="https://gateway-dev.hotmaxx.cn" selected>测试网关</option>
+      <option value="http://localhost:8000">本地 8000</option>
+      <option value="http://localhost:18090">本地代理 18090</option>
+      <option value="custom">自定义…</option>
+    </select>
+    <input id="uidInput" placeholder="X-Uid" title="演示身份 X-Uid（测试网关模式下无效——网关从 token 注入真实身份；直连模式用它查 base-shop 员工档案）">
+    <span class="dot" id="dot" title="后端连接状态"></span>
+  </div>
+  <div class="demo-tools" id="gwRow" style="display:none">
+    <input id="gwToken" type="password" placeholder="网关登录 token（粘贴后回车）" title="HotShop dev 登录 token（JWT）；只存本机浏览器，网关据此注入真实 X-Uid">
+  </div>
+  <div class="demo-tools">
+    <input id="apiHost" placeholder="自定义后端 IP:端口（配合「自定义…」）" title="回车或失焦生效，页面会自动重连；地址记在本机浏览器里">
+  </div>
+
+  <details class="sc" open>
+    <summary><span class="no">1</span>一句话报修 · 主路径</summary>
+    <div class="bd">
+      <div class="step"><div class="sh"><span class="no">1</span>点「↺ 重新演练」</div>
+        <p><b>操作</b>左侧面板「↺ 重新演练」按钮，随时可以从头来。</p>
+        <p><b>预期</b>回到首屏三件套（状态条+开场白+6 张高频卡）。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">2</span>发台词</div>
+        <p><b>操作</b>点 <span class="say" data-act="fill" data-fill="冷柜不制冷了，鲜奶都下架了，尽快派人来修">冷柜不制冷了，鲜奶都下架了，尽快派人来修</span> 再点发送。</p>
+        <p><b>预期</b>「记下了：故障情况」式复述（只报名不报值）；类别问「类别是这个吗？」不念猜测值 + Top3 卡首位预选。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">3</span>点类别</div>
+        <p><b>操作</b>点 Top3 第一项「日常营运用具类 - 冷柜」。</p>
+        <p><b>预期</b>出拍照引导（建议拍：设备整体、问题部位特写）。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">4</span>传照片</div>
+        <p><b>操作</b>点「＋ 选择样例照片」→ 勾前 2 张 → 发送。</p>
+        <p><b>预期</b>直接跳到电话确认卡。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">5</span>确认电话</div>
+        <p><b>操作</b>点「✓ 用本人号码」。</p>
+        <p><b>预期</b>确认单出现，底栏浮现「✓ 确认并提交」。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">6</span>提交</div>
+        <p><b>操作</b>点底栏提交按钮。</p>
+        <p><b>预期</b>结果卡 ✓ + MOCK- 单号，徽章「已提交 ✓」。</p>
+      </div>
+    </div>
+  </details>
+
+  <details class="sc">
+    <summary><span class="no">2</span>快捷卡 · 零打字报修</summary>
+    <div class="bd">
+      <div class="step"><div class="sh"><span class="no">1</span>点「↺ 重新演练」</div>
+        <p><b>操作</b>左侧面板「↺ 重新演练」按钮，随时可以从头来。</p>
+        <p><b>预期</b>回到首屏三件套（状态条+开场白+6 张高频卡）。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">2</span>点快捷卡</div>
+        <p><b>操作</b>点「❄️ 冷柜不制冷」卡。</p>
+        <p><b>预期</b>直接进拍照引导，全程不问描述。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">3</span>传照片</div>
+        <p><b>操作</b>样例照片勾前 2 张发送。</p>
+        <p><b>预期</b>直接出电话确认卡。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">4</span>电话+提交</div>
+        <p><b>操作</b>✓ 用本人号码 → 确认单 → 提交。</p>
+        <p><b>预期</b>确认单描述=「冷柜，详见现场照片」（自动默认值）；出单。</p>
+      </div>
+    </div>
+  </details>
+
+  <details class="sc">
+    <summary><span class="no">3</span>防幻觉 · 说了才填</summary>
+    <div class="bd">
+      <div class="step"><div class="sh"><span class="no">1</span>点「↺ 重新演练」</div>
+        <p><b>操作</b>左侧面板「↺ 重新演练」按钮，随时可以从头来。</p>
+        <p><b>预期</b>回到首屏三件套（状态条+开场白+6 张高频卡）。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">2</span>发台词</div>
+        <p><b>操作</b>发 <span class="say" data-act="fill" data-fill="我的灯坏了">我的灯坏了</span>。</p>
+        <p><b>预期</b>只复述描述一个字段——没说的影响/上门一律不猜。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">3</span>点类别</div>
+        <p><b>操作</b>点「门店工程类 - 照明灯」。</p>
+        <p><b>预期</b>拍照引导（照明 1 张即可）。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">4</span>传 1 张</div>
+        <p><b>操作</b>样例照片勾 1 张发送。</p>
+        <p><b>预期</b>直接出电话确认卡——没有编造的字段可填。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">5</span>走完</div>
+        <p><b>操作</b>✓ 本人号码 → 提交。</p>
+        <p><b>预期</b>确认单只有描述带「AI 识别」角标，其余都是点选值。</p>
+      </div>
+    </div>
+  </details>
+
+  <details class="sc">
+    <summary><span class="no">4</span>跑题应和 · 分寸感</summary>
+    <div class="bd">
+      <div class="step"><div class="sh"><span class="no">1</span>点「↺ 重新演练」</div>
+        <p><b>操作</b>左侧面板「↺ 重新演练」按钮，随时可以从头来。</p>
+        <p><b>预期</b>回到首屏三件套（状态条+开场白+6 张高频卡）。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">2</span>跑题</div>
+        <p><b>操作</b>发 <span class="say" data-act="fill" data-fill="讲个笑话">讲个笑话</span>。</p>
+        <p><b>预期</b>应和一句并拉回报修；槽位零写入。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">3</span>再跑</div>
+        <p><b>操作</b>发「你是谁」。</p>
+        <p><b>预期</b>同样应和拉回，流程原地不动。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">4</span>回正</div>
+        <p><b>操作</b>发「冷柜不制冷了，鲜奶都下架了，尽快派人来修」。</p>
+        <p><b>预期</b>照常三预填——跑题没把流程带偏。</p>
+      </div>
+    </div>
+  </details>
+
+  <details class="sc">
+    <summary><span class="no">5</span>连续跑题 · 降级向导</summary>
+    <div class="bd">
+      <div class="step"><div class="sh"><span class="no">1</span>点「↺ 重新演练」</div>
+        <p><b>操作</b>左侧面板「↺ 重新演练」按钮，随时可以从头来。</p>
+        <p><b>预期</b>回到首屏三件套（状态条+开场白+6 张高频卡）。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">2</span>连跑三次</div>
+        <p><b>操作</b>「讲个笑话」连发 3 次。</p>
+        <p><b>预期</b>第 3 次出降级提示+全量类别卡；输入框置灰只能点卡。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">3</span>点选出单</div>
+        <p><b>操作</b>点「日常营运用具类 - 冷柜」→ 传 2 张 → 两选各点一次 → ✓ 本人号码。</p>
+        <p><b>预期</b>向导免描述照样走到确认单（描述自动补默认值）。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">4</span>提交</div>
+        <p><b>操作</b>点提交。</p>
+        <p><b>预期</b>纯点选、零打字，照样出单。</p>
+      </div>
+    </div>
+  </details>
+
+  <details class="sc">
+    <summary><span class="no">6</span>随时改 · 采集中</summary>
+    <div class="bd">
+      <div class="step"><div class="sh"><span class="no">1</span>点「↺ 重新演练」</div>
+        <p><b>操作</b>左侧面板「↺ 重新演练」按钮，随时可以从头来。</p>
+        <p><b>预期</b>回到首屏三件套（状态条+开场白+6 张高频卡）。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">2</span>带值改</div>
+        <p><b>操作</b>发 <span class="say" data-act="fill" data-fill="电话改成 13900001111">电话改成 13900001111</span>。</p>
+        <p><b>预期</b>「已更新：联系电话」；底部回到当前待办卡（不会迷路）。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">3</span>无值改</div>
+        <p><b>操作</b>发 <span class="say" data-act="fill" data-fill="我要改手机号">我要改手机号</span>。</p>
+        <p><b>预期</b>追问「好，联系电话改成什么？」（采集体话术，不提确认单）。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">4</span>给值</div>
+        <p><b>操作</b>发「15735182320」。</p>
+        <p><b>预期</b>「已更新」；后面确认单里电话=157****2320。</p>
+      </div>
+    </div>
+  </details>
+
+  <details class="sc">
+    <summary><span class="no">7</span>随时改 · 确认态</summary>
+    <div class="bd">
+      <div class="step"><div class="sh"><span class="no">1</span>走到确认单</div>
+        <p><b>操作</b>重置后走快捷卡路径：❄️卡 → 2 张照片 → 两选 → ✓ 号码。</p>
+        <p><b>预期</b>确认单在屏。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">2</span>无值改</div>
+        <p><b>操作</b>发「我要改手机号」。</p>
+        <p><b>预期</b>追问（带「点确认单橙色字段」指引）；确认单静默重挂，不再喊「核对一下」。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">3</span>给值</div>
+        <p><b>操作</b>发「电话改成 15735182320」。</p>
+        <p><b>预期</b>「已更新」+ 新确认单静默重挂（旧单置灰），不叠确认开场。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">4</span>点选改</div>
+        <p><b>操作</b>点确认单上「联系电话」橙色字段 → 弹层填新号。</p>
+        <p><b>预期</b>确认单刷新新值。</p>
+      </div>
+    </div>
+  </details>
+
+  <details class="sc">
+    <summary><span class="no">8</span>改类别 · 照片提示自查</summary>
+    <div class="bd">
+      <div class="step"><div class="sh"><span class="no">1</span>走到确认单</div>
+        <p><b>操作</b>重置 → ❄️冷柜卡 → 2 张照片 → 两选 → ✓ 号码。</p>
+        <p><b>预期</b>确认单在屏（类别=冷柜）。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">2</span>说改类别</div>
+        <p><b>操作</b>发「报修类别改一下」。</p>
+        <p><b>预期</b>「好，重新选一下报修类别：」+ 全量类别卡。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">3</span>点新类别</div>
+        <p><b>操作</b>点「门店广告类 - 广告维修」。</p>
+        <p><b>预期</b>提示「照片如果拍的不是现在这个设备，重新传一下」——<b>照片保留不强制作废</b>，议程无欠账直接回新确认单；描述按新类别重算。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">4</span>直接提交</div>
+        <p><b>操作</b>照片对得上就直接提交；不对就先补传再提交。</p>
+        <p><b>预期</b>单子上类别=广告维修，照片随你处置。</p>
+      </div>
+    </div>
+  </details>
+
+  <details class="sc">
+    <summary><span class="no">9</span>裸值直答 · 值即回答</summary>
+    <div class="bd">
+      <div class="step"><div class="sh"><span class="no">1</span>点「↺ 重新演练」</div>
+        <p><b>操作</b>左侧面板「↺ 重新演练」按钮，随时可以从头来。</p>
+        <p><b>预期</b>回到首屏三件套（状态条+开场白+6 张高频卡）。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">2</span>走到电话卡</div>
+        <p><b>操作</b>❄️冷柜卡 → 传 2 张照片。</p>
+        <p><b>预期</b>正问联系电话。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">3</span>裸值</div>
+        <p><b>操作</b>直接发 <span class="say" data-act="fill" data-fill="13900005678">13900005678</span>（不说"电话"两个字）。</p>
+        <p><b>预期</b>直接落库，回确认单——话怎么顺怎么来。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">4</span>提交</div>
+        <p><b>操作</b>提交。</p>
+        <p><b>预期</b>确认单电话=139****5678。</p>
+      </div>
+    </div>
+  </details>
+
+  <details class="sc">
+    <summary><span class="no">10</span>非法值 · 点名善后</summary>
+    <div class="bd">
+      <div class="step"><div class="sh"><span class="no">1</span>准备</div>
+        <p><b>操作</b>重置 → ❄️冷柜卡 → 传 2 张照片。</p>
+        <p><b>预期</b>正问联系电话。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">2</span>发非法值</div>
+        <p><b>操作</b>发「12344222444」。</p>
+        <p><b>预期</b>号被拦下不落库；「看着不像有效手机号——麻烦重发一个」点名善后。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">3</span>补号</div>
+        <p><b>操作</b>发「13900001111」。</p>
+        <p><b>预期</b>落库，继续流程。</p>
+      </div>
+    </div>
+  </details>
+
+  <details class="sc">
+    <summary><span class="no">11</span>刷新恢复现场</summary>
+    <div class="bd">
+      <div class="step"><div class="sh"><span class="no">1</span>走到中途</div>
+        <p><b>操作</b>重置 → 任意路径走到传完照片。</p>
+        <p><b>预期</b>任意中途状态。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">2</span>刷新</div>
+        <p><b>操作</b>浏览器刷新页面。</p>
+        <p><b>预期</b>对话原样恢复（含自己发过的气泡）；已传照片标「已上传」。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">3</span>继续</div>
+        <p><b>操作</b>走完剩余步骤提交。</p>
+        <p><b>预期</b>一切如常，现场零丢失。</p>
+      </div>
+    </div>
+  </details>
+
+  <details class="sc">
+    <summary><span class="no">12</span>重启后端 · 无感重建 / 多店</summary>
+    <div class="bd">
+      <div class="step"><div class="sh"><span class="no">1</span>走到中途</div>
+        <p><b>操作</b>重置走到任意中途（建议传完照片）。</p>
+        <p><b>预期</b>—</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">2</span>杀后端</div>
+        <p><b>操作</b>uvicorn 终端 Ctrl+C 停掉，再重新启动，刷新页面。</p>
+        <p><b>预期</b>不弹错不白屏；静默重开新会话回到首屏（40401 自动重建）。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">3</span>切店</div>
+        <p><b>操作</b>「商铺」下拉切「11551 · 南京新街口店」。</p>
+        <p><b>预期</b>开新会话、状态条换新店；切回 11522 弹「继续上次报修？」。</p>
+      </div>
+    </div>
+  </details>
+
+  <details class="sc">
+    <summary><span class="no">13</span>类别明说 · 免点选直填</summary>
+    <div class="bd">
+      <div class="step"><div class="sh"><span class="no">1</span>点「↺ 重新演练」</div>
+        <p><b>操作</b>左侧面板「↺ 重新演练」按钮，随时可以从头来。</p>
+        <p><b>预期</b>回到首屏三件套（状态条+开场白+6 张高频卡）。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">2</span>发台词（类别说清楚）</div>
+        <p><b>操作</b>发 <span class="say" data-act="fill" data-fill="购物袋破了好多，顾客装东西都漏">购物袋破了好多，顾客装东西都漏</span>。</p>
+        <p><b>预期</b>「类别按你说的登记为「购物袋」」——原话唯一命中字典词，<b>不弹类别卡直接进拍照</b>；不对说「改类别」照常重选。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">3</span>对照：说得含糊仍要点选</div>
+        <p><b>操作</b>重置后发 <span class="say" data-act="fill" data-fill="冷藏柜温度不行了，货都软了">冷藏柜温度不行了，货都软了</span>。</p>
+        <p><b>预期</b>「冷藏柜」同时命中保内/过保两支，AI 不替你拍板——照旧弹类别卡点选。</p>
+      </div>
+      <div class="step"><div class="sh"><span class="no">4</span>照常走完</div>
+        <p><b>操作</b>任选一条走完：传照片 → 电话 → 提交。</p>
+        <p><b>预期</b>确认单里类别带「AI 预填」角标，出单一切如常。</p>
+      </div>
+    </div>
+  </details>
+  <div class="foot">门店报修 · AI 填报演示版 · 与正式版仅差本面板<br>口径对齐 AgentServerCenter 引擎（X-Uid: leader001）</div>
+</aside>
+
+<div class="maincol">
+<section class="app">
+  <header class="chathead">
+    <button class="backbtn" id="backBtn" aria-label="返回">‹</button>
+    <span class="spark">✦</span>
+    <div><strong>AI 报修助手</strong><small>帮你整理 · 每一步由你确认</small></div>
+    <span class="statebadge" id="stateBadge">连接中…</span>
+  </header>
+  <div class="context" id="ctxBar"><div><strong>📍 门店报修</strong>正在连接…</div></div>
+  <div id="messages" class="scroll chatbody" aria-live="polite"></div>
+  <div class="composer">
+    <button id="submitBar" class="primary">✓ 确认并提交</button>
+    <div class="composer-row">
+      <textarea id="input" rows="1" maxlength="500" aria-label="输入故障描述" placeholder="描述一下门店遇到的问题…"></textarea>
+      <button id="sendBtn" class="primary">发送</button>
+    </div>
+    <div class="fineprint" id="fineprint">AI 生成内容请核对后提交</div>
+  </div>
+  <div class="sheet" id="sheet">
+    <h4>选择样例照片</h4>
+    <div class="sub">单会话最多 5 张，按地址去重</div>
+    <div class="ph-grid" id="phGrid"></div>
+    <div class="sheet-act">
+      <button id="sheetCancel" class="outline">取消</button>
+      <button id="sheetSend" class="primary" disabled>发送照片</button>
+    </div>
+  </div>
+  <div id="toast" class="toast" role="status"></div>
+</section>
+</div><!-- /maincol -->
+</div><!-- /stage -->
+
+<dialog id="modal"><div id="modalContent"></div></dialog>
+
+<script>
+'use strict';
+/* 门店报修 AI 填报 · 演示版脚本（与正式版同一内核）：渲染只看每轮响应的 state + focus，前端不存业务状态 */
+
+/* ---------- 嵌入配置（App/WebView 注入 window.__REPAIR_CONFIG__ 覆盖；URL 参数亦可）：三个前端必接钩子
+ * uploadPhotos : (needCount) => Promise<[{name,url}]>   调相机/相册 → 明道云直传 → 返回附件清单
+ * onViewRecords: (orderNo) => void                       跳 App 已有的「报修记录」页
+ * onLeave      : () => void                              退出对话（关 WebView/返回表单页）；未接则页面停在「已退出」态，可点按钮重进
+ */
+const PAGE_CONFIG = {
+  apiBase: 'https://gateway-dev.hotmaxx.cn/agent/repair/v1',   // 默认测试环境网关；本地联调在左侧面板切「本地 8000」
+  uid: '',            // 登录用户 ID：经 Java 网关转发留空（网关注入 X-Uid），WebView 直连必填——缺身份服务端直接 401
+  storeNo: '',        // 门店编号（建会话必填，由入口带入）
+  storeName: '',      // 门店名称（仅用于连接前占位展示，真值以 status_bar 下发为准）
+  photoNote: '',      // 拍照引导卡底部小字（默认文案见 RENDER.photo_guide）
+  fineNote: ''        // 底栏小字追加（默认「AI 生成内容请核对后提交」）
+};
+
+/* URL 参数临时覆盖（联调方便）：?api=&uid=&store_no=&store_name= */
+(function(){
+  const q = new URLSearchParams(location.search);
+  const o = {};
+  ['api','uid','store_no','store_name'].forEach(k=>{ const v=q.get(k); if(v) o[k]=v });
+  if(o.api) o.apiBase = /^https?:\/\//.test(o.api) ? o.api : 'http://'+o.api;
+  if(o.store_no) o.storeNo = o.store_no; delete o.store_no;
+  if(o.store_name) o.storeName = o.store_name; delete o.store_name;
+  window.__REPAIR_CONFIG__ = Object.assign({}, window.__REPAIR_CONFIG__, o);
+})();
+
+const CONFIG = Object.assign({}, PAGE_CONFIG, window.__REPAIR_CONFIG__ || {});
+let API_BASE = CONFIG.apiBase.replace(/\/+$/,'');   // let：演示版可切换后端地址后重连
+let LS_KEY = 'rp_chat_v1';                 // 会话加速重进（对话真值在服务端）
+const PH = {   // focus → 输入框占位提示
+  detail:'描述一下门店遇到的问题…', category:'也可以打字描述，我来帮你归类…',
+  photos:'可先拍照，也可继续文字补充…', phone:'需要改电话可直接输入新号码…'
+};
+const FOCUS_LABEL = {category:'报修类别',detail:'故障描述',photos:'现场照片',phone:'联系电话'};
+/* 卡片/确认单/弹窗显示短文案（字典原词字多），点选下发的仍是原词，落库不受影响 */
+const SEG_SHORT = {'维修人员尽快上门':'尽快上门'};
+const dispLabel = v => SEG_SHORT[String(v)] || String(v);
+
+/* ---------- 会话状态（业务真值全在服务端，这里只是渲染缓存） ---------- */
+const S = {
+  sid:null, storeNo:CONFIG.storeNo||'', state:'boot', focus:null, lastSeq:0,
+  sentUrls:new Set(), orderNo:null, busy:false, resumePending:false,
+  phoneCardOpen:false, catCache:[], catGrouped:null, segCache:{}, confirmData:null, _resumeMsgs:null
+};
+
+/* ---------- 小工具 ---------- */
+const $ = s => document.querySelector(s);
+function esc(s){return String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function md(s){return esc(s).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')}   // text 气泡支持 **加粗**
+function el(tag,cls,html){const e=document.createElement(tag);if(cls)e.className=cls;if(html!=null)e.innerHTML=html;return e}
+function scrollChat(){requestAnimationFrame(()=>{const m=$('#messages');m.scrollTop=m.scrollHeight})}
+let toastTimer;
+function toast(t){const e=$('#toast');e.textContent=t;e.style.display='block';clearTimeout(toastTimer);toastTimer=setTimeout(()=>e.style.display='none',2800)}
+
+/* ---------- 附件缩略图（外链照片直接缩略展示） ---------- */
+const SAMPLE_SVG = {};   // 内联 SVG 占位图注册表（默认空，走 <img> 加载附件 url）
+function thumbFor(p){
+  const svg = SAMPLE_SVG[p && p.url];
+  if (svg) return '<span class="athumb">'+svg+'</span>';
+  if (p && /^https?:/.test(p.url||''))
+    return '<span class="athumb"><img src="'+esc(p.url)+'" alt="" onerror="this.style.display=\'none\'"></span>';
+  return '<span class="athumb">▧</span>';
+}
+
+/* ---------- 接口层错误形状：业务错 {"detail":{"code":40401|42201|...,"message"}}；参数校验错 {"detail":[{loc,msg,type}]}
+ * 40401=会话没了 → 静默重建；42201=校验失败 → toast；网络失败 → code:-1
+ * 测试网关模式：走 dev 公共网关（token + X-PlatformId 鉴权，网关注入真实 X-Uid，本地不传）；否则直连（带 X-Uid） ---------- */
+const GW_BASE = 'https://gateway-dev.hotmaxx.cn';
+const LS_GW_KEY = 'rp_demo_gw_token';
+let GW_TOKEN = ''; try{ GW_TOKEN = localStorage.getItem(LS_GW_KEY) || '' }catch(_){}
+const isGateway = () => API_BASE.indexOf(GW_BASE) === 0;
+async function api(path, method='GET', body=null){
+  let res;
+  const headers = Object.assign(
+    isGateway() ? Object.assign({'X-PlatformId':'10'}, GW_TOKEN ? {'token':GW_TOKEN} : {})
+                : (CONFIG.uid ? {'X-Uid':CONFIG.uid} : {}),
+    body ? {'Content-Type':'application/json'} : {});
+  try{
+    res = await fetch(API_BASE+path, {method, headers,
+      body: body ? JSON.stringify(body) : undefined});
+  }catch(_){ throw {code:-1, message:'网络异常，请检查网络后重试'} }
+  let data = null;
+  try{ data = await res.json() }catch(_){}
+  if(!res.ok){
+    const d = data && data.detail;
+    if(d && typeof d==='object' && !Array.isArray(d)) throw {code:d.code||0, message:d.message||('HTTP '+res.status)};
+    if(Array.isArray(d)) throw {code:0, message:(d[0]&&d[0].msg)||'参数校验失败'};
+    throw {code:0, message:'HTTP '+res.status};
+  }
+  return data;
+}
+
+/* ---------- localStorage（会话加速重进；对话真值在服务端，用户气泡随查询重放回来） ---------- */
+function readLS(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||'null') }catch(_){ return null } }
+function saveLS(){ try{ localStorage.setItem(LS_KEY, JSON.stringify({sid:S.sid, storeNo:S.storeNo, uid:CONFIG.uid||'', orderNo:S.orderNo})) }catch(_){} }
+function lsMatches(saved){ return saved && saved.sid && saved.storeNo===S.storeNo && (saved.uid||'')===(CONFIG.uid||'') }
+
+/* ---------- 用户侧气泡（role=user 消息渲染：手势即消息，服务端落档） ---------- */
+const CARD_TITLE = {};   // card_id → 标题：quick_cards 渲染时记下，回放 card 手势时显示标题
+function userEchoText(m){
+  const d=m.data||{};
+  switch(m.type){
+    case 'text':       return d.content||'';
+    case 'card':       return '🖱 '+(CARD_TITLE[d.card_id]||d.card_id||'快捷报修');
+    case 'enum_pick':
+    case 'seg_pick':   return '✔ '+(d.value||'');
+    case 'phone':      return '📞 '+(d.use_default ? '使用本人号码' : '改为 '+(d.phone||''));
+    case 'upload_done':return '📷 '+(d.attachments||[]).map(x=>x.name||x.url).join('、');
+    default:           return m.type;
+  }
+}
+function renderUserMsg(m){
+  appendMsg(el('div','msg user','<div class="bubble">'+esc(userEchoText(m))+'</div>'));
+}
+function appendMsg(node){ $('#messages').append(node); scrollChat() }
+
+/* ---------- 消息渲染：seq 升序、幂等去重、只渲染新增；role=user → 用户气泡 ---------- */
+function renderMessages(list){
+  const arr = (list||[]).slice().sort((a,b)=>a.seq-b.seq);
+  for(const m of arr){
+    if(m.seq<=S.lastSeq) continue;
+    S.lastSeq = m.seq;
+    if(m.role==='user'){ renderUserMsg(m); continue }
+    const fn = RENDER[m.type];
+    if(fn) fn(m.data||{}, m); else console.warn('[repair] 未知消息类型', m.type);
+  }
+  scrollChat();
+}
+
+const RENDER = {
+  /* 1. 状态条：顶部固定，只渲染一次（重复出现时覆盖刷新） */
+  status_bar(d){
+    $('#ctxBar').innerHTML =
+      '<div><strong>📍 '+esc(d.store)+'</strong>报修人：'+esc(d.reporter)+' · '+esc(d.phone_masked)+'</div>'+
+      '<button class="textbtn" data-act="ctxPhone">修改</button>';
+  },
+  /* 2. 文本气泡（支持 **加粗**） */
+  text(d){ appendMsg(el('div','msg','<div class="avatar">✦</div><div class="bubble">'+md(d.content||'')+'</div>')) },
+  /* 3. 高频卡片墙：点整卡回发 card 手势 */
+  quick_cards(d){
+    (d.cards||[]).forEach(c=>{ CARD_TITLE[c.id]=c.title });   // 回放 card 手势时显示标题
+    const cards=(d.cards||[]).map(c=>
+      '<button class="quick" data-act="card" data-id="'+esc(c.id)+'" data-title="'+esc(c.title)+'">'+
+      '<i>'+esc(c.icon)+'</i>'+esc(c.title)+'</button>').join('');
+    appendMsg(el('div','msg','<div class="avatar">✦</div><div class="bubble"><small>说不好？点常见问题更快：</small>'+
+      '<div class="quickgrid">'+cards+'</div></div>'));
+  },
+  /* 4. 类别单选：top3/full 平铺；grouped 两级联动（叶子主类点组即成）。缓存供确认单「重选类别」用 */
+  enum_card(d){
+    if(d.mode==='grouped'){
+      S.catGrouped = d.options||[];
+      S.catCache = S.catGrouped.flatMap(g=>g.items.length?g.items:[g.group]);
+      const opts=S.catGrouped;
+      const box=el('div','msg','<div class="avatar">✦</div><div class="bubble"><div class="options"></div></div>');
+      const inner=box.querySelector('.options');
+      const renderGroups=()=>{ inner.innerHTML=opts.map(g=>
+        '<button class="option grp" data-grp="'+esc(g.group)+'">'+esc(g.group)+
+        '<small>'+(g.items.length?g.items.length+' 项细分':'无细分 · 点选即成')+'</small></button>').join('');
+        inner.querySelectorAll('[data-grp]').forEach(btn=>btn.onclick=()=>{
+          const g=opts.find(x=>x.group===btn.dataset.grp); if(!g) return;
+          if(!g.items.length){                    // 叶子主类（如「购物袋」）：点组即完成
+            inner.querySelectorAll('button').forEach(x=>x.disabled=true);
+            btn.classList.add('selected');
+            sendGesture({type:'enum_pick', field:d.field, value:g.group});
+            return;
+          }
+          inner.innerHTML='<button class="option back" data-back="1">‹ '+esc(g.group)+' · 点击返回</button>'+
+            g.items.map(v=>'<button class="option" data-act="enumPick" data-field="'+esc(d.field)+
+              '" data-value="'+esc(v)+'">'+esc(v)+'</button>').join('');
+          inner.querySelector('[data-back]').onclick=renderGroups;   // 二级项走全局 enumPick 委托
+        });
+      };
+      renderGroups();
+      appendMsg(box);
+      return;
+    }
+    if(d.mode==='full') S.catCache = d.options||[];
+    else if(d.grouped){                    // top3 附带的全量两级联动：缓存供确认单重选（top3 三项只是本轮提名，不是全集）
+      S.catGrouped = d.grouped;
+      S.catCache = S.catGrouped.flatMap(g=>g.items.length?g.items:[g.group]);
+    }
+    const opts=(d.options||[]).map((o,i)=>{
+      const pre = (i===d.preselect && d.preselect>=0);
+      return '<button class="option'+(pre?' pre':'')+'" data-act="enumPick" data-field="'+esc(d.field)+
+             '" data-value="'+esc(o)+'">'+esc(o)+(pre?'<small>推荐 · 点一下才生效</small>':'')+'</button>';
+    }).join('');
+    appendMsg(el('div','msg','<div class="avatar">✦</div><div class="bubble">'+
+      '<div class="options'+(d.mode==='full'?' full':'')+'">'+opts+'</div></div>'));
+  },
+  /* 5. 二选一选项卡（通用渲染：报修包当前无 seg 槽位，保留给后续技能包） */
+  seg_card(d){
+    S.segCache[d.field]=(d.options||[]).map(o=>({value:o.value, label:o.label||o.value}));
+    appendMsg(el('div','msg','<div class="avatar">✦</div><div class="bubble">'+
+      '<div class="seg">'+S.segCache[d.field].map(o=>
+        '<button data-act="segPick" data-field="'+esc(d.field)+'" data-value="'+esc(o.value)+'">'+esc(dispLabel(o.label||o.value))+'</button>').join('')+
+      '</div></div>'));
+  },
+  /* 6. 拍照引导：tips 是纯字符串清单；上传走 CONFIG.uploadPhotos 钩子 */
+  photo_guide(d){
+    const tips=(d.tips||[]).map(t=>
+      '<div class="ptip"><i>•</i><span>'+esc(t)+'</span></div>').join('');
+    appendMsg(el('div','msg','<div class="avatar">✦</div><div class="bubble">'+
+      '<strong>📷 现场照片</strong> <span class="pill" style="margin-left:6px">建议 '+(d.need_count??'-')+' 张</span>'+
+      '<div class="ptips">'+tips+'</div>'+
+      '<div class="actions"><button class="primary" data-act="photos">＋ 拍照 / 上传</button></div>'+
+      '<small>'+esc(CONFIG.photoNote||'照片经明道云存储，仅用于本次报修 · 单会话最多 5 张')+'</small></div>'));
+  },
+  /* 7. 电话确认：问题已在正文问过（口径同 seg_card：问题只说一次），卡片只留号码+操作 */
+  phone_confirm(d){
+    S.phoneCardOpen = true;
+    appendMsg(el('div','msg','<div class="avatar">✦</div><div class="bubble">'+
+      '<strong>📞 '+esc(d.phone_masked)+'</strong>'+
+      '<div class="actions"><button class="primary" data-act="phoneDefault">✓ 用本人号码</button>'+
+      '<button class="outline" data-act="phoneEdit">换个号码</button></div></div>'));
+  },
+  /* 8. 确认单：分组槽位清单；新确认单出现时旧单置灰 */
+  confirm_card(d){
+    S.confirmData = d;                       // 记住最新单：弹窗「当前已选」回显的数据源
+    document.querySelectorAll('#messages .confirmwrap').forEach(n=>n.classList.add('stale'));
+    const groups=(d.groups||[]).map(g=>
+      '<div class="sectionlabel">'+esc(g.group_name)+'</div>'+(g.items||[]).map(confirmRow).join('')
+    ).join('');
+    const missing=(d.missing&&d.missing.length)?'<div class="missnote">待补齐：'+esc(d.missing.join('、'))+'</div>':'';
+    appendMsg(el('div','msg confirmwrap','<div class="avatar">✦</div><div class="bubble"><div class="confirm">'+
+      '<h3>报修预填确认单</h3><small>点橙色字段可修改</small>'+
+      groups+missing+'</div></div>'));
+  },
+  /* 9. 系统提示条 */
+  system_tip(d){
+    const lv = d.level==='warn'?'warn':(d.level==='error'?'error':'info');
+    appendMsg(el('div','stip '+lv, esc(d.content||'')));
+  },
+  /* 10. 结果卡：提交成功终点（含单号；刷新后由查询重放恢复） */
+  result(d){
+    if(d.order_no){ S.orderNo=d.order_no; saveLS() }
+    appendMsg(el('div','msg','<div class="avatar">✦</div><div class="bubble"><div class="success">'+
+      '<div class="success-icon">✓</div><h3>报修提交成功</h3>'+
+      '<div class="number">报修单号<br><strong class="'+(String(d.order_no||'').length>18?'long':'')+'">'+esc(d.order_no)+'</strong></div>'+
+      '<span class="pill doing">'+esc(d.status||'已提交 / 待派单')+'</span>'+
+      '<p style="margin-top:12px;font-size:12px;color:#8f8f8f">'+esc(d.tip||'可在报修记录查看处理进度')+'</p>'+
+      '<div class="actions" style="justify-content:center"><button class="primary" data-act="viewOrder">📋 查看报修记录</button>'+
+      '<button class="outline" data-act="again" style="margin-left:8px">＋ 再修一单</button></div>'+
+      '</div></div>'));
+  }
+};
+
+function confirmRow(it){
+  const ai = it.source==='ai_filled' ? '<span class="badge-ai">AI 识别</span>' : '';
+  let valHtml;
+  if(it.field==='photos'){
+    const arr = Array.isArray(it.value)?it.value:[];
+    valHtml = arr.length ? '<span class="ph-inline">'+arr.map(thumbFor).join('')+'</span> '+arr.length+' 张'
+                         : '<span style="color:#b3543f">未上传</span>';
+  }else{
+    valHtml = esc((it.value===''||it.value==null)?'未填写':dispLabel(it.value));
+  }
+  if(it.editable)
+    return '<div class="data-row"><span>'+esc(it.label)+ai+'</span><button data-act="edit" data-field="'+esc(it.field)+'">'+valHtml+'</button></div>';
+  return '<div class="data-row"><span>'+esc(it.label)+ai+'</span><b>'+valHtml+'</b></div>';
+}
+
+/* ---------- 状态机：state + focus 驱动底栏 ---------- */
+function applyState(state, focus){
+  S.state = state||'collecting';
+  S.focus = focus||null;
+  const done=S.state==='done', fb=S.state==='fallback', off=S.state==='offline', ex=S.state==='exited';
+  const inp=$('#input'), btn=$('#sendBtn');
+  const lock = done||fb||off||ex;
+  inp.disabled = lock; btn.disabled = lock;
+  inp.placeholder = fb ? '降级模式 · 请点选上方卡片完成填报'
+                   : off ? '等待连接…'
+                   : ex  ? '已退出 · 可从表单页重新进入'
+                   : (PH[S.focus]||PH.detail);
+  $('#submitBar').classList.toggle('on', S.state==='confirm');
+  $('#stateBadge').textContent =
+    off  ? '未连接' :
+    ex   ? '已退出' :
+    done ? '已提交 ✓' :
+    fb   ? '降级 · 点选模式' :
+    S.state==='confirm' ? '请核对确认单' :
+    '采集中 · '+(FOCUS_LABEL[S.focus]||'自由对话');
+}
+function inferApply(msgs){   // POST /sessions 无 state 字段：由消息推断（有确认单即 confirm）
+  const hasConfirm=(msgs||[]).some(m=>m.type==='confirm_card');
+  applyState(hasConfirm?'confirm':'collecting', null);
+}
+
+/* ---------- 忙碌态 / 打字中 ---------- */
+function setBusy(b){ document.body.classList.toggle('busy', b) }
+function showTyping(){
+  hideTyping();
+  appendMsg(el('div','msg typing','<div class="avatar">✦</div><div class="bubble">'+
+    '<span class="dots"><i></i><i></i><i></i></span>整理中…</div>'));
+}
+function hideTyping(){ const t=document.querySelector('.msg.typing'); if(t) t.remove() }
+
+/* ---------- 发送手势（六种 body 之一；用户气泡由服务端 role=user 落档） ---------- */
+function guardInput(body){  // 降级态只拦 text——点选/上传/电话是向导唯一通道，必须放行
+  if(S.busy)            return toast('请稍候，正在处理…'), false;
+  if(S.resumePending)   return toast('请先选择是否继续上次的报修'), false;
+  if(S.state==='done')  return toast('本单已提交。可点结果卡「＋ 再修一单」再来一单'), false;
+  if(S.state==='fallback' && (!body || body.type==='text'))
+                        return toast('降级模式：请点选卡片完成填报'), false;
+  if(S.state==='offline'||S.state==='exited') return toast('当前不可输入'), false;
+  return true;
+}
+async function sendGesture(body){
+  if(!guardInput(body) || !S.sid) return;
+  S.busy=true; setBusy(true); S.phoneCardOpen=false; showTyping();
+  const anchor=S.lastSeq;
+  try{
+    const r = await api('/sessions/'+S.sid+'/messages','POST',body);
+    hideTyping();
+    renderUserMsg({type:body.type, data:body});   // 乐观渲染（POST 响应不含用户条目）
+    S.lastSeq=Math.max(S.lastSeq, anchor+1);
+                                                  // 用户消息 seq 恒为本轮第 1 条，GET 重放按 seq 去重，不会双气泡
+    renderMessages(r.messages);
+    applyState(r.state, r.focus);
+  }catch(e){
+    hideTyping();                                 // 失败不画气泡：请求可能没到服务端，真值以会话查询对齐为准
+    if(e.code===40401){                       // 会话没了 → 静默重开新会话
+      await rebuild('会话已过期，已自动重新开始');
+    }else{
+      toast(e.message);
+      if(e.code===-1) await realign(true);    // 网络失败 ≠ 数据丢失：会话查询全量对齐
+    }
+  }finally{ S.busy=false; setBusy(false) }
+}
+function sendText(content){ sendGesture({type:'text', content}) }
+
+/* ---------- 全量对齐（POST /sessions/{sid}，与 GET 同义——公网网关同地址 GET/POST 互斥，统一走 POST：断线重连 / 提交后拉结果） ---------- */
+async function realign(silent){
+  if(!S.sid) return;
+  try{
+    const d = await api('/sessions/'+S.sid,'POST');
+    renderMessages(d.messages);
+    applyState(d.state, d.focus);
+    S.sentUrls = new Set(((d.collected&&d.collected.photos)||[]).filter(p=>p&&p.url).map(p=>p.url));
+  }catch(e){
+    if(e.code===40401) await rebuild('会话已过期，已自动重新开始');
+    else if(!silent) toast(e.message);
+  }
+}
+
+/* ---------- 提交（仅 confirm 态；成功后 POST 对齐拿 result 卡与 done 态） ---------- */
+async function doSubmit(){
+  if(S.busy || S.state!=='confirm') return;
+  S.busy=true; setBusy(true);
+  const bar=$('#submitBar'); bar.disabled=true; bar.textContent='提交中…';
+  try{
+    const r = await api('/sessions/'+S.sid+'/submit','POST');
+    S.orderNo = r.order_no; saveLS();
+    await realign(true);                       // 服务端 result 消息按 seq 去重回放
+    toast('已提交：'+r.order_no);
+  }catch(e){
+    if(e.code===40401) await rebuild('会话已过期，已自动重新开始');
+    else { toast(e.message); await realign(true) }   // 42201：缺项已塞回议程，POST 对齐拉新引导
+  }finally{
+    S.busy=false; setBusy(false);
+    bar.disabled=false; bar.textContent='✓ 确认并提交';
+  }
+}
+
+/* ---------- 会话生命周期 ---------- */
+function resetFlow(){
+  $('#messages').innerHTML='<div class="date">今天 · 门店报修</div>';
+  S.lastSeq=0; S.sentUrls.clear(); S.catCache=[]; S.catGrouped=null; S.segCache={}; S.confirmData=null;
+  S.orderNo=null; S.resumePending=false; S.phoneCardOpen=false;
+  S._resumeMsgs=null;
+  hideTyping();
+  applyState('collecting', null);
+}
+async function createSession(sn, restart){
+  resetFlow();
+  // restart=true：服务端在入口锁内先放弃旧会话再建新单，一个请求做完，不会复活刚放弃的会话
+  const d = await api('/sessions','POST',{store_no:sn, restart:!!restart});
+  S.sid=d.session_id; S.storeNo=sn; S.orderNo=null;
+  saveLS();
+  if(d.is_resumed){ showResume(d) }            // 同 uid 同店有未完成会话 → 先问
+  else { renderMessages(d.messages); inferApply(d.messages) }
+}
+function showResume(d){
+  S.resumePending=true; S._resumeMsgs=d.messages||[];
+  applyState('collecting', null);
+  appendMsg(el('div','msg','<div class="avatar">✦</div><div class="bubble">'+
+    '<p>检测到本店有<strong>未完成的报修</strong>（服务端已保留现场）。</p>'+
+    '<small>继续上次进度，或重新开始一单</small>'+
+    '<div class="actions"><button class="primary" data-act="resumeYes">✓ 继续上次报修</button>'+
+    '<button class="outline" data-act="resumeNo">↺ 重新开始</button></div></div>'));
+}
+function extractPhotos(msgs){                  // 从确认单/最新消息恢复已传照片集合
+  const confirmMsgs=(msgs||[]).filter(m=>m.type==='confirm_card');
+  const last=confirmMsgs[confirmMsgs.length-1];
+  if(!last) return;
+  const items=((last.data||{}).groups||[]).flatMap(g=>g.items||[]);
+  const ph=items.find(it=>it.field==='photos');
+  (Array.isArray(ph&&ph.value)?ph.value:[]).forEach(p=>{ if(p&&p.url) S.sentUrls.add(p.url) });
+}
+async function restoreFromGet(d, saved){
+  S.sid=saved.sid; resetFlow();
+  renderMessages(d.messages);
+  applyState(d.state, d.focus);
+  S.sentUrls = new Set(((d.collected&&d.collected.photos)||[]).filter(p=>p&&p.url).map(p=>p.url));
+  saveLS();
+}
+async function rebuild(tip){                   // 40401：静默重开新会话
+  resetFlow();
+  try{ await createSession(S.storeNo) }catch(e){ toast(e.message); offlineScreen() }
+  if(tip) toast(tip);
+}
+function offlineScreen(){
+  applyState('offline', null);
+  $('#messages').innerHTML='<div class="date">今天 · 门店报修</div>';
+  appendMsg(el('div','stip error','⚠ 网络异常，暂时无法连接服务<br>请检查网络后重试'));
+  appendMsg(el('div','msg','<div class="avatar">✦</div><div class="bubble" style="text-align:center">'+
+    '<div class="actions" style="justify-content:center"><button class="primary" data-act="retry">↻ 重新连接</button></div></div>'));
+}
+function configScreen(){                       // 缺少门店/用户参数：嵌入配置没带全
+  applyState('offline', null);
+  $('#messages').innerHTML='<div class="date">今天 · 门店报修</div>';
+  appendMsg(el('div','stip warn','⚠ 未获取到门店信息，无法开始报修。<br>请检查嵌入配置（store_no / __REPAIR_CONFIG__）或入口跳转参数'));
+  appendMsg(el('div','msg','<div class="avatar">✦</div><div class="bubble" style="text-align:center">'+
+    '<div class="actions" style="justify-content:center"><button class="primary" data-act="retry">↻ 重试</button></div></div>'));
+}
+
+/* ---------- 启动：localStorage 加速重进，40401 静默重建 ---------- */
+async function boot(){
+  if(isGateway() && !GW_TOKEN){           // 默认即测试网关：没 token 别空跑 401，先引导粘 token
+    applyState('offline', null);
+    $('#messages').innerHTML='<div class="date">今天 · 门店报修</div>';
+    appendMsg(el('div','stip warn','⚠ 当前是「测试网关」模式：请先在左侧面板粘贴网关登录 token（粘贴后回车自动连接）。<br>不测测试环境可切回「本地 8000」'));
+    try{ $('#gwToken').focus() }catch(_){}
+    return;
+  }
+  const saved=readLS();
+  if(lsMatches(saved)){
+    try{
+      const d=await api('/sessions/'+saved.sid,'POST');
+      await restoreFromGet(d, saved);
+      return;
+    }catch(e){
+      if(e.code===40401){ /* 静默重建 */ }
+      else if(e.code===-1){ offlineScreen(); return }
+      else toast(e.message);
+    }
+  }
+  try{ await createSession(S.storeNo) }catch(_){ offlineScreen() }
+}
+
+/* ---------- 照片上传（钩子：相机/相册 → 明道云直传 → upload_done） ---------- */
+async function uploadFlow(){
+  if(!guardInput({type:'upload_done'})) return;
+  if(typeof CONFIG.uploadPhotos !== 'function'){
+    return toast('请接入相机/相册并上传（CONFIG.uploadPhotos 钩子）');
+  }
+  let list;
+  try{ list = await CONFIG.uploadPhotos() }catch(_){ return }
+  list = (list||[]).filter(p=>p && p.url);
+  if(!list.length) return;
+  if(S.sentUrls.size + list.length > 5) return toast('单会话最多 5 张照片');
+  const add = list.filter(p=>!S.sentUrls.has(p.url));
+  if(!add.length) return toast('所选照片均已上传');
+  await sendGesture({type:'upload_done', attachments:add.map(p=>({name:p.name||'现场照片.jpg', url:p.url}))});
+  add.forEach(p=>S.sentUrls.add(p.url));
+}
+
+/* ---------- 返回 / 退出（三选一口径：继续填写 / 存草稿离开 / 放弃本次） ---------- */
+function exitModal(){
+  openModal('<h3>离开 AI 填报？</h3>'+
+    '<small style="color:#8f8f8f;font-size:11px;display:block;margin-top:2px">当前进度已实时保存，可随时回来继续</small>'+
+    '<div class="actions" style="margin-top:14px">'+
+    '<button class="primary" data-close>继续填写</button>'+
+    '<div class="row"><button class="outline" data-act="exitKeep">▣ 存草稿离开</button>'+
+    '<button class="outline" data-act="exitAbandon" style="color:#d9534f">✕ 放弃本次</button></div>'+
+    '</div>');
+}
+async function exitChat(mode){                 // keep=草稿保留7天 / abandon=放弃
+  const sid=S.sid;
+  S.sid=null;
+  if(sid){ try{ await api('/sessions/'+sid+'/exit','POST',{mode}) }catch(_){} }
+  leaveChat(mode);
+}
+function leaveChat(mode){
+  if(typeof CONFIG.onLeave === 'function'){ CONFIG.onLeave(); return }
+  exitedScreen(mode);                          // 未接钩子（浏览器预览）：页内进入已退出态
+}
+function exitedScreen(mode){
+  resetFlow();
+  applyState('exited', null);
+  appendMsg(el('div','stip info', mode==='abandon' ? '已放弃本次报修' : '草稿已保存（7 天内可继续）'));
+  appendMsg(el('div','msg','<div class="avatar">✦</div><div class="bubble" style="text-align:center">'+
+    '<p>已返回。可从表单页「AI 智能填报」入口重新进入</p>'+
+    '<div class="actions" style="justify-content:center"><button class="primary" data-act="reenter">↻ 重新进入</button></div></div>'));
+}
+
+/* ---------- 弹窗（dialog）：改电话 / 重选类别 / 改二选一 / 改描述 ---------- */
+function openModal(html){ $('#modalContent').innerHTML=html; const m=$('#modal'); if(!m.open) m.showModal() }
+function closeModal(){ $('#modal').close() }
+function phoneModal(viaCard){                  // viaCard=点的是 phone_confirm 卡 → 发 phone 手势；否则走 text
+  // 校验交给下面这段 JS，input 不写 pattern/required：浏览器原生气泡那句「请与所请求的格式保持一致」改不掉（title 在 Chrome 也不生效），还会抢在 onsubmit 前面
+  openModal('<h3>更换联系电话</h3><form id="phForm"><div class="field">'+
+    '<input name="p" type="tel" inputmode="numeric" maxlength="11" placeholder="13x xxxx xxxx"></div>'+
+    '<div class="actions"><div class="row"><button type="button" class="outline" data-close>取消</button>'+
+    '<button class="primary" type="submit">发送</button></div></div></form>');
+  $('#phForm').onsubmit=e=>{
+    e.preventDefault();
+    const v=e.target.p.value.trim();
+    if(!/^1[3-9]\d{9}$/.test(v)) return toast('请输入有效的手机号');
+    closeModal();
+    if(viaCard) sendGesture({type:'phone', phone:v});
+    else sendText('电话改成 '+v);
+  };
+}
+function pickModal(title, options, onPick, note, current){
+  openModal('<h3>'+esc(title)+'</h3>'+(note?'<small style="color:#8f8f8f;font-size:11px">'+esc(note)+'</small>':'')+
+    '<div class="options full">'+options.map(o=>
+      '<button class="option'+(o===current?' cur':'')+'" data-pick="'+esc(o)+'">'+esc(dispLabel(o))+
+      (o===current?'<small>当前已选</small>':'')+'</button>').join('')+'</div>'+
+    '<div class="actions"><div class="row"><button type="button" class="outline" data-close>取消</button></div></div>');
+  $('#modal').querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>{
+    closeModal();
+    if(b.dataset.pick===current) return;        // 选的就是当前已选：不改不发
+    onPick(b.dataset.pick)
+  });
+}
+function groupedPickModal(title, groups, onPick, note, current){   // 两级联动弹窗：叶子组点组即成；current=当前已选值（回显）
+  const inGroup=(g,v)=>v===g.group||v.startsWith(g.group+' - ');
+  const render=()=>{
+    openModal('<h3>'+esc(title)+'</h3>'+(note?'<small style="color:#8f8f8f;font-size:11px">'+esc(note)+'</small>':'')+
+      '<div class="options full">'+groups.map(g=>
+        '<button class="option grp" data-grp="'+esc(g.group)+'">'+esc(g.group)+
+        '<small>'+(inGroup(g,current||'')?'当前已选 · ':'')+(g.items.length?g.items.length+' 项细分':'无细分 · 点选即成')+'</small></button>').join('')+'</div>'+
+      '<div class="actions"><div class="row"><button type="button" class="outline" data-close>取消</button></div></div>');
+    $('#modal').querySelectorAll('[data-grp]').forEach(b=>b.onclick=()=>{
+      const g=groups.find(x=>x.group===b.dataset.grp); if(!g) return;
+      if(!g.items.length){ closeModal(); if(g.group!==current) onPick(g.group); return; }
+      openModal('<h3>'+esc(title)+'</h3>'+(note?'<small style="color:#8f8f8f;font-size:11px">'+esc(note)+'</small>':'')+
+        '<div class="options full"><button class="option back" data-back="1">‹ 返回</button>'+
+        g.items.map(v=>'<button class="option'+(v===current?' cur':'')+'" data-pick="'+esc(v)+'">'+esc(v)+
+          (v===current?'<small>当前已选</small>':'')+'</button>').join('')+'</div>'+
+        '<div class="actions"><div class="row"><button type="button" class="outline" data-close>取消</button></div></div>');
+      $('#modal').querySelector('[data-back]').onclick=render;
+      $('#modal').querySelectorAll('[data-pick]').forEach(ib=>ib.onclick=()=>{
+        closeModal();
+        if(ib.dataset.pick===current) return;   // 选的就是当前已选：不改不发
+        onPick(ib.dataset.pick)
+      });
+    });
+  };
+  render();
+}
+function textModal(title, placeholder, current){
+  openModal('<h3>'+esc(title)+'</h3><form id="tf"><div class="field"><textarea name="v" maxlength="500"'+
+    ' style="min-height:96px" placeholder="'+esc(placeholder)+'" required>'+esc(current||'')+'</textarea></div>'+
+    '<div class="actions"><div class="row"><button type="button" class="outline" data-close>取消</button>'+
+    '<button class="primary" type="submit">发送</button></div></div></form>');
+  $('#tf').onsubmit=e=>{
+    e.preventDefault();
+    const v=e.target.v.value.trim();
+    if(!v) return;
+    closeModal();
+    if(v===current) return;                     // 没改动：不发
+    sendText(v);
+  };
+}
+function confirmVal(field){                   // 最新确认单里某字段的当前值（弹窗回显用）
+  const items=((S.confirmData||{}).groups||[]).flatMap(g=>g.items||[]);
+  const it=items.find(i=>i.field===field);
+  return it&&it.value!=null?String(it.value):'';
+}
+function editField(field){                     // 确认单上的「修改」
+  if(field==='category'){
+    const onPick=v=>{
+      sendGesture({type:'enum_pick', field:'category', value:v});   // 照片不作废：服务端只提示自查
+    };
+    if(S.catGrouped && S.catGrouped.length)
+      groupedPickModal('重选报修类别', S.catGrouped, onPick, '照片若与新类别不符可重新上传，对得上就保留', confirmVal('category'));
+    else if(S.catCache.length) pickModal('重选报修类别', S.catCache, onPick, '照片若与新类别不符可重新上传，对得上就保留', confirmVal('category'));
+    else sendText('报修类别改一下');            // 本会话没经过类别卡（如快捷卡直达，无缓存）：让服务端重发全量类别卡
+  }else if(field==='photos'){
+    uploadFlow();                               // 重新调起上传：已传按 url 去重只补新增（口径：照片只补增不作废）
+  }else if(field==='phone'){
+    phoneModal(false);
+  }else if(field==='detail'){
+    textModal('修改故障描述', '现象 / 时间 / 影响范围，≤100 字', confirmVal('detail'));
+  }else if(field==='reporter'){
+    textModal('修改报修人', '替店员报修时可修改姓名', confirmVal('reporter'));
+  }else{
+    toast('该字段请通过对话修改');
+  }
+}
+
+/* ---------- 事件绑定（消息流用委托，刷新恢复后依然有效） ---------- */
+document.addEventListener('click', e=>{
+  if(e.target.closest('[data-close]')){ closeModal(); return }
+  const b=e.target.closest('[data-act]');
+  if(!b || b.closest('.stale')) return;
+  switch(b.dataset.act){
+    case 'card':{
+      const wall=b.closest('.quickgrid');
+      if(wall) wall.querySelectorAll('button').forEach(x=>x.disabled=true);
+      b.classList.add('selected');
+      sendGesture({type:'card', card_id:b.dataset.id});
+      break}
+    case 'enumPick':{
+      const box=b.closest('.options');
+      if(box) box.querySelectorAll('button').forEach(x=>x.disabled=true);
+      b.classList.add('selected');
+      sendGesture({type:'enum_pick', field:b.dataset.field, value:b.dataset.value});   // 类别点选不作废照片
+      break}
+    case 'segPick':{
+      const box=b.closest('.seg');
+      if(box) box.querySelectorAll('button').forEach(x=>x.disabled=true);
+      b.classList.add('selected');
+      sendGesture({type:'seg_pick', field:b.dataset.field, value:b.dataset.value});
+      break}
+    case 'photos': uploadFlow(); break;
+    case 'phoneDefault':{
+      b.parentElement.querySelectorAll('button').forEach(x=>x.disabled=true);
+      sendGesture({type:'phone', use_default:true});
+      break}
+    case 'phoneEdit': phoneModal(S.phoneCardOpen); break;
+    case 'ctxPhone':  phoneModal(false); break;
+    case 'edit': editField(b.dataset.field); break;
+    case 'resumeYes':{
+      S.resumePending=false;
+      renderMessages(S._resumeMsgs||[]);
+      inferApply(S._resumeMsgs||[]);
+      extractPhotos(S._resumeMsgs||[]);
+      break}
+    case 'resumeNo':{
+      S.resumePending=false;
+      createSession(S.storeNo, true).catch(e=>{ toast(e.message); offlineScreen() });
+      break}
+    case 'viewOrder':{
+      if(typeof CONFIG.onViewRecords === 'function') CONFIG.onViewRecords(S.orderNo||'');
+      else toast('跳转「报修记录」页（单号 '+(S.orderNo||'')+'）');
+      break}
+    case 'again':{                                  // 再修一单：单请求放弃+重开（旧单已终态也无害）
+      if(S.busy) return toast('请稍候…');
+      createSession(S.storeNo, true).catch(e=>{ toast(e.message); offlineScreen() });
+      break}
+    case 'reenter':{                                // 已退出态重新进入
+      if(S.busy) return toast('请稍候…');
+      createSession(S.storeNo).catch(e=>{ toast(e.message); offlineScreen() });
+      break}
+    case 'retry': boot(); break;
+    case 'exitKeep':    closeModal(); exitChat('keep'); break;
+    case 'exitAbandon': closeModal(); exitChat('abandon'); break;
+  }
+});
+
+function submitInput(){
+  const v=$('#input').value.trim();
+  if(!v) return;
+  $('#input').value='';
+  sendText(v);
+}
+$('#sendBtn').addEventListener('click', submitInput);
+$('#input').addEventListener('keydown', e=>{
+  if(e.key==='Enter' && !e.shiftKey && !e.isComposing){ e.preventDefault(); submitInput() }
+});
+$('#submitBar').addEventListener('click', doSubmit);
+$('#backBtn').addEventListener('click', ()=>{
+  if(!S.sid || S.state==='done' || S.state==='exited') return leaveChat();
+  exitModal();
+});
+
+/* =====================================================================
+ * 演示版增量（正式版无此段）：演示身份 / 重新演练 / 商铺切换 / IP配置 / 样例照片
+ * ===================================================================== */
+LS_KEY = 'rp_demo_v2';                       // 与正式版本地缓存隔离
+/* ---------- 演示身份：优先级 URL 参数 > 本机记忆 > 默认 leader001；测试环境用它查 base-shop 员工档案 ---------- */
+const LS_UID_KEY = 'rp_demo_uid';
+try{ if(!CONFIG.uid) CONFIG.uid = localStorage.getItem(LS_UID_KEY) || 'leader001' }catch(_){}
+CONFIG.storeNo = CONFIG.storeNo || '11522';
+S.storeNo = CONFIG.storeNo;
+CONFIG.photoNote = '演示环境从内置样例选择；真实环境调起相机/相册并上传明道云';
+CONFIG.fineNote = '演示环境（X-Uid: '+CONFIG.uid+'）';
+
+/* ---------- 后端状态点（api 包装） ---------- */
+function setDot(st){ $('#dot').className = 'dot '+st }
+const _api = api;
+api = async function(path, method='GET', body=null){
+  try{ const r = await _api(path, method, body); setDot('ok'); return r }
+  catch(e){ if(e.code===-1) setDot('down'); throw e }
+};
+
+/* ---------- 环境/IP 配置：默认测试网关；可切本地/本地代理/自由填；localStorage 记忆，改后自动重连 ----------
+ * 测试网关 = dev 公共网关直连（需网关 token；网关注入真实 X-Uid，本地 uid 输入无效）
+ * 本地 = 本机 uvicorn 8000；本地代理 = scripts/test_env_proxy.py（监听 18090） */
+const LS_API_KEY = 'rp_demo_api';
+(function(){
+  let saved=''; try{ saved = localStorage.getItem(LS_API_KEY)||'' }catch(_){}
+  if(saved) applyApiBase(saved);
+  $('#apiHost').value = saved || 'gateway-dev.hotmaxx.cn';
+  const sel = $('#envSel');
+  sel.value = [...sel.options].some(o=>o.value===saved && o.value!=='custom') ? saved
+            : (saved ? 'custom' : GW_BASE);
+  $('#gwToken').value = GW_TOKEN;
+  syncGwUI();
+})();
+function applyApiBase(v){
+  v = (v||'').trim().replace(/\/+$/,'') || GW_BASE;
+  if(!/^https?:\/\//.test(v)) v = 'http://'+v;
+  API_BASE = v + '/agent/repair/v1';
+  try{ localStorage.setItem(LS_API_KEY, v) }catch(_){}
+}
+function syncGwUI(){
+  $('#gwRow').style.display = isGateway() ? 'flex' : 'none';
+  $('#uidInput').disabled = isGateway();       // 网关模式身份由 token 决定
+}
+function reconnectApi(v){
+  if(S.busy) return toast('请稍候…');
+  applyApiBase(v);
+  syncGwUI();
+  try{ localStorage.removeItem(LS_KEY) }catch(_){}
+  boot();
+}
+$('#apiHost').addEventListener('change', e=>{
+  reconnectApi(e.target.value);
+  const sel=$('#envSel');
+  sel.value = [...sel.options].some(o=>o.value===e.target.value) ? e.target.value : 'custom';
+  syncGwUI();
+});
+$('#envSel').addEventListener('change', e=>{
+  const v = e.target.value;
+  if(v==='custom'){ $('#apiHost').focus(); return }
+  $('#apiHost').value = v.replace(/^https?:\/\//,'');
+  if(v===GW_BASE && !GW_TOKEN){               // 网关模式没 token 连了也是 401：先拦住
+    applyApiBase(v); syncGwUI();
+    toast('先粘贴网关登录 token（粘贴后回车生效）');
+    $('#gwToken').focus();
+    return
+  }
+  reconnectApi(v);
+});
+/* ---------- 网关 token：粘贴回车即存本机并重连（与 dev_gateway_proxy 同款 JWT） ---------- */
+$('#gwToken').addEventListener('change', e=>{
+  GW_TOKEN = (e.target.value||'').trim();
+  try{ GW_TOKEN ? localStorage.setItem(LS_GW_KEY, GW_TOKEN) : localStorage.removeItem(LS_GW_KEY) }catch(_){}
+  e.target.value = GW_TOKEN;
+  if(!isGateway() || S.busy) return;
+  try{ localStorage.removeItem(LS_KEY) }catch(_){}
+  boot();
+});
+/* ---------- X-Uid 可编辑（直连模式）：改后清会话缓存重连（会话归属校验 owner=uid） ---------- */
+$('#uidInput').value = CONFIG.uid;
+$('#uidInput').addEventListener('change', e=>{
+  const v = (e.target.value||'').trim() || 'leader001';
+  e.target.value = v;
+  if(S.busy){ e.target.blur(); return toast('请稍候…') }
+  CONFIG.uid = v;
+  CONFIG.fineNote = '演示环境（X-Uid: '+v+'）';
+  try{ localStorage.setItem(LS_UID_KEY, v); localStorage.removeItem(LS_KEY) }catch(_){}
+  boot();
+});
+
+/* ---------- 重新演练：restart=true 由服务端清活跃索引+放弃旧会话后重开新单 ---------- */
+$('#resetBtn').addEventListener('click', async ()=>{
+  if(S.busy) return toast('请稍候…');
+  try{ localStorage.removeItem(LS_KEY) }catch(_){}
+  try{
+    await createSession($('#storeSel').value || S.storeNo, true);
+    toast('已重新演练');
+  }catch(e){ toast(e.message); offlineScreen() }
+});
+
+/* ---------- 商铺切换：换店开新会话（跨店互不恢复）；切回原店可恢复该店现场 ----------
+ * 「自定义门店编码」：测试环境验证用真实门店（base-shop dev 库要查得到，查无则 status_bar 报「门店不存在」类提示） */
+function setStoreOption(sn){
+  const sel=$('#storeSel');
+  if(![...sel.options].some(o=>o.value===sn)){
+    const opt=document.createElement('option'); opt.value=sn; opt.textContent=sn+' · 自定义';
+    sel.insertBefore(opt, sel.querySelector('option[value="__custom__"]'));
+  }
+  sel.value = sn;
+}
+$('#storeSel').addEventListener('change', async e=>{
+  let sn = e.target.value;
+  if(sn==='__custom__'){
+    sn = (prompt('输入门店编码（测试环境须为 base-shop dev 库真实存在的编码）', S.storeNo)||'').trim();
+    if(!/^\d{3,}$/.test(sn)){ setStoreOption(S.storeNo||'11522'); return toast('门店编码无效') }
+    setStoreOption(sn);
+  }
+  if(sn===S.storeNo && S.sid) return;
+  if(S.busy){ setStoreOption(S.storeNo); return toast('请稍候…') }
+  S.storeNo = sn;
+  try{
+    await createSession(sn);
+    toast('已切换门店：'+sn);
+  }catch(err){
+    if(err.code===40401) await rebuild('会话已过期，已自动重新开始');
+    else { toast(err.message); offlineScreen() }
+  }
+});
+
+/* ---------- 样例照片选择器（模拟相机/相册 → 明道云直传的 uploadPhotos 钩子） ---------- */
+const SAMPLES = [
+  {name:'冷柜故障现场.jpg', url:'https://demo.hotmaxx.cn/repairs/sample-fridge.jpg'},
+  {name:'设备铭牌.jpg',     url:'https://demo.hotmaxx.cn/repairs/sample-nameplate.jpg'},
+  {name:'下架鲜奶照片.jpg', url:'https://demo.hotmaxx.cn/repairs/sample-milk.jpg'}
+];
+Object.assign(SAMPLE_SVG, {
+ 'https://demo.hotmaxx.cn/repairs/sample-fridge.jpg':
+  '<svg viewBox="0 0 120 78" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="78" fill="#dfeaf5"/><rect x="28" y="9" width="46" height="60" rx="4" fill="#f6fafd" stroke="#b9c9da"/><line x1="28" y1="33" x2="74" y2="33" stroke="#b9c9da"/><circle cx="68" cy="21" r="2.4" fill="#8fa6bd"/><circle cx="68" cy="47" r="2.4" fill="#8fa6bd"/><text x="86" y="30" font-size="15" fill="#5b8ac2">❄</text><text x="84" y="50" font-size="10" fill="#c0392b">15℃</text><rect x="8" y="57" width="14" height="12" rx="2" fill="#eef3f9" stroke="#c9d6e2"/></svg>',
+ 'https://demo.hotmaxx.cn/repairs/sample-nameplate.jpg':
+  '<svg viewBox="0 0 120 78" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="78" fill="#ece9e2"/><rect x="18" y="16" width="84" height="46" rx="4" fill="#f7f5f1" stroke="#c9c3b6"/><circle cx="24" cy="22" r="2" fill="#b3ac9c"/><circle cx="96" cy="22" r="2" fill="#b3ac9c"/><circle cx="24" cy="56" r="2" fill="#b3ac9c"/><circle cx="96" cy="56" r="2" fill="#b3ac9c"/><rect x="32" y="28" width="52" height="5" rx="2" fill="#b9b2a3"/><rect x="32" y="38" width="38" height="4" rx="2" fill="#cfc9bb"/><rect x="32" y="47" width="44" height="4" rx="2" fill="#cfc9bb"/></svg>',
+ 'https://demo.hotmaxx.cn/repairs/sample-milk.jpg':
+  '<svg viewBox="0 0 120 78" xmlns="http://www.w3.org/2000/svg"><rect width="120" height="78" fill="#f2ede4"/><rect x="0" y="58" width="120" height="5" fill="#d9cdb8"/><rect x="16" y="26" width="22" height="32" rx="2" fill="#fdfdfb" stroke="#d5cbb8"/><rect x="20" y="22" width="14" height="6" rx="1" fill="#7fb2e5"/><rect x="46" y="30" width="22" height="28" rx="2" fill="#fdfdfb" stroke="#d5cbb8"/><rect x="50" y="26" width="14" height="6" rx="1" fill="#7fb2e5"/><rect x="76" y="26" width="22" height="32" rx="2" fill="#fdfdfb" stroke="#d5cbb8"/><rect x="80" y="22" width="14" height="6" rx="1" fill="#7fb2e5"/><rect x="26" y="8" width="42" height="12" rx="3" fill="#e5484d"/><text x="31" y="17" font-size="8" fill="#fff">已下架</text></svg>'
+});
+let sheetSel = new Set(), sheetResolve = null;
+CONFIG.uploadPhotos = () => new Promise(res=>{ sheetResolve=res; renderSheet(); $('#sheet').classList.add('on') });
+function closeSheet(v){
+  $('#sheet').classList.remove('on'); sheetSel.clear();
+  const r=sheetResolve; sheetResolve=null; if(r) r(v||[]);
+}
+function renderSheet(){
+  const remain = Math.max(5-S.sentUrls.size, 0);
+  $('#phGrid').innerHTML = SAMPLES.map(s=>{
+    const used=S.sentUrls.has(s.url), sel=sheetSel.has(s.url);
+    return '<button class="ph-item'+(used?' used':(sel?' sel':''))+'"'+(used?' disabled ':'')+
+           ' data-url="'+esc(s.url)+'">'+(SAMPLE_SVG[s.url]||'')+
+           '<span class="nm">'+esc(s.name)+(used?'（已上传）':'')+'</span></button>';
+  }).join('');
+  const n=[...sheetSel].filter(u=>!S.sentUrls.has(u)).length;
+  $('#sheetSend').disabled=!n;
+  $('#sheetSend').textContent=n?('发送 '+n+' 张照片'):'发送照片';
+  $('#sheet').querySelector('.sub').textContent='还可上传 '+remain+' 张（单会话 ≤5，按地址去重；真实环境为相机/相册+明道云直传）';
+}
+$('#sheetCancel').addEventListener('click', ()=>closeSheet([]));
+$('#sheetSend').addEventListener('click', ()=>{
+  const add = SAMPLES.filter(s=>sheetSel.has(s.url) && !S.sentUrls.has(s.url))
+                     .map(s=>({name:s.name, url:s.url}));
+  closeSheet(add);                            // uploadFlow 统一负责去重/上限/回发
+});
+$('#phGrid').addEventListener('click', e=>{
+  const it=e.target.closest('.ph-item');
+  if(!it || it.disabled) return;
+  const u=it.dataset.url;
+  if(S.sentUrls.has(u)) return;
+  if(sheetSel.has(u)) sheetSel.delete(u);
+  else{
+    const picked=[...sheetSel].filter(x=>!S.sentUrls.has(x)).length;
+    if(S.sentUrls.size+picked>=5) return toast('最多 5 张');
+    sheetSel.add(u);
+  }
+  renderSheet();
+});
+
+/* ---------- 侧栏台词一键填入 ---------- */
+document.addEventListener('click', e=>{
+  const s=e.target.closest('.say'); if(!s) return;
+  if(S.state==='done') return toast('本单已提交，点「＋ 再修一单」继续');
+  $('#input').value = s.dataset.fill||'';
+  $('#input').focus();
+  toast('已填入台词，可直接发送');
+});
+
+/* ---------- 入口（正式版与演示版共用） ---------- */
+if(CONFIG.fineNote) $('#fineprint').textContent='AI 生成内容请核对后提交 · '+CONFIG.fineNote;
+if(!S.storeNo){ configScreen() } else { boot() }
+</script>
+</body>
+</html>

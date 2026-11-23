@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>门店报修 AI 填报 · 生产上线清单（2026-11-23 重整）</title>
+<style>
+  :root{
+    --ink:#1e293b; --sub:#64748b; --line:#e2e8f0; --bg:#f4f6f8;
+    --blue:#2563eb; --blue-bg:#eff6ff;
+    --green:#16a34a; --green-bg:#f0fdf4;
+    --red:#dc2626; --red-bg:#fef2f2;
+    --amber:#b45309; --amber-bg:#fffbeb;
+    --violet:#7c3aed; --violet-bg:#f5f3ff;
+    --gray:#94a3b8; --gray-bg:#f1f5f9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:920px;margin:0 auto;padding:28px 20px 56px}
+
+  /* ---------- 头部 ---------- */
+  header{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px 22px;box-shadow:0 1px 3px rgba(15,23,42,.05)}
+  .hd-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+  h1{margin:0;font-size:19px;letter-spacing:.5px}
+  .sub{margin:6px 0 0;font-size:12.5px;color:var(--sub);line-height:1.7}
+  .bigpct-wrap{text-align:right;flex:none}
+  .bigpct{font-size:30px;font-weight:700;color:var(--blue);line-height:1}
+  .bigpct-l{display:block;font-size:11.5px;color:var(--sub);margin-top:3px}
+  .obar{height:8px;border-radius:999px;background:var(--gray-bg);margin-top:16px;overflow:hidden}
+  .obar i{display:block;height:100%;border-radius:999px;background:var(--blue);transition:width .3s}
+  .chips{margin-top:10px;font-size:12.5px;color:var(--sub)}
+  .chips b{color:var(--ink)}
+
+  /* ---------- 卡片通用 ---------- */
+  .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin-top:14px;box-shadow:0 1px 3px rgba(15,23,42,.05)}
+  .cap{font-size:12px;color:var(--sub);font-weight:600;letter-spacing:1px;margin-bottom:10px}
+
+  /* ---------- 进展速览 ---------- */
+  .glance li{display:flex;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13.5px;line-height:1.65;list-style:none}
+  .glance li:last-child{border-bottom:none}
+  .glance .d{flex:none;color:var(--sub);font-variant-numeric:tabular-nums;font-size:12px;padding-top:2px;width:44px}
+  .glance .ok{flex:none;color:var(--green);font-weight:700}
+  .glance .n{font-weight:600}
+  .glance .gl-note{color:var(--sub);font-weight:400}
+  ul{margin:0;padding:0}
+
+  /* ---------- 阶段卡 ---------- */
+  .stage{margin-top:14px}
+  .s-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .s-num{flex:none;width:26px;height:26px;border-radius:50%;background:var(--blue-bg);color:var(--blue);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .stage.p-done .s-num{background:var(--green-bg);color:var(--green)}
+  h2{margin:0;font-size:15.5px;flex:1;min-width:200px}
+  .s-right{display:flex;align-items:center;gap:10px}
+  .track{width:90px;height:6px;border-radius:999px;background:var(--gray-bg);overflow:hidden}
+  .track i{display:block;height:100%;border-radius:999px;background:var(--blue);width:0;transition:width .3s}
+  .stage.p-done .track i{background:var(--green)}
+  .pct{font-size:12px;color:var(--sub);font-variant-numeric:tabular-nums;width:34px;text-align:right}
+  .badge{font-size:11px;padding:2px 9px;border-radius:999px;background:var(--gray-bg);color:var(--sub);flex:none}
+  .badge.doing{background:var(--blue-bg);color:var(--blue)}
+  .badge.done{background:var(--green-bg);color:var(--green)}
+
+  /* ---------- 清单条目 ---------- */
+  .items{margin-top:6px}
+  .ck{display:flex;align-items:flex-start;gap:10px;padding:9px 10px;border-radius:8px;cursor:pointer;list-style:none;transition:background .12s}
+  .ck:hover{background:#f8fafc}
+  .ck .box{flex:none;width:17px;height:17px;border:1.5px solid #cbd5e1;border-radius:4px;margin-top:2px;position:relative;transition:all .15s}
+  .ck.on .box{background:var(--green);border-color:var(--green)}
+  .ck.on .box::after{content:"";position:absolute;left:4.5px;top:1.5px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+  .ck .txt{font-size:13.5px;line-height:1.65;flex:1}
+  .ck.on .txt{color:var(--sub);text-decoration:line-through;text-decoration-color:#cbd5e1}
+  .ck .note{display:block;font-size:12px;color:var(--sub);line-height:1.6;margin-top:2px}
+  .ck.pre{background:var(--green-bg)}
+  .ck.pre:hover{background:#e6f9ec}
+  .ck.pre .txt{text-decoration:none;color:var(--green);font-weight:600}
+  .ck.pre.on .txt{color:var(--green)}
+  .ck .done-tag{flex:none;font-size:11px;color:var(--green);border:1px solid #bbf7d0;background:#f0fdf4;border-radius:999px;padding:1px 8px;margin-top:3px}
+
+  /* 负责人标签 */
+  .ow{display:inline-block;font-size:11px;border-radius:4px;padding:1px 6px;margin-right:6px;vertical-align:1px;white-space:nowrap}
+  .ow.me{background:var(--blue-bg);color:var(--blue)}
+  .ow.hv{background:var(--violet-bg);color:var(--violet)}
+  .ow.ops{background:var(--amber-bg);color:var(--amber)}
+  .ow.ext{background:var(--gray-bg);color:var(--sub)}
+  .ow.both{background:var(--red-bg);color:var(--red)}
+
+  /* 风险条目 */
+  .ck.warn{border-left:3px solid var(--red);background:var(--red-bg)}
+  .ck.warn:hover{background:#fee9e9}
+  .ck.warn.on{background:#fdf4f4}
+
+  /* ---------- 信息卡:回滚 / 风险 ---------- */
+  .info-card{background:#fffbeb;border-color:#fde68a}
+  .risk-card{background:var(--red-bg);border-color:#fecaca}
+  .info-list li{list-style:none;padding:7px 0;border-bottom:1px dashed rgba(0,0,0,.08);font-size:13.5px;line-height:1.7}
+  .info-list li:last-child{border-bottom:none}
+  .info-list .n{font-weight:700}
+  .info-list.risk li{border-bottom-color:rgba(220,38,38,.15)}
+  .info-list.risk .n{color:var(--red)}
+
+  /* ---------- 底部工具 ---------- */
+  .tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:18px}
+  .btn{font-size:12.5px;padding:7px 14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer}
+  .btn:hover{border-color:#94a3b8}
+  .btn.pri{background:var(--blue);border-color:var(--blue);color:#fff}
+  .btn.pri:hover{background:#1d4ed8}
+  .tip{font-size:12px;color:var(--sub);line-height:1.6}
+  footer{margin-top:14px;font-size:11.5px;color:var(--gray);text-align:center}
+  @media print{
+    body{background:#fff}
+    .tools{display:none}
+    .card,header{box-shadow:none;break-inside:avoid}
+    .ck .box{border-color:#999}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="hd-top">
+      <div>
+        <h1>门店报修 AI 填报 · 生产上线清单</h1>
+        <p class="sub">2026-11-23 重整 · 以 11-20 清单为底，按当前 git/文档状态刷新：已完成项绿底标出，新增项与风险点红条标注。<br>
+        负责人：【我方】AgentServerCenter 侧 ·【Harvey】拍板/亲历 ·【运维】K8s/发布平台 ·【他方】前端/明道云管理员/HotShop App</p>
+      </div>
+      <div class="bigpct-wrap">
+        <span class="bigpct" id="oPct">0%</span>
+        <span class="bigpct-l">总进度（<span id="oCnt">0/0</span>）</span>
+      </div>
+    </div>
+    <div class="obar"><i id="oFill" style="width:0"></i></div>
+    <div class="chips" id="oChips"></div>
+  </header>
+
+  <div class="card">
+    <div class="cap">进展速览 · 11-20 清单之后完成的事</div>
+    <ul class="glance">
+      <li><span class="d">11-20</span><span class="ok">✓</span><span><span class="n">Java 转发层修复已提交推送</span> <span class="gl-note">（51cfeb1「请求打通」）——11-20 清单头号风险销项</span></span></li>
+      <li><span class="d">11-20</span><span class="ok">✓</span><span><span class="n">报修人/手机号接 base-shop 员工档案</span> <span class="gl-note">（#19）查无退空不伪造，演示假值时代结束；报修人改非必填、可 update 轮改名（#25）</span></span></li>
+      <li><span class="d">11-20</span><span class="ok">✓</span><span><span class="n">门店大区接 base-shop 写入报修单</span> <span class="gl-note">（#20）只精确匹配，对不上记 skipped 不硬写</span></span></li>
+      <li><span class="d">11-21</span><span class="ok">✓</span><span><span class="n">配置全部迁 Nacos</span> <span class="gl-note">优先级 环境变量 &gt; Nacos &gt; .env &gt; 默认值；生产配置不再依赖「默认值烧测试真值」的旧口径</span></span></li>
+      <li><span class="d">11-21</span><span class="ok">✓</span><span><span class="n">期望上门/影响营业两字段全链路取消</span> <span class="gl-note">（#27）明道云控件需求撤销，槽位 9→7，pytest 198 全过</span></span></li>
+      <li><span class="d">11-21</span><span class="ok">✓</span><span><span class="n">深度精简</span> <span class="gl-note">（#28）tests 13→5 文件、poc 31→10，用例数不变零覆盖损失</span></span></li>
+      <li><span class="d">11-21</span><span class="ok">✓</span><span><span class="n">会话查询 GET/POST 同义</span> <span class="gl-note">（#26）绕开网关同地址 GET/POST 登记互斥，App 统一走 POST</span></span></li>
+      <li><span class="d">11-23</span><span class="ok">✓</span><span><span class="n">字段核对定案</span> <span class="gl-note">门店属性/地址/营业时间＝明道云工作流回填，AI 单开 mdy_trigger_workflow 即对齐，不用接 base-shop；紧急程度只读不动；报修人＝shopApp 同款固定账号</span></span></li>
+      <li><span class="d">11-23</span><span class="ok">✓</span><span><span class="n">大区生产口径验通</span> <span class="gl-note">生产 level2 组织与明道云 12 个选项一一对应（含 10815→华北二区端到端实证），当前链路零改动；dev 验不了属测试数据问题</span></span></li>
+      <li><span class="d">11-23</span><span class="ok">✓</span><span><span class="n">报修人固定账号做成配置</span> <span class="gl-note">（cd98271）mdy_report_submitter_id，Nacos 可覆盖；测试环境区域对接表已同步 12 个大区行</span></span></li>
+      <li><span class="d">11-23</span><span class="ok">✓</span><span><span class="n">UX 修复已提交</span> <span class="gl-note">（af096c2）确认单后说改类别重弹卡 + ack 应和 6-15 字 + 话术精简（talks/prompts）+ 建单状态文案跟随 trigger_workflow；（39f5f5d）日志时间格式</span></span></li>
+    </ul>
+  </div>
+
+  <div class="card stage" data-st="s0">
+    <div class="s-head">
+      <span class="s-num">〇</span><h2>dev 验收收口（上线前置）</h2>
+      <div class="s-right"><span class="track"><i></i></span><span class="pct">0%</span><span class="badge">未开始</span></div>
+    </div>
+    <ul class="items">
+      <li class="ck pre on" data-pre data-id="s0-java"><span class="box"></span><span class="txt"><span class="ow me">我方</span>Java 修复提交并发布 dev：RepairAgentController 身份修复 <span class="note">51cfeb1「请求打通」2026-11-20 已提交并推 origin/dev，头号风险销项</span></span><span class="done-tag">已完成</span></li>
+      <li class="ck" data-id="s0-deploy"><span class="box"></span><span class="txt"><span class="ow ops">运维</span>dev 重新部署最新代码（af096c2 UX 修复 + 39f5f5d 之后未部署）<span class="note">当前 dev pod 跑的还是旧包——验收前先发布，别拿旧体验下结论</span></span></li>
+      <li class="ck" data-id="s0-pytest"><span class="box"></span><span class="txt"><span class="ow hv">Harvey</span>本机 uv sync 后 pytest 全绿确认<span class="note">11-23 深夜 UX 修复与报修人配置两轮改动之后需再跑一遍</span></span></li>
+      <li class="ck" data-id="s0-accept"><span class="box"></span><span class="txt"><span class="ow hv">Harvey</span>验收脚本 S1-S6 重跑（poc/acceptance_check.py，场景化已修好调用签名）</span></li>
+      <li class="ck" data-id="s0-e2e"><span class="box"></span><span class="txt"><span class="ow me">我方</span>e2e 用例表更新（11-20 时 22/34，红 12 条＝旧类目名×4 / 降级阈值口径×2 / 旧话术×6）</span></li>
+      <li class="ck" data-id="s0-threshold"><span class="box"></span><span class="txt"><span class="ow hv">Harvey</span>降级阈值拍板真口径：fallback_after_fails（测试 3 / 默认 15）、llm_quota_per_session（测试 6 / 默认 30），拍板后生产按此配</span></li>
+      <li class="ck" data-id="s0-eval"><span class="box"></span><span class="txt"><span class="ow me">我方</span>评测基线重跑 + 清 B01/B02 骑墙值 xfail</span></li>
+      <li class="ck" data-id="s0-wf"><span class="box"></span><span class="txt"><span class="ow hv">Harvey</span>测试环境开 mdy_trigger_workflow 验证门店三字段回填<span class="note">字段核对已定案：门店属性/地址/营业时间＝工作流回填，开了即与 App 单对齐；同时确认工作流不会误派单</span></span></li>
+      <li class="ck" data-id="s0-ckpt"><span class="box"></span><span class="txt"><span class="ow me">我方</span>CHECKPOINT_MODE=postgres 在 dev 验证（草稿不丢、埋点落库、/readyz 探得到库）</span></li>
+      <li class="ck warn" data-id="s0-storename"><span class="box"></span><span class="txt"><span class="ow both">Harvey+前端</span>确认单不显示门店名称问题定位<span class="note">API 下发有（日志「确认单已组装 7 字段」含 store 首位），疑前端渲染滤掉不可编辑项——等确认是演示页还是前端页面</span></span></li>
+    </ul>
+  </div>
+
+  <div class="card stage" data-st="s1">
+    <div class="s-head">
+      <span class="s-num">一</span><h2>Python 服务（AgentServerCenter）</h2>
+      <div class="s-right"><span class="track"><i></i></span><span class="pct">0%</span><span class="badge">未开始</span></div>
+    </div>
+    <ul class="items">
+      <li class="ck" data-id="s1-freeze"><span class="box"></span><span class="txt"><span class="ow me">我方</span>代码冻结：dev 分支 pytest 全绿 + 变更记录补最后一笔</span></li>
+      <li class="ck warn" data-id="s1-nacos"><span class="box"></span><span class="txt"><span class="ow both">我方+Harvey</span>生产 Nacos 配置：生产 namespace 建 agent-server-center.yaml（AGENT_GROUP）<span class="note">配置已全迁 Nacos（优先级 环境变量 &gt; Nacos &gt; .env &gt; 默认值）。生产须配：CHECKPOINT_MODE=postgres、生产 PG_DSN、LLM_API_KEY 换新（测试 key 视同已泄露）、MDY 四项核对生产表、MDY_REPORT_SUBMITTER_ID、FALLBACK_AFTER_FAILS / LLM_QUOTA（按拍板值）</span></span></li>
+      <li class="ck warn" data-id="s1-wf"><span class="box"></span><span class="txt"><span class="ow hv">Harvey</span>MDY_TRIGGER_WORKFLOW 拍板<span class="note">默认 false＝门店三字段不回填、不派单；开 true 前确认测试期间工作流不误派单（与阶段〇验证联动）</span></span></li>
+      <li class="ck warn" data-id="s1-alias"><span class="box"></span><span class="txt"><span class="ow me">我方</span>明道云地址控件 alias 双环境对调核对<span class="note">测试 67ee=shopAddress；正式 6a1=shopAddress、67ee=shopDetailAddress——切正式环境前必须按 controlId 重核 fields.py</span></span></li>
+      <li class="ck" data-id="s1-ci"><span class="box"></span><span class="txt"><span class="ow me">我方+运维</span>CI 构建生产镜像</span></li>
+      <li class="ck" data-id="s1-deploy"><span class="box"></span><span class="txt"><span class="ow ops">运维</span>生产 namespace 建 Deployment / Service / Helm<span class="note">agent-server-center 目前只部署了 dev，生产是全新链路：含 NACOS_* bootstrap 配置注入。Service 命名按 Python 组惯例：prod-python-provider-agent-server-center-svc、ns=python、svc 端口 80 → targetPort 8000（Java 侧地址自判已按此写死，名字/端口不符需 AGENT_BASE_URL env 兜底）</span></span></li>
+      <li class="ck warn" data-id="s1-probe"><span class="box"></span><span class="txt"><span class="ow ops">运维</span>探针三处端口 80→8000，且改动同步进 Helm 模板/云效配置<span class="note">dev 踩过：不改＝CrashLoop / NotReady / endpoints 打到 80；只改运行时不同步模板＝下次发布静默回退</span></span></li>
+      <li class="ck" data-id="s1-secret"><span class="box"></span><span class="txt"><span class="ow ops">运维</span>env 以 Secret 注入优先（至少 PG_DSN 和 LLM key）<span class="note">凭据出库 + key 轮换方案另行推进（放量前跟踪）</span></span></li>
+    </ul>
+  </div>
+
+  <div class="card stage" data-st="s2">
+    <div class="s-head">
+      <span class="s-num">二</span><h2>Java 转发层（provider-biz-ai-middle）</h2>
+      <div class="s-right"><span class="track"><i></i></span><span class="pct">0%</span><span class="badge">未开始</span></div>
+    </div>
+    <ul class="items">
+      <li class="ck pre on" data-pre data-id="s2-merge"><span class="box"></span><span class="txt"><span class="ow me">我方</span>合并上线包：身份修复 + X-Uid 注入<span class="note">51cfeb1 已提交推送，工作树干净</span></span><span class="done-tag">已完成</span></li>
+      <li class="ck pre on" data-pre data-id="s2-url"><span class="box"></span><span class="txt"><span class="ow me">我方</span>agent 地址按环境自判（代码已改，待提交发布）<span class="note">resolveBaseUrl()：AGENT_BASE_URL env 优先；否则 ACTIVE_ENV 自拼（pro*→prod 前缀+80 端口，dev→8000），启动日志打印解析结果。事实依据（prod 跳板机 11-23 实查）：ACTIVE_ENV=pro、python svc 惯例=prod- 前缀/ns python/端口 80</span></span><span class="done-tag">已完成</span></li>
+      <li class="ck" data-id="s2-release"><span class="box"></span><span class="txt"><span class="ow ops">运维</span>生产发布 + 重启</span></li>
+    </ul>
+  </div>
+
+  <div class="card stage" data-st="s3">
+    <div class="s-head">
+      <span class="s-num">三</span><h2>网关 / 公共平台登记（生产重做一遍，不能拷 dev）</h2>
+      <div class="s-right"><span class="track"><i></i></span><span class="pct">0%</span><span class="badge">未开始</span></div>
+    </div>
+    <ul class="items">
+      <li class="ck" data-id="s3-reg"><span class="box"></span><span class="txt"><span class="ow hv">Harvey</span><span class="ow ext">门户</span>生产公共平台登记五接口（prefix=/agent/repair/v1）<span class="note">POST /sessions、POST /sessions/*（messages/submit/exit）、会话详情（统一 POST 口径，GET/POST 同义）</span></span></li>
+      <li class="ck" data-id="s3-params"><span class="box"></span><span class="txt"><span class="ow hv">Harvey</span><span class="ow ext">门户</span>登记参数按生产实际：平台 ID（dev 是 HotShop=10，生产从 App 真实请求确认）、is_auth、host=生产 provider-biz-ai-middle Service 域名、端口按生产 Service</span></li>
+      <li class="ck" data-id="s3-addapi"><span class="box"></span><span class="txt"><span class="ow hv">Harvey</span>通配符登记必须走门户 AddApi（自动进 Redis go:gateway:wildcard，直接插库不生效）</span></li>
+      <li class="ck" data-id="s3-curl"><span class="box"></span><span class="txt"><span class="ow me">我方</span>登记后等 60s 刷新周期，逐接口 curl 验证<span class="note">GET 与 * 行匹配顺序无序，可能稳定命中错行报「方法不允许」——dev 已知坑</span></span></li>
+    </ul>
+  </div>
+
+  <div class="card stage" data-st="s4">
+    <div class="s-head">
+      <span class="s-num">四</span><h2>App / 前端（他方）</h2>
+      <div class="s-right"><span class="track"><i></i></span><span class="pct">0%</span><span class="badge">未开始</span></div>
+    </div>
+    <ul class="items">
+      <li class="ck" data-id="s4-app"><span class="box"></span><span class="txt"><span class="ow ext">他方</span>HotShop App 配生产网关地址（不写死 dev 域名）+ 登录 token + 生产 X-PlatformId</span></li>
+      <li class="ck" data-id="s4-fe"><span class="box"></span><span class="txt"><span class="ow ext">他方</span><span class="ow me">我方</span>正式版前端按 02-卡片渲染规范联调（grouped 两级卡、弹窗可取消/回显）；联调前我方重导 apifox-openapi.json</span></li>
+      <li class="ck warn" data-id="s4-render"><span class="box"></span><span class="txt"><span class="ow ext">前端</span>确认单门店名称渲染（随阶段〇定位结论修）<span class="note">API 侧已确认下发，问题在前端渲染层</span></span></li>
+    </ul>
+  </div>
+
+  <div class="card stage" data-st="s5">
+    <div class="s-head">
+      <span class="s-num">五</span><h2>上线冒烟（生产全链路）</h2>
+      <div class="s-right"><span class="track"><i></i></span><span class="pct">0%</span><span class="badge">未开始</span></div>
+    </div>
+    <ul class="items">
+      <li class="ck" data-id="s5-session"><span class="box"></span><span class="txt">创建会话（curl 换生产网关域名）→ 返回 session_id + 首屏消息</li>
+      <li class="ck" data-id="s5-order"><span class="box"></span><span class="txt">一句话识别 → 确认单 → 真实提交一张生产报修单 → 明道云回查字段齐、分类回显正确</li>
+      <li class="ck warn" data-id="s5-gray"><span class="box"></span><span class="txt"><span class="ow hv">Harvey</span>灰度第一单重点验两件事<span class="note">①大区 6b4 落值（Dropdown 静默丢弃不报错，没 skipped ≠ 写进去了，要回读确认）②门店三字段回填（triggerWorkflow 开启后）</span></span></li>
+      <li class="ck" data-id="s5-resume"><span class="box"></span><span class="txt">会话恢复（重进拿回草稿，验 CHECKPOINT_MODE=postgres 生效）</li>
+      <li class="ck" data-id="s5-misc"><span class="box"></span><span class="txt">手机号掩码、照片上传、退出会话各过一遍</li>
+      <li class="ck" data-id="s5-obs"><span class="box"></span><span class="txt">/readyz 绿；Pod 1/1 Ready；埋点能查（数据留存与埋点查询.md 口径）</li>
+    </ul>
+  </div>
+
+  <div class="card stage" data-st="s6">
+    <div class="s-head">
+      <span class="s-num">放</span><h2>放量前（可上线后做，但有外部前置期）</h2>
+      <div class="s-right"><span class="track"><i></i></span><span class="pct">0%</span><span class="badge">未开始</span></div>
+    </div>
+    <ul class="items">
+      <li class="ck pre on" data-pre data-id="s6-emp"><span class="box"></span><span class="txt"><span class="ow me">我方</span>报修人/手机号接员工档案<span class="note">#19/#25 已落地：查无退空不伪造、空可提交、update 轮可改名——「上线阻塞」解除</span></span><span class="done-tag">已完成</span></li>
+      <li class="ck pre on" data-pre data-id="s6-region"><span class="box"></span><span class="txt"><span class="ow me">我方</span>门店大区真值接入<span class="note">#20 落地 + 11-23 生产口径验通（level2 与明道云 12 选项一一对应），零改动；留灰度第一单回读验证（见阶段五）</span></span><span class="done-tag">已完成</span></li>
+      <li class="ck" data-id="s6-phone"><span class="box"></span><span class="txt"><span class="ow hv">Harvey</span>拍板：座机/店内短号算不算有效联系方式</li>
+      <li class="ck" data-id="s6-lock"><span class="box"></span><span class="txt"><span class="ow me">我方</span>多副本并发：分布式锁（sessions.py TODO(PG)）+ 建单「已发出未回包」先占位（tools.py TODO）</li>
+      <li class="ck" data-id="s6-cred"><span class="box"></span><span class="txt"><span class="ow hv">Harvey</span>凭据出库 + key 轮换方案<span class="note">现口径：配置已迁 Nacos，Secret 化与测试 key 作废另行推进</span></span></li>
+      <li class="ck" data-id="s6-p17"><span class="box"></span><span class="txt"><span class="ow hv">Harvey</span>#17 三个小拍板（Slot.predict 删否 / mock_llm 半句兼容说明 / routes docstring 互链）</li>
+    </ul>
+  </div>
+
+  <div class="card info-card">
+    <div class="cap">回滚预案</div>
+    <ul class="info-list">
+      <li><span class="n">Python：</span>回退上一个镜像 tag 重新发布（配置随镜像，回滚＝连配置一起回；Nacos 注入的配置不受镜像回滚影响，注意核对）</li>
+      <li><span class="n">Java：</span>回退 provider-biz-ai-middle 上一版本（AGENT_BASE_URL 若 env 覆盖过，回滚后确认 env 是否残留）</li>
+      <li><span class="n">入口止血（最快）：</span>公共平台停用网关登记记录 → 60s 内 App 侧全断，不动任何服务</li>
+    </ul>
+  </div>
+
+  <div class="card risk-card">
+    <div class="cap">风险点名（不解决别按上线按钮）</div>
+    <ul class="info-list risk">
+      <li><span class="n">① dev 跑的还是旧包</span>——UX 修复（af096c2）之后未重新部署，验收前先发，否则拿旧体验下 UI 结论。</li>
+      <li><span class="n">② MDY_TRIGGER_WORKFLOW 默认 false</span>——不开则门店属性/地址/营业时间永远空、不派单；开之前确认工作流副作用（测试环境先验）。</li>
+      <li><span class="n">③ 地址控件 alias 双环境对调</span>——正式环境 6a1=shopAddress、67ee=shopDetailAddress，与测试相反；切环境前按 controlId 重核 fields.py，否则地址写错字段。</li>
+      <li><span class="n">④ 探针端口改动没进 Helm 模板</span>——第一次生产发布就可能踩 dev 同款 NotReady / 容器被杀。</li>
+      <li><span class="n">⑤ 生产零部署</span>——agent-server-center 只有 dev namespace；Nacos 生产配置、镜像、Deployment、网关登记全是第一次走，冒烟要留足时间。</li>
+    </ul>
+  </div>
+
+  <div class="tools">
+    <button class="btn pri" id="btnExport">导出快照</button>
+    <button class="btn" id="btnImport">导入快照</button>
+    <button class="btn" id="btnReset">重置勾选</button>
+    <span class="tip" id="toolTip">勾选自动保存在本浏览器；换电脑用「导出/导入快照」迁移。</span>
+  </div>
+  <footer>门店报修 AI 填报 · 生产上线清单 · 2026-11-23 重整（底稿：2026-11-20-生产上线清单.md，勾选互不影响原 md）</footer>
+
+</div>
+
+<script>
+(function(){
+  var KEY='hotmaxx-repair-launch-v1';
+
+  function stages(){return Array.prototype.slice.call(document.querySelectorAll('.card.stage'));}
+  function rows(){return Array.prototype.slice.call(document.querySelectorAll('.ck'));}
+  function rowKey(r,i){return r.getAttribute('data-id')||('ck'+(i+1));}
+
+  function load(){
+    try{var s=JSON.parse(localStorage.getItem(KEY)||'{}').statuses||{};
+      var rs=rows();
+      for(var i=0;i<rs.length;i++){
+        var k=rowKey(rs[i],i);
+        if(Object.prototype.hasOwnProperty.call(s,k))rs[i].classList.toggle('on',!!s[k]);
+      }
+    }catch(e){}
+  }
+  function save(){
+    var s={},rs=rows();
+    for(var i=0;i<rs.length;i++)s[rowKey(rs[i],i)]=rs[i].classList.contains('on')?1:0;
+    try{localStorage.setItem(KEY,JSON.stringify({ts:Date.now(),statuses:s}));}catch(e){}
+  }
+  function render(){
+    var total=0,done=0;
+    var sts=stages();
+    for(var i=0;i<sts.length;i++){
+      var cks=sts[i].querySelectorAll('.ck'),w=0;
+      for(var j=0;j<cks.length;j++){total++;if(cks[j].classList.contains('on')){done++;w++;}}
+      var pct=cks.length?Math.round(w/cks.length*100):0;
+      var bar=sts[i].querySelector('.track i');if(bar)bar.style.width=pct+'%';
+      var pe=sts[i].querySelector('.pct');if(pe)pe.textContent=pct+'%';
+      var bd=sts[i].querySelector('.badge');
+      if(bd){bd.textContent=(pct>=100?'已完成':(pct>0?'进行中':'未开始'));
+        bd.className='badge'+(pct>=100?' done':(pct>0?' doing':''));}
+      sts[i].classList.toggle('p-done',pct>=100);
+    }
+    var op=total?Math.round(done/total*100):0;
+    document.getElementById('oFill').style.width=op+'%';
+    document.getElementById('oPct').textContent=op+'%';
+    document.getElementById('oCnt').textContent=done+'/'+total;
+    document.getElementById('oChips').innerHTML='已完成 <b>'+done+'</b> 项 · 待办 <b>'+(total-done)+'</b> 项 · 勾选状态自动存在本浏览器';
+  }
+  function bind(){
+    var rs=rows();
+    for(var i=0;i<rs.length;i++){
+      rs[i].addEventListener('click',function(e){
+        if(e.target.closest('a'))return;
+        this.classList.toggle('on');save();render();
+      });
+    }
+    var ex=document.getElementById('btnExport');
+    if(ex)ex.addEventListener('click',function(){
+      var s={},rs=rows();
+      for(var i=0;i<rs.length;i++)s[rowKey(rs[i],i)]=rs[i].classList.contains('on')?1:0;
+      var payload={app:'hotmaxx-repair-launch',version:1,ts:Date.now(),statuses:s};
+      var d=new Date();function p(n){return (n<10?'0':'')+n;}
+      var fname='上线清单快照-'+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes())+'.json';
+      var a=document.createElement('a');
+      a.href=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));
+      a.download=fname;a.click();URL.revokeObjectURL(a.href);
+    });
+    var im=document.getElementById('btnImport');
+    if(im)im.addEventListener('click',function(){
+      var inp=document.createElement('input');inp.type='file';inp.accept='.json';
+      inp.onchange=function(){
+        var f=inp.files[0];if(!f)return;
+        var r=new FileReader();
+        r.onload=function(){
+          try{
+            var s=JSON.parse(r.result).statuses||{};
+            var rs=rows();
+            for(var i=0;i<rs.length;i++){
+              var k=rowKey(rs[i],i);
+              if(Object.prototype.hasOwnProperty.call(s,k))rs[i].classList.toggle('on',!!s[k]);
+            }
+            save();render();flash('导入成功，勾选状态已恢复');
+          }catch(e){flash('导入失败：文件格式不对',true);}
+        };
+        r.readAsText(f);
+      };
+      inp.click();
+    });
+    var rst=document.getElementById('btnReset');
+    if(rst)rst.addEventListener('click',function(){
+      if(!confirm('清空所有勾选（恢复到文档初始状态）？'))return;
+      try{localStorage.removeItem(KEY);}catch(e){}
+      var rs=rows();
+      for(var i=0;i<rs.length;i++)rs[i].classList.toggle('on',rs[i].hasAttribute('data-pre'));
+      render();
+    });
+  }
+  var flashT=null;
+  function flash(msg,isErr){
+    var t=document.getElementById('toolTip');
+    t.textContent=msg;t.style.color=isErr?'#b91c1c':'#15803d';
+    if(flashT)clearTimeout(flashT);
+    flashT=setTimeout(function(){t.textContent='勾选自动保存在本浏览器；换电脑用「导出/导入快照」迁移。';t.style.color='';},4000);
+  }
+
+  load();bind();render();
+})();
+</script>
+</body>
+</html>
