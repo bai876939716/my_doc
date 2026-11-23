@@ -1,0 +1,49 @@
+@startuml 确认与建单
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam sequenceMessageAlign center
+
+title 确认单之后:提交 → 两级校验 → 幂等建单 → 归档
+
+participant "报修页 H5" as FE
+participant "Agent 服务" as API
+participant "采集图引擎\nsubmit 节点" as GRAPH
+participant "建单工具\ncreate_repair_order" as TOOL
+participant "明道云 HAP\n报修工作表" as MDY
+database "PG\n归档表" as PG
+
+FE -> API : POST /sessions/{sid}/submit
+alt 接口幂等预检:已出单
+  API -> PG : 补归档(上次出单后没归档成的自愈)
+  API --> FE : 原单号原样返回,不重建
+end
+alt 不在确认态(confirm_pending=false)
+  API --> FE : 40901 当前不在确认态
+end
+API -> GRAPH : 会话锁内注入内部手势 submit\n(外部接口传不进来)
+GRAPH -> GRAPH : 节点级幂等守卫\n出过单一律原号返回\n(锁外预检拦不住连点竞态)
+GRAPH -> GRAPH : 引擎通用校验(逐槽)\n必填 / 字典白名单 / 长度 / 识别器 / 附件上限
+alt 通用校验不过
+  GRAPH --> FE : 缺项塞回议程,回采集态\nsystem_tip 点名缺什么
+else 包级校验(本技能包:照片 ≥ 1 张)
+  GRAPH --> FE : 拦下,对应槽塞回议程
+end
+GRAPH -> TOOL : 建单(order_key = 会话ID)
+alt 进程内幂等缓存命中
+  TOOL --> GRAPH : 同一单号返回(不重建)
+else REAL_ORDER_ENABLED = false
+  TOOL --> GRAPH : MOCK- 单号(不写明道云)
+else REAL_ORDER_ENABLED = true
+  TOOL -> MDY : 新建行\n(trigger_workflow 可控:\n测试单不进派单工作流)
+  MDY --> TOOL : rowid\n(自动编号单号回查补齐,超时吞掉有 rowid 兜底)
+  TOOL --> GRAPH : 单号 + 状态
+end
+alt 建单成功
+  GRAPH --> FE : 结果卡(单号+状态)
+  API -> PG : 终态归档 submitted\n(session+message 归档表)
+  API -> API : 清活跃索引\n(重进 = 新单)
+else 建单失败(超时/业务驳回)
+  GRAPH --> FE : 失败提示,确认单重发\n(保留确认态可重试,不算出单)
+end
+@enduml

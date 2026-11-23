@@ -1,0 +1,53 @@
+@startuml 启动与技能包挂载自检
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+
+title 服务启动:配置校验 → 技能包自检 → 检查点装配 → 就绪探针
+
+start
+:uvicorn 启动 app.main:app;
+:import 期:可选读 Nacos 配置\n(env > Nacos > .env > 代码默认);
+:运行时配置校验 settings.validate_runtime;
+if (REAL_ORDER_ENABLED=true 且 MDY_* 四项缺?) then (是)
+  :拒启动(真实建单配置不齐不带病启动);
+  stop
+else (否)
+endif
+:构造百炼网关 build_llm;
+if (LLM_BASE_URL / LLM_API_KEY 缺失?) then (是)
+  :拒启动(永远真实调用,不静默降级;\n测试与脚本侧换桩,不在生产开关);
+  stop
+else (否)
+endif
+:技能包 repair.load() 组装五件套;
+partition "加载自检断言链(任一不过当场炸)" {
+  :槽位不重名 / 字典已注册 / 话术键齐全\n(提问话术及其 Top3·无默认变体 / 流程话术映射);
+  :识别器 · 显示形态 · 清单工具 · 清单来源槽\n都要在注册表里查得到;
+  :带值手势不重名 / 带出·建单工具已注册\n带出工具形参对得上入口参数(uid+boot_params);
+  :快捷卡点选值过当前字典白名单;\n不在的剔除并告警(不炸:在线字典被运维改是常态,\n补录后重启恢复);
+}
+if (自检通过?) then (否)
+  :启动失败(代码问题不带病启动);
+  stop
+else (是)
+endif
+if (CHECKPOINT_MODE?) then (memory)
+  :内存检查点 + 内存活跃索引\n无归档;就绪探针恒通过\n(联调模式:重启丢会话,零外部依赖);
+else (postgres)
+  :PG 连接池 → 检查点 saver\n+ 活跃索引 + 归档器;
+  note right
+    建表 + 首轮清理 + 清理线程
+    都挂在"首次就绪"上:
+    启动时 PG 未连上也不死等
+  end note
+endif
+:装配采集图\n(引擎 + 技能包 + LLM + 检查点);
+:就绪探针检查 readiness.check;
+if (依赖未就绪?) then (是)
+  :降级态运行:/readyz 503 不接流量\n转绿时建表并启动清理线程;
+else (否)
+  :就绪:/healthz liveness 200\n/readyz readiness 200;
+endif
+stop
+@enduml

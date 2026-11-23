@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="循序 · 可复用的技术学习手册。按阶段学习，理解每一条命令，记录遇到的问题。">
+<title>循序 · 技术学习手册</title>
+<style>
+:root{--bg:#ffffff;--paper:#ffffff;--sidebar:#ffffff;--ink:#242933;--muted:#707889;--line:#e6e9ef;--accent:#27BD51;--accent-dark:#296039;--soft:#f4f6f4;--green:#296039;--amber:#84672c;--radius:10px;--shadow:none;--sidebar-width:260px}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.8 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+button,input,textarea{font:inherit}
+button,a,input,textarea{-webkit-tap-highlight-color:transparent}
+button{cursor:pointer;color:inherit}
+button:disabled{cursor:default;opacity:.4}
+a{color:var(--accent);text-decoration:none;text-underline-offset:4px}
+a:hover{text-decoration:underline}
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{outline:2px solid #27BD51;outline-offset:4px}
+svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle;flex-shrink:0}
+button svg{pointer-events:none}
+[hidden]{display:none!important}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+a.sr-only:focus{position:fixed;top:10px;left:12px;width:auto;height:auto;clip:auto;overflow:visible;padding:8px 14px;margin:0;z-index:110;background:var(--paper);border:1px solid var(--accent);border-radius:5px}
+.sidebar{position:fixed;inset:0 auto 0 0;width:var(--sidebar-width);background:var(--sidebar);border-right:1px solid var(--line);z-index:30;display:flex;flex-direction:column;padding:29px 18px 20px}
+.brand{display:flex;align-items:center;gap:12px;margin:0 13px 34px;flex-shrink:0}
+.brand-mark{background:var(--ink);color:#ffffff;width:38px;height:42px;border-radius:4px 9px 9px 4px;display:grid;place-items:center}
+.brand-mark svg{width:23px;height:23px}
+.brand-name{font-size:25px;letter-spacing:4px;font-weight:650;line-height:1.2;font-family:inherit}
+.brand-en{display:block;font-size:10px;letter-spacing:1.9px;color:var(--muted);margin-top:6px}
+.nav-label{margin:0 14px 11px;color:var(--muted);font-size:12px;letter-spacing:2px;flex-shrink:0}
+.course-label{font-weight:650;font-size:16px;margin:0 14px 3px;flex-shrink:0}
+.course-caption{color:var(--muted);font-size:12px;margin:0 14px 20px;flex-shrink:0}
+.phase-nav{display:flex;flex-direction:column;gap:4px;overflow:auto;overscroll-behavior:contain;min-height:0;flex:1;padding:2px 4px 8px 0;scrollbar-width:thin;scrollbar-color:#d1d7e2 transparent}
+.nav-group{flex-shrink:0}
+.nav-row{display:flex;align-items:center;border-radius:6px;position:relative;transition:background .15s}
+.nav-row:hover{background:#f4f5f7}
+.nav-row.active{background:#f4f6f4}
+.nav-item{border:0;background:none;text-align:left;display:flex;gap:11px;align-items:center;padding:12px 8px 12px 12px;min-width:0;flex:1;position:relative;border-radius:6px}
+.nav-item.active{color:var(--accent-dark)}
+.nav-number{width:23px;display:grid;place-items:center;font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;color:#8e96a7;flex-shrink:0}
+.active .nav-number{color:var(--accent)}
+.nav-item.done .nav-number{color:var(--green)}
+.nav-number svg{width:16px;height:16px}
+.nav-text{font-size:14px;font-weight:600;min-width:0;line-height:1.6}
+.nav-sub{display:block;font-size:12px;color:var(--muted);font-weight:400;margin-top:1px}
+.sidebar-bottom{padding:17px 12px 0;flex-shrink:0;border-top:1px solid var(--line);margin-top:9px}
+.progress-card{padding:0;background:none;border:0}
+.progress-head{display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-bottom:10px}
+.progress-head strong{color:var(--accent);font-weight:600;font-variant-numeric:tabular-nums}
+.track{height:3px;border-radius:3px;background:#e6e9ef;overflow:hidden}
+.fill{height:100%;background:var(--accent);width:0%;transition:width .25s;border-radius:3px}
+.progress-caption{font-size:12px;color:var(--muted);margin:8px 0 0}
+.local-status{font-size:11px;color:#8e96a7;margin:13px 0 0;display:flex;align-items:center;gap:6px;line-height:1.65}
+.local-status svg{width:13px;height:13px}
+.app{margin-left:var(--sidebar-width)}
+.topbar{height:66px;position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;padding:0 36px;border-bottom:1px solid var(--line);background:#fffffff5;backdrop-filter:blur(12px);gap:20px}
+.breadcrumb{display:flex;align-items:center;gap:10px;color:#707889;font-size:12px;white-space:nowrap;min-width:0}
+.breadcrumb span:last-child{color:#535b6b;overflow:hidden;text-overflow:ellipsis}
+.breadcrumb svg{width:13px;height:13px;color:#9fa7b7}
+.toolbar{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.searchbox{width:206px;height:36px;position:relative;display:flex;align-items:center;gap:8px;padding:0 10px;border:1px solid var(--line);border-radius:6px;background:#f9fafd}
+.searchbox svg{width:15px;height:15px;color:#8e96a7}
+.searchbox input{border:0;outline:none;background:transparent;width:100%;font-size:14px;min-width:0;color:var(--ink)}
+.searchbox input::placeholder{color:#8e96a7}
+.searchbox:focus-within{border-color:#27BD51;background:var(--paper)}
+.searchbox kbd{font:11px/1.4 ui-monospace,SFMono-Regular,monospace;color:#8e96a7;white-space:nowrap;border:1px solid #e6e9ef;padding:0 4px;border-radius:3px}
+.btn{border:1px solid var(--line);background:transparent;padding:8px 12px;border-radius:6px;font-size:14px;line-height:1.4;display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;font-weight:500}
+.btn:hover{background:#f4f6f4;border-color:#c0e2ca}
+.btn svg{width:16px;height:16px}
+.btn-primary{background:#0b0c0f;border-color:#0b0c0f;color:#ffffff}
+.btn-primary:hover{background:#296039;border-color:#296039}
+.btn-quiet{border-color:transparent;background:transparent;color:var(--muted)}
+.mobile-toggle{display:none;border:0;background:none;padding:7px;border-radius:5px}
+.page{max-width:1100px;margin:auto;padding:47px 58px 36px}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:2px;color:#707889;display:flex;align-items:center;gap:9px}
+.eyebrow:before{content:"";width:20px;height:1px;background:#9fa7b7}
+.hero h1{font-family:inherit;font-size:30px;font-weight:700;line-height:1.35;letter-spacing:-.4px;margin:13px 0 15px;color:#0b0c0f;text-wrap:pretty}
+.hero-description{font-size:16px;color:#626a7a;margin:0;line-height:1.95;max-width:860px}
+.meta-row{display:flex;align-items:center;flex-wrap:wrap;gap:19px;margin:21px 0 35px;padding-bottom:29px;border-bottom:1px solid var(--line);font-size:12px;color:#707889}
+.meta-row span{display:inline-flex;align-items:center;gap:6px}
+.meta-row svg{width:14px;height:14px}
+.meta-row .tag{padding:2px 8px;color:var(--accent);background:#f4f6f4;border-radius:3px;font-size:12px;font-weight:600}
+.content-grid{display:block;min-width:0}
+#phaseTitle,.step-card{scroll-margin-top:91px}
+.steps{display:flex;flex-direction:column}
+.step-card{background:transparent;border:0;border-bottom:1px solid var(--line);border-radius:0;overflow:visible;box-shadow:none;padding:24px 0 29px}
+.step-card:first-child{padding-top:5px}
+.step-header{display:flex;align-items:flex-start;gap:12px;padding:0;margin-bottom:15px}
+.step-counter{font:13px/1.8 ui-monospace,SFMono-Regular,Consolas,monospace;color:#8e96a7;padding:1px 0;margin-top:3px;min-width:31px}
+.step-title{font-size:19px;font-weight:650;margin:0;line-height:1.6;flex:1;min-width:0}
+.check-control{display:flex;align-items:center;gap:7px;color:#707889;font-size:13px;white-space:nowrap;margin-top:5px;cursor:pointer}
+.check-control input{width:16px;height:16px;accent-color:#209b43;cursor:pointer;margin:0}
+.complete .check-control{color:var(--accent)}
+.step-content{padding:0 0 0 43px}
+.why{font-size:16px;color:#3c424f;margin:0 0 19px;line-height:1.95}
+.why strong{font-size:14px;font-weight:600;color:#242933}
+.action{background:#f9fafd;border-left:2px solid #d1d7e2;padding:15px 18px;border-radius:0 5px 5px 0;font-size:16px;color:#535b6b;white-space:pre-wrap;margin-bottom:20px;line-height:1.95;overflow-wrap:anywhere}
+.command{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#f8f9fb;margin:0 0 21px}
+.command-top{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#f2f4f8;color:#707889;gap:12px;font-size:12px;border-bottom:1px solid #e6e9ef}
+.terminal-label{display:flex;gap:8px;align-items:center;min-width:0}
+.terminal-label svg{width:14px;height:14px}
+.terminal-label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.copy-btn{border:0;background:none;color:#707889;font-size:12px;display:flex;align-items:center;gap:6px;padding:3px 0;flex-shrink:0}
+.copy-btn svg{width:14px;height:14px}
+.copy-btn:hover{color:#296039}
+.command pre{margin:0;padding:20px 21px 23px;overflow-x:auto;tab-size:2;color:#242933;font:14px/1.95 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.code-line{display:block;white-space:pre}
+.code-line:before{content:"$";display:inline-block;width:24px;color:#27BD51;user-select:none}
+.expected{display:flex;gap:9px;font-size:14px;color:#535b6b;line-height:1.95}
+.expected svg{margin-top:6px;width:15px;height:15px;color:#27BD51}
+.expected strong{color:#296039;font-size:13px;margin-right:8px;font-weight:600}
+.pitfall{margin-top:20px;font-size:14px}
+.pitfall summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;color:#84672c;padding:9px 0}
+.pitfall summary::-webkit-details-marker{display:none}
+.pitfall summary svg{width:15px;height:15px}
+.pitfall .chevron{margin-left:2px;color:#8e96a7;transition:transform .2s}
+.pitfall[open] .chevron{transform:rotate(180deg)}
+.pitfall-body{background:#fffdf5;padding:14px 17px;margin-top:6px;border-radius:5px;line-height:1.95;color:#84672c;border:1px solid #f0e8d1}
+.pitfall-body p{margin:0 0 8px}
+.pitfall-body p:last-child{margin:0}
+.pitfall-body b{font-weight:600;color:#725720}
+.phase-footer{margin-top:26px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.phase-footer .btn{padding:11px 17px}
+.next-hint{font-size:12px;color:#8e96a7;text-align:right;margin:11px 0 0}
+.sources{margin-top:36px;padding-top:22px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-start;gap:20px;font-size:12px;color:#8e96a7}
+.sources>span{flex-shrink:0}
+.sources-links{display:flex;gap:9px 17px;flex-wrap:wrap;justify-content:flex-end}
+.sources a{color:#707889;font-size:12px}
+.sources a:hover{color:var(--accent)}
+.page-foot{margin-top:24px;display:flex;gap:12px;justify-content:space-between;align-items:center;font-size:12px;color:#8e96a7}
+.page-foot button{font-size:12px;padding:6px 0 6px 10px}
+.empty-state{text-align:center;padding:45px 20px;color:var(--muted);border:1px dashed var(--line);border-radius:6px}
+.search-results h2{font-size:24px;margin-top:0;font-weight:600}
+.search-result{width:100%;text-align:left;background:transparent;border:0;border-bottom:1px solid var(--line);padding:20px 13px;margin-bottom:5px;border-radius:5px}
+.search-result:hover{background:#f4f6f4}
+.result-phase{font-size:12px;color:#296039;display:block;margin-bottom:5px}
+.result-title{font-size:18px;font-weight:600;display:block}
+.result-excerpt{font-size:14px;color:var(--muted);display:block;margin-top:6px}
+.completion{padding:19px 21px;border:1px solid #c0e2ca;border-radius:6px;background:#f3f7f4;margin-top:24px;color:#296039;font-size:14px}
+.completion strong{display:block;margin-bottom:4px}
+.toast{position:fixed;bottom:28px;left:calc(50% + var(--sidebar-width)/2);transform:translate(-50%,12px);background:#242933;color:#ffffff;border-radius:7px;padding:11px 20px;font-size:14px;box-shadow:0 6px 24px #0b0c0f1a;opacity:0;pointer-events:none;transition:.2s;z-index:100;max-width:calc(100vw - 32px)}
+.toast.visible{opacity:1;transform:translate(-50%,0)}
+.overlay{display:none}
+.dialog{border:1px solid #e6e9ef;border-radius:12px;padding:0;width:min(700px,calc(100% - 32px));max-height:88vh;color:var(--ink);background:var(--paper);box-shadow:0 25px 90px #0b0c0f26;overscroll-behavior:contain}
+.dialog::backdrop{background:#0b0c0f66;backdrop-filter:blur(3px)}
+.dialog-head{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:22px 27px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--paper);z-index:1}
+.dialog-head h2{margin:0;font-size:20px;font-weight:600;line-height:1.6}
+.icon-btn{border:0;background:#f2f4f8;border-radius:5px;padding:7px;display:grid;place-items:center;flex-shrink:0}
+.icon-btn:hover{background:#e6e9ef}
+.icon-btn svg{width:17px;height:17px}
+.dialog-body{padding:24px 27px}
+.dialog-body>p{color:var(--muted);font-size:16px;margin:0 0 21px}
+.how-list{list-style:none;margin:0 0 24px;padding:0;display:flex;flex-direction:column;gap:20px}
+.how-list li{display:flex;gap:13px;font-size:16px}
+.how-num{width:25px;height:25px;flex-shrink:0;background:var(--soft);border-radius:5px;color:var(--accent);display:grid;place-items:center;font-size:12px;font-weight:600;margin-top:3px}
+.how-list strong{display:block;margin-bottom:3px;font-weight:600}
+.how-list p{font-size:14px;color:var(--muted);margin:0;line-height:1.95}
+.prompt-box{font:13px/1.9 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap;background:#f9fafd;border:1px solid var(--line);border-radius:5px;padding:16px;max-height:215px;overflow:auto;margin:13px 0}
+.dialog-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:17px}
+.dialog-section{border-top:1px solid var(--line);padding-top:22px;margin-top:24px}
+.dialog-section>summary{font-size:14px;cursor:pointer}
+.dialog-section h3{font-size:16px;margin:0 0 8px;font-weight:600}
+.dialog-section p{font-size:14px;color:var(--muted);margin:0;line-height:1.9}
+.inline-code{font-family:ui-monospace,SFMono-Regular,monospace;color:var(--accent);font-size:13px}
+.file-error{color:#b43b3b;font-size:14px;margin-top:14px;white-space:pre-wrap}
+.dialog small{font-size:12px;color:#8e96a7;display:block;margin-top:17px}
+.danger{color:#b43b3b}
+.reset-actions{justify-content:flex-end}
+.celebrate{color:var(--green)}
+.notes-caption{font-size:14px;color:var(--muted);display:flex;gap:14px;justify-content:space-between;align-items:center;margin-bottom:15px}
+.notes-caption #noteStatus{font-size:12px;color:#8e96a7;white-space:nowrap}
+.notes{display:block;resize:vertical;width:100%;min-height:280px;border:1px solid #d1d7e2;background:repeating-linear-gradient(var(--paper),var(--paper) 31px,#f2f4f8 31px,#f2f4f8 32px);color:#3c424f;padding:13px 16px;font-size:16px;line-height:32px;border-radius:5px;outline:none}
+.notes::placeholder{color:#9fa7b7}
+.notes:focus{border-color:#9fa7b7}
+.note-foot{font-size:12px;color:#8e96a7;margin-top:12px}
+.note-footer{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-top:15px;font-size:12px;color:#8e96a7}
+.note-footer .btn{font-size:14px}
+/* Layout based on Qoder CN classic light docs: left chapters, article, page TOC. */
+::selection{background:rgba(39,189,81,.15)}
+.topbar{height:64px;position:sticky;top:0;z-index:40;width:100%;padding:0 28px;gap:24px;background:#ffffffed;border-bottom:1px solid #e6e9ef;backdrop-filter:blur(12px)}
+.brand{width:188px;margin:0;gap:9px;flex-shrink:0;align-items:center}
+.brand-mark{width:28px;height:30px;border-radius:0;background:transparent;color:#0b0c0f}
+.brand-mark svg{width:27px;height:27px}
+.brand-name{font-size:23px;font-family:inherit;letter-spacing:1px;font-weight:700;line-height:1}
+.brand-en{display:none}
+.toolbar{margin-left:auto;gap:9px;min-width:0}
+.searchbox{width:280px;max-width:30vw;background:#f9fafd;border-color:#e6e9ef;border-radius:8px;height:36px}
+.sidebar{top:64px;width:var(--sidebar-width);background:#fff;border-right:1px solid #edf0f3;padding:34px 16px 22px}
+.nav-label{font-size:12px;letter-spacing:0;font-weight:600;color:#8e96a7;margin:0 12px 10px}
+.course-label{font-size:14px;margin:0 12px 4px;color:#242933}
+.course-caption{font-size:12px;margin:0 12px 23px;color:#8e96a7}
+.phase-nav{gap:4px;padding-right:2px}
+.nav-row{border-radius:7px}
+.nav-row.active{background:#f4f6f4}
+.nav-item{flex:none;width:100%;padding:11px 12px;border-radius:7px;gap:10px;align-items:flex-start;line-height:1.55}
+.nav-item:hover{background:#f4f5f7}
+.nav-item.active{background:#f4f6f4;color:#296039}
+.nav-text{font-size:14px;font-weight:500}
+.nav-item.active .nav-text{font-weight:600}
+.nav-number{width:20px;margin-top:1px;font-size:12px;color:#8e96a7}
+.nav-sub{font-size:12px;margin-top:3px;color:#8e96a7}
+.sidebar-bottom{margin-top:14px;padding:18px 10px 0;border-color:#edf0f3}
+.progress-head{font-size:12px;color:#626a7a}
+.progress-head strong{color:#296039}
+.track{background:#e6e9ef;height:3px}
+.fill{background:#27BD51}
+.progress-caption{font-size:12px;color:#8e96a7}
+.local-status{font-size:11px;color:#8e96a7}
+.app{margin-left:var(--sidebar-width)}
+.doc-layout{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:42px;max-width:1340px;margin:0 auto;padding:38px 40px 32px;align-items:start}
+.page{width:100%;max-width:768px;min-width:0;margin:0 auto;padding:0}
+.breadcrumb{display:flex;gap:8px;align-items:center;font-size:13px;color:#707889;white-space:normal;line-height:1.6;flex-wrap:wrap;margin:0 0 17px}
+.breadcrumb span:last-child{color:#707889;overflow:visible;text-overflow:clip}
+.breadcrumb svg{width:12px;height:12px;color:#9fa7b7}
+.hero h1{font-family:inherit;font-size:30px;font-weight:700;line-height:1.35;letter-spacing:-.6px;margin:0 0 14px;color:#0b0c0f}
+.hero-description{font-size:16px;color:#626a7a;line-height:1.8;margin:0}
+.meta-row{margin:20px 0 29px;padding-bottom:23px;gap:16px;font-size:12px;color:#8e96a7;border-bottom:1px solid #edf0f3}
+.meta-row .tag{background:#f4f6f4;color:#296039;font-size:12px;border-radius:4px;font-weight:500}
+.meta-row svg{width:13px;height:13px}
+.eyebrow{display:none}
+.step-card{padding:29px 0 30px;border-bottom:1px solid #edf0f3;scroll-margin-top:94px}
+.step-card:first-child{padding-top:4px}
+.step-header{gap:10px;margin-bottom:17px;align-items:baseline}
+.step-counter{font-size:12px;color:#8e96a7;min-width:24px;padding:0;margin:0}
+.step-title{font-size:21px;line-height:1.5;letter-spacing:-.2px;font-weight:650;color:#111317}
+.step-content{padding:0}
+.check-control{font-size:12px;color:#8e96a7;margin-top:0}
+.check-control input{width:15px;height:15px}
+.complete .check-control{color:#296039}
+.why{line-height:1.85;font-size:16px;margin-bottom:19px}
+.why strong{color:#242933;font-size:14px;font-weight:600}
+.action{background:#f9fafd;border:1px solid #e6e9ef;border-radius:7px;padding:14px 16px;color:#3c424f;font-size:16px;line-height:1.85;margin-bottom:19px}
+.command{background:#f8f9fb;border:1px solid #e6e9ef;border-radius:8px;margin-bottom:20px}
+.command-top{background:#f2f4f8;border-bottom:1px solid #e6e9ef;color:#707889;font-size:12px;padding:10px 15px}
+.command pre{color:#242933;font:14px/1.85 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:18px 20px 20px}
+.copy-btn{color:#707889;font-size:12px}
+.copy-btn:hover{color:#296039}
+.code-line:before{color:#209b43}
+.expected{color:#535b6b;line-height:1.85}
+.expected strong{color:#296039}
+.expected svg{color:#27BD51}
+.pitfall summary{color:#8a6d2b}
+.pitfall-body{background:#fffdf5;border-color:#eee8d4;color:#796331}
+.pitfall-body b{color:#70581f}
+.page-toc{position:sticky;top:104px;align-self:start;max-height:calc(100vh - 132px);overflow:auto;scrollbar-width:thin;scrollbar-color:#d1d7e2 transparent;min-width:0;padding:0 0 8px}
+#pageToc>h2,#pageToc>h3,.page-toc h2,.page-toc h3,.toc-heading{font-size:14px;font-weight:600;line-height:1.6;margin:0 0 13px;color:#3c424f}
+.toc-heading{display:flex;align-items:center;gap:8px}.toc-heading svg{width:15px;height:15px;color:#8e96a7}
+#stepNav{border-left:1px solid #e6e9ef;display:flex;flex-direction:column;padding:0;gap:1px}
+.toc-link{width:100%;display:flex;align-items:flex-start;text-align:left;gap:8px;padding:9px 9px 9px 17px;border:0;background:none;color:#707889;position:relative;line-height:1.65;font-size:14px;cursor:pointer;border-radius:0 5px 5px 0;text-decoration:none}
+.toc-link:hover{color:#242933;background:#f9fafd;text-decoration:none}
+.toc-link.active{color:#296039;background:transparent;font-weight:600}
+.toc-link.active:before{content:"";position:absolute;left:-1px;top:0;bottom:0;width:2px;background:#27BD51;border-radius:2px}
+.toc-link .step-label{font:12px/1.9 ui-monospace,SFMono-Regular,Consolas,monospace;flex-shrink:0;width:23px;color:#8e96a7}
+.toc-link.active .step-label{color:#296039}
+.toc-link .step-name{flex:1;min-width:0;overflow-wrap:anywhere}
+.toc-link svg{width:13px;height:13px;flex-shrink:0;color:#27BD51;margin-top:5px}
+#mobileToc{display:none}
+.sources{flex-direction:column;gap:11px;font-size:12px;color:#8e96a7;margin-top:35px;padding-top:22px;border-color:#edf0f3}
+.sources-links{justify-content:flex-start;gap:9px 17px}
+.sources a{color:#707889}
+.sources a:hover{color:#296039}
+.page-foot{font-size:12px;color:#9fa7b7;margin-top:25px}
+.page-foot button{font-size:12px}
+.notes{background:repeating-linear-gradient(#fff,#fff 31px,#f2f4f8 31px,#f2f4f8 32px);color:#3c424f;border-color:#d1d7e2}
+.notes:focus{border-color:#27BD51}
+.notes-caption{color:#707889}
+#phaseTitle{scroll-margin-top:96px}
+@media(min-width:1650px){.doc-layout{padding-top:44px;gap:56px;max-width:1400px;padding-left:54px;padding-right:54px}.page{max-width:768px}}
+@media(max-width:1250px){.doc-layout{padding:32px 28px;gap:28px;grid-template-columns:minmax(0,1fr) 190px}.topbar{padding-left:23px;padding-right:23px}.searchbox{width:230px}.brand{width:185px}.step-title{font-size:20px}.check-control{font-size:12px}.toc-link{padding-left:13px;font-size:13px}}
+@media(max-width:1100px){.doc-layout{display:block;max-width:870px;padding:32px 38px}.page-toc{display:none}.page{max-width:768px}.brand{width:180px}.searchbox{width:210px}.note-button-label{display:none}#mobileToc{display:block;border-top:1px solid #e6e9ef;border-bottom:1px solid #e6e9ef;margin:22px 0 26px;padding:10px 0;background:#fff}#mobileToc>summary{font-size:14px;font-weight:500;line-height:1.7;color:#535b6b;cursor:pointer;list-style:none;display:flex;gap:8px;align-items:center;justify-content:space-between}#mobileToc>summary::-webkit-details-marker{display:none}#mobileToc>summary svg{width:15px;height:15px;color:#8e96a7}#mobileToc[open]>summary svg{transform:rotate(180deg)}#mobileStepNav{display:flex;flex-direction:column;margin:10px 0 3px;padding:0;border-left:1px solid #e6e9ef}#mobileStepNav .toc-link{font-size:14px;padding:9px 14px} .meta-row{border-bottom:0;padding-bottom:0;margin-bottom:22px}.hero h1{font-size:29px}.topbar .btn{padding:8px 10px}}
+@media(max-width:760px){:root{--sidebar-width:260px}.topbar{height:62px;padding:0 13px;gap:8px}.brand{width:auto;margin:0;gap:5px}.brand-name{font-size:19px}.brand-mark{width:23px;height:25px}.brand-mark svg{width:23px;height:23px}.mobile-toggle{display:block;flex-shrink:0;padding:6px}.toolbar{margin-left:auto;flex:1;min-width:0;gap:6px}.searchbox{width:70px;max-width:none;flex:1;min-width:0;padding:0 8px;height:34px}.searchbox input{font-size:13px}.searchbox kbd{display:none}.searchbox svg{width:14px;height:14px}.toolbar .export-label,.toolbar .note-button-label{display:none}.toolbar .btn{padding:7px}.toolbar #helpBtn{font-size:13px;padding:8px}.toolbar #helpBtn>[data-icon]{display:none}.sidebar{top:62px;z-index:30;transform:translateX(-100%);transition:transform .2s;width:var(--sidebar-width);max-width:calc(100vw - 42px);padding:25px 15px 20px}.sidebar.open{transform:translateX(0)}.app{margin-left:0}.doc-layout{padding:29px 22px 25px}.breadcrumb{font-size:12px;margin-bottom:15px;gap:6px}.hero h1{font-size:28px;line-height:1.35;margin-bottom:13px}.hero-description{font-size:16px;line-height:1.8}.meta-row{font-size:12px;gap:11px 15px;margin-top:19px}.step-card{padding:25px 0 27px;scroll-margin-top:84px}.step-header{flex-wrap:wrap;gap:6px 8px;margin-bottom:16px}.step-title{font-size:20px;flex-basis:calc(100% - 34px)}.step-counter{font-size:12px;min-width:25px}.check-control{margin:3px 0 0 33px;font-size:13px}.why{font-size:16px}.action{padding:13px 14px;font-size:16px}.command-top{padding:10px 13px;font-size:11px}.command pre{font-size:13px;padding:17px 14px 19px}.code-line:before{width:21px}.copy-btn{font-size:12px}.expected{font-size:14px}.pitfall{font-size:14px}.phase-footer .btn{font-size:13px;padding:10px 13px;white-space:normal;max-width:70%}.next-hint{text-align:left}.sources{margin-top:28px}.page-foot{align-items:flex-start;gap:18px}.page-foot>span{max-width:65%}.toast{left:50%;bottom:20px;font-size:13px}.overlay.visible{display:block;position:fixed;inset:62px 0 0;background:#0b0c0f59;z-index:25}.dialog-head{padding:18px 20px}.dialog-body{padding:20px}.dialog-head h2{font-size:18px}.dialog-body>p{font-size:15px}.notes{min-height:250px}.notes-caption{font-size:14px;align-items:flex-start}#phaseTitle{scroll-margin-top:84px}}
+@media(max-width:460px){.brand-name{display:none}.brand{width:24px}.topbar{gap:6px}.toolbar{gap:5px}.searchbox{width:70px}.toolbar #helpBtn{font-size:12px;padding:8px 7px}.doc-layout{padding-left:19px;padding-right:19px}}
+@media(max-height:650px) and (min-width:761px){.sidebar{padding-top:22px}.course-caption{margin-bottom:15px}.sidebar-bottom{padding-top:12px}.local-status{margin-top:8px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+
+.nav-count{margin-left:auto;white-space:nowrap;font-size:11px;line-height:1.8;color:#8e96a7;font-variant-numeric:tabular-nums}.inline-code{color:var(--accent-dark)}
+
+/* ===== 深色终端命令块 + 语法高亮 ===== */
+.command{background:#101623;border-color:#263043}
+.command-top{background:#1a2232;border-bottom-color:#263043;color:#8b96ab}
+.command pre{color:#dbe4f0}
+.copy-btn{color:#8b96ab}
+.copy-btn:hover{color:#6ee7a0}
+.code-line:before{color:#3ddc84}
+.tok-cmd{color:#6ee7a0;font-weight:600}
+.tok-flag{color:#b7a6f3}
+.tok-str{color:#f3c98b}
+.tok-com{color:#7b8aa3;font-style:italic}
+.command:focus-within{border-color:#3ddc84}
+
+/* ===== 左侧目录两级树（手风琴） ===== */
+.nav-children{display:none;flex-direction:column;gap:1px;margin:2px 0 6px 16px;padding:2px 0 2px 10px;border-left:1px solid #e6e9ef}
+.nav-group.active>.nav-children{display:flex}
+.nav-child{border:0;background:none;text-align:left;display:flex;gap:7px;align-items:baseline;padding:5px 8px;font-size:12.5px;color:#707889;line-height:1.55;border-radius:5px;min-width:0;cursor:pointer}
+.nav-child:hover{background:#f4f5f7;color:#242933}
+.nav-child.done{color:#296039}
+.nav-child .nc-num{font:11px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;color:#8e96a7;flex-shrink:0}
+.nav-child.done .nc-num{color:#27BD51}
+.nav-child .nc-text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+</style>
+</head>
+<body>
+<a class="sr-only" href="#phaseTitle">跳到教程正文</a>
+<div class="overlay" id="overlay"></div>
+<header class="topbar">
+<button class="mobile-toggle" id="menuToggle" aria-label="打开章节导航" aria-controls="sidebar" aria-expanded="false" data-icon="menu"></button>
+<div class="brand"><div class="brand-mark" data-icon="book"></div><div><div class="brand-name">循序</div><span class="brand-en">学习手册</span></div></div>
+<div class="toolbar"><label class="searchbox"><span data-icon="search"></span><input id="searchInput" type="search" placeholder="搜索步骤、命令…" aria-label="搜索整个教程"><kbd>⌘ K</kbd></label><button class="btn btn-quiet" id="notesBtn" aria-label="打开当前阶段的学习笔记"><span data-icon="note"></span><span class="note-button-label">笔记</span></button><button class="btn" id="helpBtn"><span data-icon="layout"></span>使用模板</button><button class="btn btn-primary" id="exportBtn" aria-label="下载当前教程 HTML"><span data-icon="download"></span><span class="export-label">下载手册</span></button></div>
+</header>
+<aside class="sidebar" id="sidebar" aria-label="学习阶段导航">
+<div class="course-label" id="sidebarTitle"></div><p class="course-caption" id="sidebarCaption"></p><p class="nav-label">学习路线</p>
+<nav class="phase-nav" id="phaseNav" aria-label="大步骤目录"></nav>
+<div class="sidebar-bottom"><div class="progress-card"><div class="progress-head"><span>学习进度</span><strong id="percent">0%</strong></div><div class="track" role="progressbar" aria-label="总学习进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progressBar"><div class="fill" id="progressFill"></div></div><p class="progress-caption" id="progressCaption"></p></div><p class="local-status"><span data-icon="shield"></span><span id="storageStatus">进度与笔记保存在当前浏览器</span></p></div>
+</aside>
+<div class="app"><div class="doc-layout">
+<main class="page" id="main">
+<div class="breadcrumb"><span>学习手册</span><span data-icon="chevronRight"></span><span id="breadcrumbTitle"></span></div>
+<div class="hero"><p class="eyebrow" id="phaseEyebrow"></p><h1 id="phaseTitle" tabindex="-1"></h1><p class="hero-description" id="courseDescription"></p></div>
+<div class="meta-row" id="metaRow"></div>
+<details class="mobile-toc" id="mobileToc"><summary><span>本页目录</span><span data-icon="chevronDown"></span></summary><nav id="mobileStepNav" aria-label="当前页小步骤"></nav></details>
+<section class="search-results" id="searchResults" hidden aria-live="polite"></section><div class="content-grid" id="contentGrid"><section id="phaseContent" aria-labelledby="phaseTitle"></section></div>
+<footer class="sources"><span>参考文档</span><div class="sources-links" id="sourceLinks"></div></footer><div class="page-foot"><span>循序 · 可复用的技术学习模板</span><button class="btn btn-quiet" id="resetBtn">重置学习记录</button></div>
+</main>
+<aside class="page-toc" id="pageToc" aria-label="本页目录"><div class="toc-heading"><span data-icon="list"></span>本页目录</div><nav id="stepNav" aria-label="当前页小步骤"></nav></aside>
+</div></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<dialog class="dialog" id="helpDialog" aria-labelledby="helpTitle"><div class="dialog-head"><h2 id="helpTitle">把任何技术，变成一条学习路线</h2><button class="icon-btn" data-close="helpDialog" aria-label="关闭模板说明" data-icon="close"></button></div><div class="dialog-body"><p>这是一个可以离线打开的单文件模板。当前的 Vue + Vite 内容是完整示例，你可以保留页面设计，换成自己的学习主题。</p><ol class="how-list"><li><span class="how-num">1</span><div><strong>确定你要学什么</strong><p>准备项目名称、官方文档链接、操作系统和目标，例如“在 macOS 上安装一个框架，并跑通第一个示例”。</p></div></li><li><span class="how-num">2</span><div><strong>让 AI 按模板整理内容</strong><p>下载示例 JSON，并连同下面的提示词一起发给 AI。生成内容应核实官方文档，保留字段结构。</p></div></li><li><span class="how-num">3</span><div><strong>导入内容，保存专属手册</strong><p>导入新的 JSON 检查效果，然后点击“下载手册”。HTML 包含教程内容；学习记录可单独导出备份。</p></div></li></ol><div class="dialog-actions"><button class="btn btn-primary" id="copyPromptBtn"><span data-icon="copy"></span>复制生成提示词</button><button class="btn" id="exportJsonBtn"><span data-icon="download"></span>下载内容 JSON</button><button class="btn" id="importJsonBtn"><span data-icon="upload"></span>导入新教程</button><input type="file" accept=".json,application/json" id="importInput" hidden></div><div class="file-error" id="importError" role="alert" hidden></div><details class="dialog-section"><summary>查看生成提示词</summary><pre class="prompt-box" id="promptText"></pre></details><div class="dialog-section"><h3>也可以直接编辑 HTML</h3><p>用文本编辑器打开文件，搜索 <span class="inline-code">id="course-data"</span>，替换其中的 JSON 内容。每个教程使用独立的 <span class="inline-code">id</span>，阶段和步骤的 <span class="inline-code">id</span> 也要唯一。</p></div><div class="dialog-section"><h3>带走你的学习记录</h3><p>记录保存在当前浏览器。换浏览器、移动文件或清理浏览器数据前，可以导出备份；导入备份会覆盖本教程现有记录。</p><div class="dialog-actions"><button class="btn" id="exportNotesBtn">导出进度与笔记</button><button class="btn" id="importNotesBtn">恢复学习记录</button><input type="file" accept=".json,application/json" id="notesInput" hidden></div></div><small>离线可用 · 无第三方脚本 · 命令需自行在终端执行 · 示例文档核对日期见页面顶部</small></div></dialog>
+<dialog class="dialog" id="notesDialog" aria-labelledby="notesTitle"><div class="dialog-head"><h2 id="notesTitle">学习笔记</h2><button class="icon-btn" data-close="notesDialog" aria-label="关闭学习笔记" data-icon="close"></button></div><div class="dialog-body"><p class="notes-caption" id="notesPhaseTitle"></p><label class="sr-only" for="phaseNotes">当前阶段的学习笔记</label><textarea id="phaseNotes" class="notes" maxlength="100000" placeholder="记录你的理解、遇到的问题，或下一次想尝试的做法…"></textarea><div class="note-footer"><span>按阶段分别保存</span><span id="noteStatus">已保存</span></div></div></dialog>
+<dialog class="dialog" id="resetDialog" aria-labelledby="resetTitle"><div class="dialog-head"><h2 id="resetTitle">重新开始这份教程？</h2><button class="icon-btn" data-close="resetDialog" aria-label="关闭" data-icon="close"></button></div><div class="dialog-body"><p>这将清除本教程在当前浏览器保存的勾选进度和笔记，教程内容会保留。你可以先在“使用模板”中导出记录。</p><div class="dialog-actions reset-actions"><button class="btn" data-close="resetDialog">保留记录</button><button class="btn danger" id="confirmReset">清除并重新开始</button></div></div></dialog>
+<!-- 替换下方 JSON 即可生成新的教程；保留字段结构，id 应唯一。 -->
+<script type="application/json" id="course-data">
+{
+  "id": "vue-vite-intro",
+  "title": "Vue 3 + Vite",
+  "subtitle": "从环境准备到第一个可运行的应用",
+  "description": "跟着 6 个阶段，完成创建、运行与构建。每一步都解释原因，给出成功标准，并留好排错线索。这里的 Vue 教程是可替换的示例内容。",
+  "level": "入门",
+  "duration": "约 45 分钟",
+  "updated": "2026-11-22",
+  "phases": [
+    {
+      "id": "environment",
+      "title": "环境准备",
+      "subtitle": "先让工具就位",
+      "duration": "8 分钟",
+      "steps": [
+        {
+          "id": "env-install",
+          "title": "安装受支持的 Node.js LTS",
+          "why": "脚手架和开发服务需要 Node.js。先准备运行环境，后面的命令才有地方执行。",
+          "location": "浏览器 · Node.js 官网",
+          "action": "打开文末的 Node.js 下载页，按你的操作系统安装当前受支持的 LTS 版本。安装前核对 Vue 快速开始的 Node 版本要求；安装结束后关闭并重新打开终端。",
+          "expected": "完成安装，并打开一个新的终端窗口。已有满足要求的 Node.js 时，可直接进行下一步检查。",
+          "pitfall": {
+            "title": "“LTS”不等于任意旧版本都能用",
+            "cause": "教程、脚手架和电脑上的 Node 版本可能不一致。",
+            "fix": "以 Vue 快速开始页的要求为准。核对时该页要求 ^22.18.0 或 >=24.12.0；以后使用本模板时请重新核实，不要沿用过时的版本号。"
+          }
+        },
+        {
+          "id": "env-check",
+          "title": "检查 Node 与 npm 是否可用",
+          "why": "版本输出能确认终端确实找到了工具，而不仅是安装器显示“已完成”。",
+          "location": "终端 · 任意目录",
+          "command": "node --version\nnpm --version",
+          "expected": "两条命令分别输出 Node 与 npm 的版本号；Node 版本满足上一条所述要求。版本号不必与其他人的截图完全一致。",
+          "pitfall": {
+            "title": "提示 command not found 或无法识别命令",
+            "cause": "工具未正确安装，或当前终端尚未读取新的环境变量。",
+            "fix": "先重新打开终端再试；仍失败时检查官网安装步骤与 PATH 配置。Windows 若仅 npm.ps1 被执行策略阻止，可在命令提示符中验证 npm，避免直接放宽整台电脑的执行策略。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "create",
+      "title": "创建项目",
+      "subtitle": "搭起最小项目骨架",
+      "duration": "10 分钟",
+      "steps": [
+        {
+          "id": "create-scaffold",
+          "title": "运行官方脚手架",
+          "why": "从官方项目骨架开始，能减少手动配置中的遗漏。",
+          "location": "终端 · 希望存放项目的父目录",
+          "command": "npm create vue@latest",
+          "action": "若 npm 询问是否下载 create-vue，确认包名后继续。项目名填写 learn-vue；第一次学习可先不启用 TypeScript、JSX、Router、Pinia、测试等可选项。交互选项可能随版本变化，以终端提示为准。",
+          "expected": "当前目录下出现 learn-vue 文件夹，脚手架提示项目创建完成。",
+          "pitfall": {
+            "title": "目录已存在或项目被建到了意外位置",
+            "cause": "命令会基于终端当前目录创建项目。",
+            "fix": "先确认当前路径。遇到同名目录时使用新的项目名，并将后续 cd 命令同步替换；不要在不了解内容时选择清空已有目录。"
+          }
+        },
+        {
+          "id": "create-install",
+          "title": "进入项目并安装依赖",
+          "why": "进入含 package.json 的项目根目录后，npm 才知道要安装哪些依赖。",
+          "location": "终端 · 上一步所在的父目录",
+          "command": "cd learn-vue\nnpm install",
+          "expected": "安装结束且没有导致退出的错误；项目中出现 node_modules 和 package-lock.json。少量 warning 不一定意味着安装失败，应阅读具体内容。",
+          "pitfall": {
+            "title": "ENOENT：找不到 package.json",
+            "cause": "通常是在错误目录运行了安装命令。",
+            "fix": "在编辑器中确认 learn-vue 里有 package.json，再将终端切换到这个目录。若错误是网络超时，检查网络与代理后重试；不要把两种错误混为一谈。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "structure",
+      "title": "认识结构",
+      "subtitle": "看懂入口与关键文件",
+      "duration": "7 分钟",
+      "steps": [
+        {
+          "id": "structure-open",
+          "title": "在编辑器中打开项目文件夹",
+          "why": "打开整个文件夹，更容易理解文件之间的关系，也方便以后定位错误。",
+          "location": "编辑器 · learn-vue 文件夹",
+          "action": "使用编辑器的“打开文件夹”功能选择 learn-vue。依次找到 index.html、src/main.js、src/App.vue、package.json 和 vite.config.*。若启用了 TypeScript，入口可能是 main.ts。",
+          "expected": "你可以在文件树中定位这些文件，并知道 src 是主要源码目录。",
+          "pitfall": {
+            "title": "照着截图找不到同名文件",
+            "cause": "脚手架版本或创建时选项不同，扩展名和辅助文件会变化。",
+            "fix": "按职责识别文件，优先阅读实际项目内容。不修改 node_modules 中的依赖源码，也不把生成的 dist 当作日常编辑入口。"
+          }
+        },
+        {
+          "id": "structure-scripts",
+          "title": "读懂三个常用项目命令",
+          "why": "知道命令背后运行什么，就更容易区分开发、构建与预览。",
+          "location": "编辑器 · package.json",
+          "action": "找到 scripts 字段，查看 dev、build、preview。dev 启动开发服务；build 生成构建产物；preview 在本地预览已经构建的产物。此处只阅读，稍后逐一执行。",
+          "expected": "你能解释 npm run dev 为什么能启动项目：npm 会执行 scripts 中名为 dev 的脚本。",
+          "pitfall": {
+            "title": "Missing script: dev",
+            "cause": "当前目录不是目标项目，或项目的脚本名称与教程不同。",
+            "fix": "先确认打开了目标 package.json，再按其中实际存在的脚本运行；不要凭空添加命令来掩盖目录问题。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "run",
+      "title": "运行与验证",
+      "subtitle": "让第一次修改出现在页面上",
+      "duration": "8 分钟",
+      "steps": [
+        {
+          "id": "run-dev",
+          "title": "启动本地开发服务",
+          "why": "浏览器需要通过开发服务加载项目模块，不能直接双击源码里的 index.html 来替代这一过程。",
+          "location": "终端 · learn-vue 项目根目录",
+          "command": "npm run dev",
+          "action": "保持终端运行，打开它输出的 Local 地址。默认常见地址为 http://localhost:5173，实际端口以终端为准。",
+          "expected": "浏览器显示生成项目的欢迎页面，终端没有持续的编译错误。",
+          "pitfall": {
+            "title": "5173 打不开，但服务好像已经启动",
+            "cause": "默认端口可能被占用，Vite 通常会尝试下一个可用端口。",
+            "fix": "复制本次终端输出的完整 Local 地址。若关闭过终端，请重新运行 npm run dev。"
+          }
+        },
+        {
+          "id": "run-edit",
+          "title": "修改根组件并观察更新",
+          "why": "从“看见欢迎页”到“看见自己的修改”，才能确认编辑器、源码与浏览器连接正确。",
+          "location": "编辑器 · src/App.vue；浏览器 · 开发页面",
+          "action": "在 App.vue 的 \u003ctemplate> 区域中加入一行 \u003cp>我的 Vue 项目已跑通。\u003c/p>，保存文件，然后回到刚才的浏览器页面。保留原有代码，只添加这一行即可。",
+          "expected": "页面出现“我的 Vue 项目已跑通。”，通常无需手动刷新。",
+          "pitfall": {
+            "title": "保存后没有变化，或出现错误遮罩",
+            "cause": "可能改了另一个项目的文件、尚未保存，或把 HTML 写到了脚本区。",
+            "fix": "确认修改的是当前 learn-vue 的 App.vue，并放在 \u003ctemplate> 内。先处理终端或页面显示的第一条错误，再观察更新。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "build",
+      "title": "构建与预览",
+      "subtitle": "检查准备交付的文件",
+      "duration": "7 分钟",
+      "steps": [
+        {
+          "id": "build-output",
+          "title": "生成生产构建",
+          "why": "构建能够提前暴露部分路径、语法或项目配置问题，并生成待部署文件。",
+          "location": "新终端 · learn-vue 项目根目录",
+          "command": "npm run build",
+          "action": "也可以先在开发服务终端按 Ctrl+C，再执行构建命令。等待命令运行结束。",
+          "expected": "命令成功退出，默认输出目录 dist 中包含 index.html 及相关静态资源。",
+          "pitfall": {
+            "title": "开发页能开，构建却失败",
+            "cause": "构建流程可能包含额外检查，也可能遇到源码中的导入或语法问题。",
+            "fix": "从构建日志的第一条明确错误开始定位。修复源码或配置后重新运行构建，不要直接修改 dist 来绕过问题。"
+          }
+        },
+        {
+          "id": "build-preview",
+          "title": "预览构建产物",
+          "why": "通过 HTTP 服务检查刚生成的文件，能更接近静态部署时的加载方式。",
+          "location": "终端 · learn-vue 项目根目录",
+          "command": "npm run preview",
+          "action": "打开终端输出的地址（默认常见端口为 4173），检查页面内容与基本交互。完成后按 Ctrl+C 停止。",
+          "expected": "预览页面能正常显示，也能看见上一阶段添加的文字。",
+          "pitfall": {
+            "title": "预览里还是旧内容",
+            "cause": "preview 读取已经生成的 dist，不会像开发服务一样自动构建最新源码。",
+            "fix": "源码变化后先重新执行 npm run build，再查看预览；需要边写边看时使用 npm run dev。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "title": "复盘与下一步",
+      "subtitle": "把操作变成自己的知识",
+      "duration": "5 分钟",
+      "steps": [
+        {
+          "id": "review-versions",
+          "title": "记录实际使用的版本",
+          "why": "latest 会随时间变化，保存本次版本可以帮助未来复现和比较问题。",
+          "location": "终端 · learn-vue 项目根目录",
+          "command": "node --version\nnpm --version\nnpm ls vue vite --depth=0",
+          "expected": "得到 Node、npm、Vue 与 Vite 的实际版本。将它们和今天的日期写入学习笔记，保留项目的 package-lock.json。",
+          "pitfall": {
+            "title": "别人和我使用了同一命令，结果却不同",
+            "cause": "工具版本、系统环境和脚手架选项都可能影响结果。",
+            "fix": "比较具体版本与错误信息，先确认环境差异。描述问题时同时提供执行目录、完整命令和第一条关键报错。"
+          }
+        },
+        {
+          "id": "review-summary",
+          "title": "完成一次小复盘",
+          "why": "把“做过了”转换成“我知道为什么”，也为下一次学习留下起点。",
+          "location": "右上角 · 学习笔记",
+          "action": "点击右上角“笔记”，写下三句话：① dev、build、preview 各有什么用途；② 这次遇到的一个问题及解决办法；③ 下一步准备做什么。可以把“制作一个点击计数器”作为下一项练习。",
+          "expected": "不看教程也能说明项目如何启动，以及为什么修改源码后需要重新构建。确认后勾选完成。",
+          "pitfall": {
+            "title": "勾选完成，却说不清每一步",
+            "cause": "只跟着复制命令，没有建立命令、文件与结果之间的联系。",
+            "fix": "回到不清楚的阶段，先读“为什么”，再用自己的话解释。进度勾选只是个人记录，不代表自动验证通过。"
+          }
+        }
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "title": "Vue · 快速开始",
+      "url": "https://vuejs.org/guide/quick-start.html",
+      "description": "核对 Node 要求、官方脚手架命令与初始选项。"
+    },
+    {
+      "title": "Node.js · 下载",
+      "url": "https://nodejs.org/en/download",
+      "description": "根据系统安装受支持的 LTS 版本。"
+    },
+    {
+      "title": "Vue · 简介",
+      "url": "https://vuejs.org/guide/introduction.html",
+      "description": "理解组件、响应式与学习前提。"
+    },
+    {
+      "title": "Vite · 开发服务配置",
+      "url": "https://vite.dev/config/server-options.html",
+      "description": "查询默认端口与端口占用时的行为。"
+    },
+    {
+      "title": "Vite · 静态部署",
+      "url": "https://vite.dev/guide/static-deploy.html",
+      "description": "确认 dist 构建输出与本地预览的用途。"
+    }
+  ]
+}
+</script>
+<script>
+'use strict';
+const ICONS={book:'<path d="M12 6c-3-2-6-2-9-1v15c3-1 6-1 9 1 3-2 6-2 9-1V5c-3-1-6-1-9 1Z"/><path d="M12 6v15"/>',layers:'<path d="m12 3 10 6-10 6L2 9l10-6Z"/><path d="m2 13 10 6 10-6M2 17l10 6 10-6"/>',check:'<path d="m5 12 4 4L19 6"/>',shield:'<path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/><path d="m8 12 3 3 5-6"/>',chevronRight:'<path d="m9 5 7 7-7 7"/>',chevronDown:'<path d="m6 9 6 6 6-6"/>',search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',layout:'<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/>',download:'<path d="M12 3v12m-5-5 5 5 5-5M4 16v4h16v-4"/>',upload:'<path d="M12 16V4m-5 5 5-5 5 5M4 17v3h16v-3"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/>',list:'<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',calendar:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 11h18"/>',terminal:'<path d="m4 6 6 6-6 6m9 0h7"/>',copy:'<rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V3H3v13h5"/>',alert:'<path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5m0 3h.01"/>',target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',bulb:'<path d="M8 16c0-2-3-3-3-7a7 7 0 0 1 14 0c0 4-3 5-3 7M8 17h8m-7 3h6"/>',note:'<path d="M12 3H4v18h16v-9M9 15l2-5 8-8 3 3-8 8-5 2Z"/>',menu:'<path d="M3 6h18M3 12h18M3 18h18"/>',close:'<path d="m6 6 12 12M6 18 18 6"/>'};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const icon=name=>'<svg viewBox="0 0 24 24" aria-hidden="true">'+(ICONS[name]||ICONS.book)+'</svg>';
+document.querySelectorAll('[data-icon]').forEach(el=>el.innerHTML=icon(el.dataset.icon));
+let course=JSON.parse($('course-data').textContent),state,active=0,toastTimer,saveTimer;
+let storageAvailable=true,currentStepId='',scrollFrame=false;
+const PROMPT=`请根据我指定的技术主题，参考我附带的 JSON 结构，生成一份中文分步学习教程，只输出合法 JSON。\n\n主题：[填写框架或项目]\n操作系统：[填写 macOS / Windows / Linux]\n我的基础：[填写]\n学习目标：[例如完成安装并运行首个示例]\n官方文档：[粘贴链接]\n\n要求：\n1. 查询并核实官方文档，注明核对日期和来源 URL，不编造版本要求。\n2. 按 5–8 个大阶段组织，每阶段包含 2–5 个可独立验证的小步骤。\n3. 每步写清：title（做什么）、why（为什么）、location（执行目录或工具）、command（可复制的真实命令，无 $ 前缀；无命令则为空）、action（可选，界面或编辑器操作）、expected（如何确认成功）、pitfall（含 title、cause、fix，给出具体排错方法）。\n4. 不同操作系统的命令差异必须明确；禁止提供不加解释的删除命令、sudo 或远程脚本执行命令。\n5. 每阶段包含 id、title、subtitle、duration、steps。保留示例 JSON 的字段结构，id 必须改为本教程独立且唯一的值；所有步骤 id 在教程内唯一。\n6. 不把 command 命令块当作说明文字区。涉及编辑源文件时，将操作和代码写入 action。\n7. resources 与每个阶段都必须有实际内容。资源链接仅用 https://。\n8. 估计阅读和动手时长，但不要声称已经在我的机器运行或验证。`;
+$('promptText').textContent=PROMPT;
+function key(){return 'learnbook:v1:'+course.id}
+function stepIds(){return course.phases.flatMap(p=>p.steps.map(s=>s.id))}
+function cleanState(raw){const ids=new Set(stepIds()),phaseIds=new Set(course.phases.map(p=>p.id));return {done:Array.isArray(raw?.done)?[...new Set(raw.done.filter(x=>ids.has(x)))]:[],notes:raw?.notes&&typeof raw.notes==='object'?Object.assign(Object.create(null),Object.fromEntries(Object.entries(raw.notes).filter(([id,n])=>phaseIds.has(id)&&typeof n==='string').map(([id,n])=>[id,n.slice(0,100000)]))):Object.create(null),active:phaseIds.has(raw?.active)?raw.active:course.phases[0].id,expanded:Array.isArray(raw?.expanded)?[...new Set(raw.expanded.filter(id=>phaseIds.has(id)))]:[phaseIds.has(raw?.active)?raw.active:course.phases[0].id]}}
+function loadState(){try{state=cleanState(JSON.parse(localStorage.getItem(key())||'null'));storageAvailable=true}catch{state=cleanState(null);storageAvailable=false}active=Math.max(0,course.phases.findIndex(p=>p.id===state.active));currentStepId=course.phases[active].steps[0].id;updateStorageStatus()}
+function saveState(){try{localStorage.setItem(key(),JSON.stringify(state));storageAvailable=true}catch{storageAvailable=false}updateStorageStatus()}
+function updateStorageStatus(){$('storageStatus').textContent=storageAvailable?'进度与笔记保存在当前浏览器':'暂存于本页，请导出记录备份';const ns=$('noteStatus');if(ns)ns.textContent=storageAvailable?'已保存':'仅本页暂存'}
+function totalDone(){return state.done.length}
+function phaseDone(p){return p.steps.filter(s=>state.done.includes(s.id)).length}
+function renderChrome(){
+if(!course.phases[active].steps.some(s=>s.id===currentStepId))currentStepId=course.phases[active].steps[0].id;document.title=course.title+' · 循序学习手册';$('sidebarTitle').textContent=course.title;$('sidebarCaption').textContent=course.subtitle;$('breadcrumbTitle').textContent=course.title;
+
+$('sourceLinks').innerHTML=course.resources.map(r=>'<a href="'+esc(r.url)+'" target="_blank" rel="noopener noreferrer" title="'+esc(r.description||r.title)+'">'+esc(r.title)+'</a>').join('');renderProgress();
+}
+function renderProgress(){const total=stepIds().length,done=totalDone(),percent=Math.round(done/total*100);$('percent').textContent=percent+'%';$('progressFill').style.width=percent+'%';$('progressBar').setAttribute('aria-valuenow',percent);$('progressCaption').textContent='已完成 '+done+' / '+total+' 个步骤';
+renderDirectory();renderToc();}
+function renderDirectory(){
+const nav=$('phaseNav'),oldScroll=nav.scrollTop;
+nav.innerHTML=course.phases.map((p,i)=>{const done=phaseDone(p),complete=done===p.steps.length;
+const children=p.steps.map((s,j)=>'<button class="nav-child '+(state.done.includes(s.id)?'done':'')+'" data-phase="'+i+'" data-target-step="'+esc(s.id)+'"><span class="nc-num">'+(i+1)+'.'+(j+1)+'</span><span class="nc-text">'+esc(s.title)+'</span></button>').join('');
+return '<div class="nav-group '+(i===active?'active':'')+'"><button class="nav-item '+(i===active?'active ':'')+(complete?'done':'')+'" data-phase="'+i+'" '+(i===active?'aria-current="page"':'')+'><span class="nav-number">'+(complete?icon('check'):String(i+1).padStart(2,'0'))+'</span><span class="nav-text">'+esc(p.title)+'</span><span class="nav-count">'+done+'/'+p.steps.length+'</span></button><div class="nav-children">'+children+'</div></div>'}).join('');
+nav.scrollTop=oldScroll;
+}
+function renderToc(){const p=course.phases[active];const markup=p.steps.map((step,i)=>'<a class="toc-link '+(step.id===currentStepId?'active ':'')+(state.done.includes(step.id)?'done':'')+'" href="#step-'+esc(step.id)+'" data-step-target="'+esc(step.id)+'" '+(step.id===currentStepId?'aria-current="location"':'')+'><span class="step-label">'+(active+1)+'.'+(i+1)+'</span><span class="step-name">'+esc(step.title)+'</span>'+(state.done.includes(step.id)?'<span class="toc-check" aria-label="已完成">'+icon('check')+'</span>':'')+'</a>').join('');$('stepNav').innerHTML=markup;$('mobileStepNav').innerHTML=markup}
+function updateStepHighlight(){document.querySelectorAll('.toc-link').forEach(link=>{const on=link.dataset.stepTarget===currentStepId;link.classList.toggle('active',on);if(on)link.setAttribute('aria-current','location');else link.removeAttribute('aria-current')})}
+function jumpToStep(id){const found=course.phases[active].steps.some(s=>s.id===id);if(!found)return;currentStepId=id;updateStepHighlight();$('mobileToc').open=false;const target=$('step-'+id);target?.scrollIntoView({behavior:'smooth',block:'start'});target?.focus({preventScroll:true})}
+function renderPhase(){const p=course.phases[active];$('searchInput').value='';$('searchResults').hidden=true;$('contentGrid').hidden=false;$('pageToc').hidden=false;$('mobileToc').hidden=false;$('mobileToc').open=false;
+$('phaseEyebrow').textContent='第 '+(active+1)+' 章 / 共 '+course.phases.length+' 章';$('phaseTitle').textContent=p.title;$('courseDescription').textContent=p.subtitle;
+$('metaRow').innerHTML='<span>'+icon('clock')+esc(p.duration)+'</span><span>'+icon('list')+p.steps.length+' 个步骤</span><span>'+icon('calendar')+'文档核对 '+esc(course.updated)+'</span>';renderToc();
+$('phaseContent').innerHTML='<div class="steps">'+p.steps.map((s,i)=>renderStep(s,i)).join('')+'</div><div class="phase-footer"><button class="btn" id="prevBtn" '+(active===0?'disabled':'')+'>上一阶段</button><button class="btn btn-primary" id="nextBtn">'+(active===course.phases.length-1?'检查学习成果':'下一阶段 · '+esc(course.phases[active+1].title))+'</button></div><p class="next-hint">'+(phaseDone(p)===p.steps.length?'本阶段已完成，继续保持。':'确认结果符合预期后，勾选每一步的“已掌握”。')+'</p><div id="completion" class="completion" hidden></div>';
+$('notesPhaseTitle').textContent='第 '+(active+1)+' 章 · '+p.title;
+$('phaseNotes').value=state.notes[p.id]||'';$('phaseNotes').oninput=e=>{state.notes[p.id]=e.target.value;saveState()};$('prevBtn').onclick=()=>selectPhase(active-1,true);$('nextBtn').onclick=()=>active<course.phases.length-1?selectPhase(active+1,true):showCompletion();updateStorageStatus();}
+function hl(line){
+if(/^\s*(#|\/\/)/.test(line))return '<span class="tok-com">'+esc(line)+'</span>';
+const parts=String(line).split(/(\s+)/);let started=false,out='';
+for(let k=0;k<parts.length;k++){const t=parts[k];
+if(!t||!t.trim()){out+=esc(t);continue}
+const e=esc(t);
+if(!started){started=true;out+='<span class="tok-cmd">'+e+'</span>';continue}
+if(/^-{1,2}[A-Za-z]/.test(t)){out+='<span class="tok-flag">'+e+'</span>';continue}
+if(/^["']/.test(t)||/["']$/.test(t)){out+='<span class="tok-str">'+e+'</span>';continue}
+out+=e}
+return out}
+function renderStep(s,i){const done=state.done.includes(s.id);return '<article class="step-card '+(done?'complete':'')+'" id="step-'+esc(s.id)+'" tabindex="-1"><div class="step-header"><span class="step-counter">'+(active+1)+'.'+(i+1)+'</span><h2 class="step-title">'+esc(s.title)+'</h2><label class="check-control"><input type="checkbox" data-step="'+esc(s.id)+'" '+(done?'checked':'')+' aria-label="标记 '+esc(s.title)+' 为已掌握">已掌握</label></div><div class="step-content"><p class="why"><strong>为什么做这一步</strong> · '+esc(s.why)+'</p>'+(s.action?'<div class="action">'+esc(s.action)+'</div>':'')+(s.command?'<div class="command"><div class="command-top"><div class="terminal-label">'+icon('terminal')+'<span>'+esc(s.location)+'</span></div><button class="copy-btn" data-copy-step="'+esc(s.id)+'" aria-label="复制 '+esc(s.title)+' 的命令">'+icon('copy')+'<span>复制</span></button></div><pre><code>'+s.command.split('\n').map(line=>'<span class="code-line">'+hl(line)+'</span>').join('')+'</code></pre></div>':'<p class="why"><strong>操作位置</strong> · '+esc(s.location)+'</p>')+'<div class="expected">'+icon('check')+'<div><strong>成功标志</strong>'+esc(s.expected)+'</div></div>'+(s.pitfall?'<details class="pitfall"><summary>'+icon('alert')+'<span>常见坑 · '+esc(s.pitfall.title)+'</span><span class="chevron">'+icon('chevronDown')+'</span></summary><div class="pitfall-body"><p><b>可能原因：</b>'+esc(s.pitfall.cause)+'</p><p><b>怎么解决：</b>'+esc(s.pitfall.fix)+'</p></div></details>':'')+'</div></article>'}
+const mobileQuery=window.matchMedia('(max-width:760px)');
+function syncNav(){$('sidebar').inert=mobileQuery.matches&&!$('sidebar').classList.contains('open')}
+mobileQuery.addEventListener('change',()=>{if(!mobileQuery.matches)closeNav();syncNav()});
+function closeNav(returnFocus=false){const wasOpen=$('sidebar').classList.contains('open');$('sidebar').classList.remove('open');$('overlay').classList.remove('visible');$('menuToggle').setAttribute('aria-expanded','false');syncNav();if(returnFocus&&wasOpen)$('menuToggle').focus()}
+function selectPhase(index,focus=false,stepId){if(index<0||index>=course.phases.length)return;active=index;state.active=course.phases[active].id;currentStepId=course.phases[active].steps.some(s=>s.id===stepId)?stepId:course.phases[active].steps[0].id;state.expanded=[...new Set([...state.expanded,state.active])];saveState();renderProgress();renderPhase();closeNav();if(focus){requestAnimationFrame(()=>{const dest=stepId?$('step-'+currentStepId):$('phaseTitle');dest?.scrollIntoView({behavior:'smooth',block:'start'});dest?.focus({preventScroll:true})})}}
+window.addEventListener('scroll',()=>{if(scrollFrame||$('contentGrid').hidden)return;scrollFrame=true;requestAnimationFrame(()=>{scrollFrame=false;const cards=[...document.querySelectorAll('.step-card')];const offset=document.querySelector('.topbar').getBoundingClientRect().height+90;let selected=cards[0];for(const card of cards){if(card.getBoundingClientRect().top<=offset)selected=card;else break}if(Math.ceil(window.scrollY+window.innerHeight)>=document.documentElement.scrollHeight-2)selected=cards.at(-1);if(selected){const next=selected.id.slice(5);if(next!==currentStepId){currentStepId=next;updateStepHighlight()}}})},{passive:true});
+function showCompletion(){const remaining=stepIds().length-totalDone(),box=$('completion');box.hidden=false;box.innerHTML=remaining?'<strong>还差 '+remaining+' 个步骤，完成你的学习闭环。</strong>回到左侧章节确认实际结果，再勾选“已掌握”。已浏览不等于已完成。':'<strong>这条学习路线，你已经走通了。</strong>试着不用手册再做一次，并用自己的话解释关键步骤。你也可以导出学习笔记，留下这次实践的收获。';box.scrollIntoView({behavior:'smooth',block:'nearest'})}
+document.addEventListener('click',async e=>{const stepLink=e.target.closest('[data-step-target]');if(stepLink){e.preventDefault();jumpToStep(stepLink.dataset.stepTarget);return}const phase=e.target.closest('[data-phase]');if(phase)selectPhase(Number(phase.dataset.phase),true,phase.dataset.targetStep);const cb=e.target.closest('[data-copy-step]');if(cb){const step=course.phases.flatMap(p=>p.steps).find(s=>s.id===cb.dataset.copyStep);if(await copy(step.command)){cb.innerHTML=icon('check')+'<span>已复制</span>';setTimeout(()=>{if(cb.isConnected)cb.innerHTML=icon('copy')+'<span>复制</span>'},1800)}}const close=e.target.closest('[data-close]');if(close)$(close.dataset.close).close()});
+document.addEventListener('change',e=>{if(e.target.matches('[data-step]')){const id=e.target.dataset.step;state.done=e.target.checked?[...new Set([...state.done,id])]:state.done.filter(x=>x!==id);saveState();renderProgress();e.target.closest('.step-card').classList.toggle('complete',e.target.checked);const hint=document.querySelector('.next-hint');if(hint)hint.textContent=phaseDone(course.phases[active])===course.phases[active].steps.length?'本阶段已完成，继续保持。':'确认结果符合预期后，勾选每一步的“已掌握”。';const completion=$('completion');if(completion)completion.hidden=true;if(totalDone()===stepIds().length)toast('全部步骤已完成，做得好！')}});
+function toast(message){$('toast').textContent=message;$('toast').classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('visible'),2800)}
+async function copy(text){try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(text)}else{fallbackCopy(text)}toast('已复制到剪贴板');return true}catch{try{fallbackCopy(text);toast('已复制到剪贴板');return true}catch{toast('复制不可用，请选中文本手动复制');return false}}}
+function fallbackCopy(text){const el=document.createElement('textarea');el.value=text;el.style.position='fixed';el.style.opacity='0';const host=document.querySelector('dialog[open]')||document.body;host.appendChild(el);el.select();const ok=document.execCommand('copy');el.remove();if(!ok)throw Error('copy failed')}
+function search(value){const q=value.trim().toLocaleLowerCase();if(!q){$('searchResults').hidden=true;$('contentGrid').hidden=false;$('pageToc').hidden=false;$('mobileToc').hidden=false;return}$('searchResults').hidden=false;$('contentGrid').hidden=true;$('pageToc').hidden=true;$('mobileToc').hidden=true;const results=[];course.phases.forEach((p,index)=>p.steps.forEach(s=>{if([p.title,s.title,s.why,s.action,s.command,s.expected,s.location,s.pitfall?.title,s.pitfall?.cause,s.pitfall?.fix].join(' ').toLocaleLowerCase().includes(q))results.push({p,s,index})}));$('searchResults').innerHTML='<h2>找到 '+results.length+' 个相关步骤</h2>'+(results.length?results.map(({p,s,index})=>'<button class="search-result" data-phase="'+index+'" data-target-step="'+esc(s.id)+'"><span class="result-phase">'+esc(p.title)+'</span><span class="result-title">'+esc(s.title)+'</span><span class="result-excerpt">'+esc(s.why.slice(0,100))+'</span></button>').join(''):'<div class="empty-state">没有匹配的步骤。试试“安装”“端口”或命令名称。</div>')}
+$('searchInput').addEventListener('input',e=>search(e.target.value));document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('searchInput').focus()}if(e.key==='Escape')closeNav(true)});
+$('menuToggle').onclick=()=>{const open=$('sidebar').classList.toggle('open');$('overlay').classList.toggle('visible',open);$('menuToggle').setAttribute('aria-expanded',String(open));syncNav();if(open)$('phaseNav').querySelector('.nav-item.active').focus()};$('overlay').onclick=()=>closeNav(true);
+$('notesBtn').onclick=()=>{$('notesDialog').showModal();$('phaseNotes').focus()};
+$('helpBtn').onclick=()=>{$('importError').hidden=true;$('helpDialog').showModal()};$('resetBtn').onclick=()=>$('resetDialog').showModal();$('confirmReset').onclick=()=>{state=cleanState(null);active=0;saveState();renderChrome();renderPhase();$('resetDialog').close();toast('已清除本教程的学习记录')};
+function download(content,name,type){const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000)}
+function filename(name){return name.replace(/[<>:"/\\|?*\u0000-\u001f]/g,'-').slice(0,100)}
+$('exportJsonBtn').onclick=()=>download(JSON.stringify(course,null,2),filename(course.title)+'-教程内容.json','application/json');$('copyPromptBtn').onclick=()=>copy(PROMPT);
+$('exportBtn').onclick=()=>{const cloned=document.documentElement.cloneNode(true);cloned.querySelector('#course-data').textContent='\n'+JSON.stringify(course,null,2).replace(/</g,'\\u003c')+'\n';cloned.querySelectorAll('dialog').forEach(d=>d.removeAttribute('open'));cloned.querySelectorAll('#phaseNav,#phaseContent,#searchResults,#stepNav,#mobileStepNav').forEach(el=>el.replaceChildren());cloned.querySelector('#mobileToc').removeAttribute('open');cloned.querySelector('#phaseNotes').value='';cloned.querySelector('#phaseNotes').textContent='';cloned.querySelector('#notesPhaseTitle').textContent='';cloned.querySelector('#sidebar').classList.remove('open');cloned.querySelector('#overlay').classList.remove('visible');cloned.querySelector('#menuToggle').setAttribute('aria-expanded','false');cloned.querySelector('#toast').classList.remove('visible');cloned.querySelector('#searchInput').value='';cloned.querySelector('#importError').textContent='';cloned.querySelector('#importError').hidden=true;download('<!doctype html>\n'+cloned.outerHTML,filename(course.title)+'-学习手册.html','text/html;charset=utf-8');toast('已下载 HTML 手册；笔记可单独导出')};
+$('exportNotesBtn').onclick=()=>download(JSON.stringify({type:'learnbook-progress',version:1,courseId:course.id,exportedAt:new Date().toISOString(),state},null,2),filename(course.title)+'-学习记录.json','application/json');
+function validateCourse(d){const fail=s=>{throw Error(s)};if(!d||typeof d!=='object')fail('教程应为 JSON 对象。');for(const k of ['id','title','subtitle','description','level','duration','updated'])if(typeof d[k]!=='string'||!d[k].trim())fail('缺少文本字段：'+k);if(!/^[a-zA-Z0-9_-]+$/.test(d.id))fail('教程 id 只能包含字母、数字、短横线和下划线。');if(!Array.isArray(d.phases)||!d.phases.length||d.phases.length>20)fail('教程需要 1–20 个阶段。');const pids=new Set(),sids=new Set();d.phases.forEach((p,i)=>{for(const k of ['id','title','subtitle','duration'])if(typeof p[k]!=='string'||!p[k])fail('阶段 '+(i+1)+' 缺少 '+k);if(!/^[a-zA-Z0-9_-]+$/.test(p.id)||pids.has(p.id))fail('阶段 id 必须唯一，并仅含字母、数字、短横线或下划线。');pids.add(p.id);if(!Array.isArray(p.steps)||!p.steps.length||p.steps.length>50)fail('每阶段需要 1–50 个步骤。');p.steps.forEach(s=>{for(const k of ['id','title','why','location','expected'])if(typeof s[k]!=='string'||!s[k])fail('步骤缺少 '+k);if(!/^[a-zA-Z0-9_-]+$/.test(s.id)||sids.has(s.id))fail('所有步骤 id 必须唯一，并仅含字母、数字、短横线或下划线。');sids.add(s.id);if(s.command!=null&&typeof s.command!=='string')fail('command 必须是文本。');if(s.action!=null&&typeof s.action!=='string')fail('action 必须是文本。');if(!s.command&&!s.action)fail('步骤 '+s.title+' 需要 command 或 action。');if(!s.pitfall||['title','cause','fix'].some(k=>typeof s.pitfall[k]!=='string'))fail('步骤 '+s.title+' 缺少完整 pitfall。')})});if(!Array.isArray(d.resources)||!d.resources.length)fail('需要至少一个官方参考资源。');d.resources.forEach(r=>{if(typeof r.title!=='string'||typeof r.url!=='string')fail('资源需要 title 和 url。');let u;try{u=new URL(r.url)}catch{fail('资源链接格式不正确。')}if(!['https:','http:'].includes(u.protocol))fail('资源链接仅允许 http/https。')});return d}
+function showImportError(message){$('importError').textContent=message;$('importError').hidden=false}
+$('importJsonBtn').onclick=()=>$('importInput').click();$('importInput').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>2*1024*1024)throw Error('文件超过 2 MB，请精简内容。');const next=validateCourse(JSON.parse(await file.text()));course=next;loadState();renderChrome();renderPhase();$('helpDialog').close();window.scrollTo(0,0);toast('已载入新教程，可下载 HTML 保存')}catch(err){showImportError('导入失败：'+err.message)}finally{e.target.value=''}};
+$('importNotesBtn').onclick=()=>$('notesInput').click();$('notesInput').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>2*1024*1024)throw Error('文件超过 2 MB。');const data=JSON.parse(await file.text());if(data.type!=='learnbook-progress'||data.version!==1||data.courseId!==course.id||!data.state)throw Error('请选择本教程导出的学习记录。');state=cleanState(data.state);active=Math.max(0,course.phases.findIndex(p=>p.id===state.active));saveState();renderChrome();renderPhase();$('helpDialog').close();toast('学习进度与笔记已恢复')}catch(err){showImportError('恢复失败：'+err.message)}finally{e.target.value=''}};
+loadState();renderChrome();renderPhase();syncNav();
+</script>
+</body>
+</html>

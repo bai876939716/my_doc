@@ -1,0 +1,64 @@
+@startuml 建会话与采集轮
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam sequenceMessageAlign center
+
+title 一次报修:建会话 → 打字轮(调 LLM)→ 点选轮(0 LLM)
+
+participant "报修页 H5" as FE
+participant "网关/Java 转发层\n(替换注入 X-Uid)" as GW
+participant "Agent 服务\n(FastAPI 同步线程池)" as API
+participant "采集图引擎\n(LangGraph)" as GRAPH
+participant "百炼 LLM\n(BailianGateway)" as LLM
+participant "base-shop 主数据\n(可选)" as SHOP
+database "PG\n检查点 + 活跃索引" as PG
+
+== 建会话轮 ==
+FE -> GW : POST /agent/repair/v1/sessions\n{store_no}
+GW -> API : 转发(X-Uid 来自认证结果)
+alt 缺 X-Uid 且未开匿名(allow_anonymous)
+  API --> FE : 401 / 40101
+end
+API -> PG : 入口锁内查活跃索引\nrp:active:{uid}:{store_no}
+alt 有未出单的活跃会话
+  API -> PG : TTL 续期 7 天 + 续填计数
+  API --> FE : 会话恢复(is_resumed=true\n重放全部消息,含用户回显)
+else 无 / 已出单 / 索引悬空
+  API -> GRAPH : 新会话(sid = rp_ + 128位随机,\n不可猜)
+  GRAPH -> SHOP : 带出工具 get_user_context\n(uid, store_no)
+  SHOP --> GRAPH : 门店/报修人/手机号\n(未配置或查无退 Mock,不伪造)
+  GRAPH --> FE : 状态条 + 开场白 + 快捷卡\n(检查点随本轮写入 PG)
+end
+
+== 打字轮(全流程唯一 LLM 调用点) ==
+FE -> API : POST /sessions/{sid}/messages\n{type:"text"}
+API -> API : 属主比对(非属主同回40401)\n会话锁内读-改-写全程串行
+alt 会话已出单
+  API --> FE : 42201 本单已提交
+end
+API -> GRAPH : invoke(incoming)
+GRAPH -> GRAPH : intake 手势落档(role=user,\n恒为本轮第 1 条)
+GRAPH -> LLM : 联合抽取:意图+槽位增量+类别候选\n(secret 槽位真值不进 Prompt;\n附一行流程状态供裸值消解)
+LLM --> GRAPH : 意图对象
+GRAPH -> GRAPH : 闸门准入\n字段白名单/字典/长度/识别器/原话印证\n(被拦的值不落库)
+alt 打字值被闸门拦截
+  GRAPH --> FE : 拦截话术 + 重递选项卡
+else 议程还有待办
+  GRAPH --> FE : 下一待办\n(文本提问/枚举卡Top3或全量/分段卡/附件引导卡)
+else 必填全齐
+  GRAPH --> FE : 确认单\n(手机号对外只出掩码)
+end
+API -> PG : 活跃索引续期
+
+== 点选轮(0 LLM) ==
+FE -> API : POST .../messages\n{enum_pick | seg_pick | card | phone | upload_done}
+API -> API : 路由层先校验\n点选值必须过当前字典白名单
+GRAPH -> GRAPH : 手势直写槽位\n(OnChange 连带:默认描述重算清空,\n照片不清值只提示自查)
+GRAPH --> FE : 下一待办或确认单
+note over FE, GRAPH
+  附件协议:前端先直传明道云,
+  会话只收 {name,url} 完整引用
+  (旧 media_ids 不再支持)
+end note
+@enduml

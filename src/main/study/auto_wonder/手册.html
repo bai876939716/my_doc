@@ -1,0 +1,901 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="AutoWonder 落地实战 · 分阶段把阿里开源的多智能体交付平台跑起来，走通第一个完整需求。">
+<title>AutoWonder 落地实战 · 学习手册</title>
+<style>
+:root{--bg:#ffffff;--paper:#ffffff;--sidebar:#ffffff;--ink:#242933;--muted:#707889;--line:#e6e9ef;--accent:#27BD51;--accent-dark:#296039;--soft:#f4f6f4;--green:#296039;--amber:#84672c;--radius:10px;--shadow:none;--sidebar-width:260px}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.8 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+button,input,textarea{font:inherit}
+button,a,input,textarea{-webkit-tap-highlight-color:transparent}
+button{cursor:pointer;color:inherit}
+button:disabled{cursor:default;opacity:.4}
+a{color:var(--accent);text-decoration:none;text-underline-offset:4px}
+a:hover{text-decoration:underline}
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{outline:2px solid #27BD51;outline-offset:4px}
+svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle;flex-shrink:0}
+button svg{pointer-events:none}
+[hidden]{display:none!important}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+a.sr-only:focus{position:fixed;top:10px;left:12px;width:auto;height:auto;clip:auto;overflow:visible;padding:8px 14px;margin:0;z-index:110;background:var(--paper);border:1px solid var(--accent);border-radius:5px}
+.sidebar{position:fixed;inset:0 auto 0 0;width:var(--sidebar-width);background:var(--sidebar);border-right:1px solid var(--line);z-index:30;display:flex;flex-direction:column;padding:29px 18px 20px}
+.brand{display:flex;align-items:center;gap:12px;margin:0 13px 34px;flex-shrink:0}
+.brand-mark{background:var(--ink);color:#ffffff;width:38px;height:42px;border-radius:4px 9px 9px 4px;display:grid;place-items:center}
+.brand-mark svg{width:23px;height:23px}
+.brand-name{font-size:25px;letter-spacing:4px;font-weight:650;line-height:1.2;font-family:inherit}
+.brand-en{display:block;font-size:10px;letter-spacing:1.9px;color:var(--muted);margin-top:6px}
+.nav-label{margin:0 14px 11px;color:var(--muted);font-size:12px;letter-spacing:2px;flex-shrink:0}
+.course-label{font-weight:650;font-size:16px;margin:0 14px 3px;flex-shrink:0}
+.course-caption{color:var(--muted);font-size:12px;margin:0 14px 20px;flex-shrink:0}
+.phase-nav{display:flex;flex-direction:column;gap:4px;overflow:auto;overscroll-behavior:contain;min-height:0;flex:1;padding:2px 4px 8px 0;scrollbar-width:thin;scrollbar-color:#d1d7e2 transparent}
+.nav-group{flex-shrink:0}
+.nav-row{display:flex;align-items:center;border-radius:6px;position:relative;transition:background .15s}
+.nav-row:hover{background:#f4f5f7}
+.nav-row.active{background:#f4f6f4}
+.nav-item{border:0;background:none;text-align:left;display:flex;gap:11px;align-items:center;padding:12px 8px 12px 12px;min-width:0;flex:1;position:relative;border-radius:6px}
+.nav-item.active{color:var(--accent-dark)}
+.nav-number{width:23px;display:grid;place-items:center;font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;color:#8e96a7;flex-shrink:0}
+.active .nav-number{color:var(--accent)}
+.nav-item.done .nav-number{color:var(--green)}
+.nav-number svg{width:16px;height:16px}
+.nav-text{font-size:14px;font-weight:600;min-width:0;line-height:1.6}
+.nav-sub{display:block;font-size:12px;color:var(--muted);font-weight:400;margin-top:1px}
+.sidebar-bottom{padding:17px 12px 0;flex-shrink:0;border-top:1px solid var(--line);margin-top:9px}
+.progress-card{padding:0;background:none;border:0}
+.progress-head{display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-bottom:10px}
+.progress-head strong{color:var(--accent);font-weight:600;font-variant-numeric:tabular-nums}
+.track{height:3px;border-radius:3px;background:#e6e9ef;overflow:hidden}
+.fill{height:100%;background:var(--accent);width:0%;transition:width .25s;border-radius:3px}
+.progress-caption{font-size:12px;color:var(--muted);margin:8px 0 0}
+.local-status{font-size:11px;color:#8e96a7;margin:13px 0 0;display:flex;align-items:center;gap:6px;line-height:1.65}
+.local-status svg{width:13px;height:13px}
+.app{margin-left:var(--sidebar-width)}
+.topbar{height:66px;position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;padding:0 36px;border-bottom:1px solid var(--line);background:#fffffff5;backdrop-filter:blur(12px);gap:20px}
+.breadcrumb{display:flex;align-items:center;gap:10px;color:#707889;font-size:12px;white-space:nowrap;min-width:0}
+.breadcrumb span:last-child{color:#535b6b;overflow:hidden;text-overflow:ellipsis}
+.breadcrumb svg{width:13px;height:13px;color:#9fa7b7}
+.toolbar{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.searchbox{width:206px;height:36px;position:relative;display:flex;align-items:center;gap:8px;padding:0 10px;border:1px solid var(--line);border-radius:6px;background:#f9fafd}
+.searchbox svg{width:15px;height:15px;color:#8e96a7}
+.searchbox input{border:0;outline:none;background:transparent;width:100%;font-size:14px;min-width:0;color:var(--ink)}
+.searchbox input::placeholder{color:#8e96a7}
+.searchbox:focus-within{border-color:#27BD51;background:var(--paper)}
+.searchbox kbd{font:11px/1.4 ui-monospace,SFMono-Regular,monospace;color:#8e96a7;white-space:nowrap;border:1px solid #e6e9ef;padding:0 4px;border-radius:3px}
+.btn{border:1px solid var(--line);background:transparent;padding:8px 12px;border-radius:6px;font-size:14px;line-height:1.4;display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;font-weight:500}
+.btn:hover{background:#f4f6f4;border-color:#c0e2ca}
+.btn svg{width:16px;height:16px}
+.btn-primary{background:#0b0c0f;border-color:#0b0c0f;color:#ffffff}
+.btn-primary:hover{background:#296039;border-color:#296039}
+.btn-quiet{border-color:transparent;background:transparent;color:var(--muted)}
+.mobile-toggle{display:none;border:0;background:none;padding:7px;border-radius:5px}
+.page{max-width:1100px;margin:auto;padding:47px 58px 36px}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:2px;color:#707889;display:flex;align-items:center;gap:9px}
+.eyebrow:before{content:"";width:20px;height:1px;background:#9fa7b7}
+.hero h1{font-family:inherit;font-size:30px;font-weight:700;line-height:1.35;letter-spacing:-.4px;margin:13px 0 15px;color:#0b0c0f;text-wrap:pretty}
+.hero-description{font-size:16px;color:#626a7a;margin:0;line-height:1.95;max-width:860px}
+.meta-row{display:flex;align-items:center;flex-wrap:wrap;gap:19px;margin:21px 0 35px;padding-bottom:29px;border-bottom:1px solid var(--line);font-size:12px;color:#707889}
+.meta-row span{display:inline-flex;align-items:center;gap:6px}
+.meta-row svg{width:14px;height:14px}
+.meta-row .tag{padding:2px 8px;color:var(--accent);background:#f4f6f4;border-radius:3px;font-size:12px;font-weight:600}
+.content-grid{display:block;min-width:0}
+#phaseTitle,.step-card{scroll-margin-top:91px}
+.steps{display:flex;flex-direction:column}
+.step-card{background:transparent;border:0;border-bottom:1px solid var(--line);border-radius:0;overflow:visible;box-shadow:none;padding:24px 0 29px}
+.step-card:first-child{padding-top:5px}
+.step-header{display:flex;align-items:flex-start;gap:12px;padding:0;margin-bottom:15px}
+.step-counter{font:13px/1.8 ui-monospace,SFMono-Regular,Consolas,monospace;color:#8e96a7;padding:1px 0;margin-top:3px;min-width:31px}
+.step-title{font-size:19px;font-weight:650;margin:0;line-height:1.6;flex:1;min-width:0}
+.check-control{display:flex;align-items:center;gap:7px;color:#707889;font-size:13px;white-space:nowrap;margin-top:5px;cursor:pointer}
+.check-control input{width:16px;height:16px;accent-color:#209b43;cursor:pointer;margin:0}
+.complete .check-control{color:var(--accent)}
+.step-content{padding:0 0 0 43px}
+.why{font-size:16px;color:#3c424f;margin:0 0 19px;line-height:1.95}
+.why strong{font-size:14px;font-weight:600;color:#242933}
+.action{background:#f9fafd;border-left:2px solid #d1d7e2;padding:15px 18px;border-radius:0 5px 5px 0;font-size:16px;color:#535b6b;white-space:pre-wrap;margin-bottom:20px;line-height:1.95;overflow-wrap:anywhere}
+.command{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#f8f9fb;margin:0 0 21px}
+.command-top{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#f2f4f8;color:#707889;gap:12px;font-size:12px;border-bottom:1px solid #e6e9ef}
+.terminal-label{display:flex;gap:8px;align-items:center;min-width:0}
+.terminal-label svg{width:14px;height:14px}
+.terminal-label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.copy-btn{border:0;background:none;color:#707889;font-size:12px;display:flex;align-items:center;gap:6px;padding:3px 0;flex-shrink:0}
+.copy-btn svg{width:14px;height:14px}
+.copy-btn:hover{color:#296039}
+.command pre{margin:0;padding:20px 21px 23px;overflow-x:auto;tab-size:2;color:#242933;font:14px/1.95 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.code-line{display:block;white-space:pre}
+.code-line:before{content:"$";display:inline-block;width:24px;color:#27BD51;user-select:none}
+.expected{display:flex;gap:9px;font-size:14px;color:#535b6b;line-height:1.95}
+.expected svg{margin-top:6px;width:15px;height:15px;color:#27BD51}
+.expected strong{color:#296039;font-size:13px;margin-right:8px;font-weight:600}
+.pitfall{margin-top:20px;font-size:14px}
+.pitfall summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;color:#84672c;padding:9px 0}
+.pitfall summary::-webkit-details-marker{display:none}
+.pitfall summary svg{width:15px;height:15px}
+.pitfall .chevron{margin-left:2px;color:#8e96a7;transition:transform .2s}
+.pitfall[open] .chevron{transform:rotate(180deg)}
+.pitfall-body{background:#fffdf5;padding:14px 17px;margin-top:6px;border-radius:5px;line-height:1.95;color:#84672c;border:1px solid #f0e8d1}
+.pitfall-body p{margin:0 0 8px}
+.pitfall-body p:last-child{margin:0}
+.pitfall-body b{font-weight:600;color:#725720}
+.phase-footer{margin-top:26px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.phase-footer .btn{padding:11px 17px}
+.next-hint{font-size:12px;color:#8e96a7;text-align:right;margin:11px 0 0}
+.sources{margin-top:36px;padding-top:22px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-start;gap:20px;font-size:12px;color:#8e96a7}
+.sources>span{flex-shrink:0}
+.sources-links{display:flex;gap:9px 17px;flex-wrap:wrap;justify-content:flex-end}
+.sources a{color:#707889;font-size:12px}
+.sources a:hover{color:var(--accent)}
+.page-foot{margin-top:24px;display:flex;gap:12px;justify-content:space-between;align-items:center;font-size:12px;color:#8e96a7}
+.page-foot button{font-size:12px;padding:6px 0 6px 10px}
+.empty-state{text-align:center;padding:45px 20px;color:var(--muted);border:1px dashed var(--line);border-radius:6px}
+.search-results h2{font-size:24px;margin-top:0;font-weight:600}
+.search-result{width:100%;text-align:left;background:transparent;border:0;border-bottom:1px solid var(--line);padding:20px 13px;margin-bottom:5px;border-radius:5px}
+.search-result:hover{background:#f4f6f4}
+.result-phase{font-size:12px;color:#296039;display:block;margin-bottom:5px}
+.result-title{font-size:18px;font-weight:600;display:block}
+.result-excerpt{font-size:14px;color:var(--muted);display:block;margin-top:6px}
+.completion{padding:19px 21px;border:1px solid #c0e2ca;border-radius:6px;background:#f3f7f4;margin-top:24px;color:#296039;font-size:14px}
+.completion strong{display:block;margin-bottom:4px}
+.toast{position:fixed;bottom:28px;left:calc(50% + var(--sidebar-width)/2);transform:translate(-50%,12px);background:#242933;color:#ffffff;border-radius:7px;padding:11px 20px;font-size:14px;box-shadow:0 6px 24px #0b0c0f1a;opacity:0;pointer-events:none;transition:.2s;z-index:100;max-width:calc(100vw - 32px)}
+.toast.visible{opacity:1;transform:translate(-50%,0)}
+.overlay{display:none}
+.dialog{border:1px solid #e6e9ef;border-radius:12px;padding:0;width:min(700px,calc(100% - 32px));max-height:88vh;color:var(--ink);background:var(--paper);box-shadow:0 25px 90px #0b0c0f26;overscroll-behavior:contain}
+.dialog::backdrop{background:#0b0c0f66;backdrop-filter:blur(3px)}
+.dialog-head{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:22px 27px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--paper);z-index:1}
+.dialog-head h2{margin:0;font-size:20px;font-weight:600;line-height:1.6}
+.icon-btn{border:0;background:#f2f4f8;border-radius:5px;padding:7px;display:grid;place-items:center;flex-shrink:0}
+.icon-btn:hover{background:#e6e9ef}
+.icon-btn svg{width:17px;height:17px}
+.dialog-body{padding:24px 27px}
+.dialog-body>p{color:var(--muted);font-size:16px;margin:0 0 21px}
+.how-list{list-style:none;margin:0 0 24px;padding:0;display:flex;flex-direction:column;gap:20px}
+.how-list li{display:flex;gap:13px;font-size:16px}
+.how-num{width:25px;height:25px;flex-shrink:0;background:var(--soft);border-radius:5px;color:var(--accent);display:grid;place-items:center;font-size:12px;font-weight:600;margin-top:3px}
+.how-list strong{display:block;margin-bottom:3px;font-weight:600}
+.how-list p{font-size:14px;color:var(--muted);margin:0;line-height:1.95}
+.prompt-box{font:13px/1.9 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap;background:#f9fafd;border:1px solid var(--line);border-radius:5px;padding:16px;max-height:215px;overflow:auto;margin:13px 0}
+.dialog-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:17px}
+.dialog-section{border-top:1px solid var(--line);padding-top:22px;margin-top:24px}
+.dialog-section>summary{font-size:14px;cursor:pointer}
+.dialog-section h3{font-size:16px;margin:0 0 8px;font-weight:600}
+.dialog-section p{font-size:14px;color:var(--muted);margin:0;line-height:1.9}
+.inline-code{font-family:ui-monospace,SFMono-Regular,monospace;color:var(--accent);font-size:13px}
+.file-error{color:#b43b3b;font-size:14px;margin-top:14px;white-space:pre-wrap}
+.dialog small{font-size:12px;color:#8e96a7;display:block;margin-top:17px}
+.danger{color:#b43b3b}
+.reset-actions{justify-content:flex-end}
+.celebrate{color:var(--green)}
+.notes-caption{font-size:14px;color:var(--muted);display:flex;gap:14px;justify-content:space-between;align-items:center;margin-bottom:15px}
+.notes-caption #noteStatus{font-size:12px;color:#8e96a7;white-space:nowrap}
+.notes{display:block;resize:vertical;width:100%;min-height:280px;border:1px solid #d1d7e2;background:repeating-linear-gradient(var(--paper),var(--paper) 31px,#f2f4f8 31px,#f2f4f8 32px);color:#3c424f;padding:13px 16px;font-size:16px;line-height:32px;border-radius:5px;outline:none}
+.notes::placeholder{color:#9fa7b7}
+.notes:focus{border-color:#9fa7b7}
+.note-foot{font-size:12px;color:#8e96a7;margin-top:12px}
+.note-footer{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-top:15px;font-size:12px;color:#8e96a7}
+.note-footer .btn{font-size:14px}
+/* Layout based on Qoder CN classic light docs: left chapters, article, page TOC. */
+::selection{background:rgba(39,189,81,.15)}
+.topbar{height:64px;position:sticky;top:0;z-index:40;width:100%;padding:0 28px;gap:24px;background:#ffffffed;border-bottom:1px solid #e6e9ef;backdrop-filter:blur(12px)}
+.brand{width:188px;margin:0;gap:9px;flex-shrink:0;align-items:center}
+.brand-mark{width:28px;height:30px;border-radius:0;background:transparent;color:#0b0c0f}
+.brand-mark svg{width:27px;height:27px}
+.brand-name{font-size:23px;font-family:inherit;letter-spacing:1px;font-weight:700;line-height:1}
+.brand-en{display:none}
+.toolbar{margin-left:auto;gap:9px;min-width:0}
+.searchbox{width:280px;max-width:30vw;background:#f9fafd;border-color:#e6e9ef;border-radius:8px;height:36px}
+.sidebar{top:64px;width:var(--sidebar-width);background:#fff;border-right:1px solid #edf0f3;padding:34px 16px 22px}
+.nav-label{font-size:12px;letter-spacing:0;font-weight:600;color:#8e96a7;margin:0 12px 10px}
+.course-label{font-size:14px;margin:0 12px 4px;color:#242933}
+.course-caption{font-size:12px;margin:0 12px 23px;color:#8e96a7}
+.phase-nav{gap:4px;padding-right:2px}
+.nav-row{border-radius:7px}
+.nav-row.active{background:#f4f6f4}
+.nav-item{flex:none;width:100%;padding:11px 12px;border-radius:7px;gap:10px;align-items:flex-start;line-height:1.55}
+.nav-item:hover{background:#f4f5f7}
+.nav-item.active{background:#f4f6f4;color:#296039}
+.nav-text{font-size:14px;font-weight:500}
+.nav-item.active .nav-text{font-weight:600}
+.nav-number{width:20px;margin-top:1px;font-size:12px;color:#8e96a7}
+.nav-sub{font-size:12px;margin-top:3px;color:#8e96a7}
+.sidebar-bottom{margin-top:14px;padding:18px 10px 0;border-color:#edf0f3}
+.progress-head{font-size:12px;color:#626a7a}
+.progress-head strong{color:#296039}
+.track{background:#e6e9ef;height:3px}
+.fill{background:#27BD51}
+.progress-caption{font-size:12px;color:#8e96a7}
+.local-status{font-size:11px;color:#8e96a7}
+.app{margin-left:var(--sidebar-width)}
+.doc-layout{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:42px;max-width:1340px;margin:0 auto;padding:38px 40px 32px;align-items:start}
+.page{width:100%;max-width:768px;min-width:0;margin:0 auto;padding:0}
+.breadcrumb{display:flex;gap:8px;align-items:center;font-size:13px;color:#707889;white-space:normal;line-height:1.6;flex-wrap:wrap;margin:0 0 17px}
+.breadcrumb span:last-child{color:#707889;overflow:visible;text-overflow:clip}
+.breadcrumb svg{width:12px;height:12px;color:#9fa7b7}
+.hero h1{font-family:inherit;font-size:30px;font-weight:700;line-height:1.35;letter-spacing:-.6px;margin:0 0 14px;color:#0b0c0f}
+.hero-description{font-size:16px;color:#626a7a;line-height:1.8;margin:0}
+.meta-row{margin:20px 0 29px;padding-bottom:23px;gap:16px;font-size:12px;color:#8e96a7;border-bottom:1px solid #edf0f3}
+.meta-row .tag{background:#f4f6f4;color:#296039;font-size:12px;border-radius:4px;font-weight:500}
+.meta-row svg{width:13px;height:13px}
+.eyebrow{display:none}
+.step-card{padding:29px 0 30px;border-bottom:1px solid #edf0f3;scroll-margin-top:94px}
+.step-card:first-child{padding-top:4px}
+.step-header{gap:10px;margin-bottom:17px;align-items:baseline}
+.step-counter{font-size:12px;color:#8e96a7;min-width:24px;padding:0;margin:0}
+.step-title{font-size:21px;line-height:1.5;letter-spacing:-.2px;font-weight:650;color:#111317}
+.step-content{padding:0}
+.check-control{font-size:12px;color:#8e96a7;margin-top:0}
+.check-control input{width:15px;height:15px}
+.complete .check-control{color:#296039}
+.why{line-height:1.85;font-size:16px;margin-bottom:19px}
+.why strong{color:#242933;font-size:14px;font-weight:600}
+.action{background:#f9fafd;border:1px solid #e6e9ef;border-radius:7px;padding:14px 16px;color:#3c424f;font-size:16px;line-height:1.85;margin-bottom:19px}
+.command{background:#f8f9fb;border:1px solid #e6e9ef;border-radius:8px;margin-bottom:20px}
+.command-top{background:#f2f4f8;border-bottom:1px solid #e6e9ef;color:#707889;font-size:12px;padding:10px 15px}
+.command pre{color:#242933;font:14px/1.85 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:18px 20px 20px}
+.copy-btn{color:#707889;font-size:12px}
+.copy-btn:hover{color:#296039}
+.code-line:before{color:#209b43}
+.expected{color:#535b6b;line-height:1.85}
+.expected strong{color:#296039}
+.expected svg{color:#27BD51}
+.pitfall summary{color:#8a6d2b}
+.pitfall-body{background:#fffdf5;border-color:#eee8d4;color:#796331}
+.pitfall-body b{color:#70581f}
+.page-toc{position:sticky;top:104px;align-self:start;max-height:calc(100vh - 132px);overflow:auto;scrollbar-width:thin;scrollbar-color:#d1d7e2 transparent;min-width:0;padding:0 0 8px}
+#pageToc>h2,#pageToc>h3,.page-toc h2,.page-toc h3,.toc-heading{font-size:14px;font-weight:600;line-height:1.6;margin:0 0 13px;color:#3c424f}
+.toc-heading{display:flex;align-items:center;gap:8px}.toc-heading svg{width:15px;height:15px;color:#8e96a7}
+#stepNav{border-left:1px solid #e6e9ef;display:flex;flex-direction:column;padding:0;gap:1px}
+.toc-link{width:100%;display:flex;align-items:flex-start;text-align:left;gap:8px;padding:9px 9px 9px 17px;border:0;background:none;color:#707889;position:relative;line-height:1.65;font-size:14px;cursor:pointer;border-radius:0 5px 5px 0;text-decoration:none}
+.toc-link:hover{color:#242933;background:#f9fafd;text-decoration:none}
+.toc-link.active{color:#296039;background:transparent;font-weight:600}
+.toc-link.active:before{content:"";position:absolute;left:-1px;top:0;bottom:0;width:2px;background:#27BD51;border-radius:2px}
+.toc-link .step-label{font:12px/1.9 ui-monospace,SFMono-Regular,Consolas,monospace;flex-shrink:0;width:23px;color:#8e96a7}
+.toc-link.active .step-label{color:#296039}
+.toc-link .step-name{flex:1;min-width:0;overflow-wrap:anywhere}
+.toc-link svg{width:13px;height:13px;flex-shrink:0;color:#27BD51;margin-top:5px}
+#mobileToc{display:none}
+.sources{flex-direction:column;gap:11px;font-size:12px;color:#8e96a7;margin-top:35px;padding-top:22px;border-color:#edf0f3}
+.sources-links{justify-content:flex-start;gap:9px 17px}
+.sources a{color:#707889}
+.sources a:hover{color:#296039}
+.page-foot{font-size:12px;color:#9fa7b7;margin-top:25px}
+.page-foot button{font-size:12px}
+.notes{background:repeating-linear-gradient(#fff,#fff 31px,#f2f4f8 31px,#f2f4f8 32px);color:#3c424f;border-color:#d1d7e2}
+.notes:focus{border-color:#27BD51}
+.notes-caption{color:#707889}
+#phaseTitle{scroll-margin-top:96px}
+@media(min-width:1650px){.doc-layout{padding-top:44px;gap:56px;max-width:1400px;padding-left:54px;padding-right:54px}.page{max-width:768px}}
+@media(max-width:1250px){.doc-layout{padding:32px 28px;gap:28px;grid-template-columns:minmax(0,1fr) 190px}.topbar{padding-left:23px;padding-right:23px}.searchbox{width:230px}.brand{width:185px}.step-title{font-size:20px}.check-control{font-size:12px}.toc-link{padding-left:13px;font-size:13px}}
+@media(max-width:1100px){.doc-layout{display:block;max-width:870px;padding:32px 38px}.page-toc{display:none}.page{max-width:768px}.brand{width:180px}.searchbox{width:210px}.note-button-label{display:none}#mobileToc{display:block;border-top:1px solid #e6e9ef;border-bottom:1px solid #e6e9ef;margin:22px 0 26px;padding:10px 0;background:#fff}#mobileToc>summary{font-size:14px;font-weight:500;line-height:1.7;color:#535b6b;cursor:pointer;list-style:none;display:flex;gap:8px;align-items:center;justify-content:space-between}#mobileToc>summary::-webkit-details-marker{display:none}#mobileToc>summary svg{width:15px;height:15px;color:#8e96a7}#mobileToc[open]>summary svg{transform:rotate(180deg)}#mobileStepNav{display:flex;flex-direction:column;margin:10px 0 3px;padding:0;border-left:1px solid #e6e9ef}#mobileStepNav .toc-link{font-size:14px;padding:9px 14px} .meta-row{border-bottom:0;padding-bottom:0;margin-bottom:22px}.hero h1{font-size:29px}.topbar .btn{padding:8px 10px}}
+@media(max-width:760px){:root{--sidebar-width:260px}.topbar{height:62px;padding:0 13px;gap:8px}.brand{width:auto;margin:0;gap:5px}.brand-name{font-size:19px}.brand-mark{width:23px;height:25px}.brand-mark svg{width:23px;height:23px}.mobile-toggle{display:block;flex-shrink:0;padding:6px}.toolbar{margin-left:auto;flex:1;min-width:0;gap:6px}.searchbox{width:70px;max-width:none;flex:1;min-width:0;padding:0 8px;height:34px}.searchbox input{font-size:13px}.searchbox kbd{display:none}.searchbox svg{width:14px;height:14px}.toolbar .export-label,.toolbar .note-button-label{display:none}.toolbar .btn{padding:7px}.toolbar #helpBtn{font-size:13px;padding:8px}.toolbar #helpBtn>[data-icon]{display:none}.sidebar{top:62px;z-index:30;transform:translateX(-100%);transition:transform .2s;width:var(--sidebar-width);max-width:calc(100vw - 42px);padding:25px 15px 20px}.sidebar.open{transform:translateX(0)}.app{margin-left:0}.doc-layout{padding:29px 22px 25px}.breadcrumb{font-size:12px;margin-bottom:15px;gap:6px}.hero h1{font-size:28px;line-height:1.35;margin-bottom:13px}.hero-description{font-size:16px;line-height:1.8}.meta-row{font-size:12px;gap:11px 15px;margin-top:19px}.step-card{padding:25px 0 27px;scroll-margin-top:84px}.step-header{flex-wrap:wrap;gap:6px 8px;margin-bottom:16px}.step-title{font-size:20px;flex-basis:calc(100% - 34px)}.step-counter{font-size:12px;min-width:25px}.check-control{margin:3px 0 0 33px;font-size:13px}.why{font-size:16px}.action{padding:13px 14px;font-size:16px}.command-top{padding:10px 13px;font-size:11px}.command pre{font-size:13px;padding:17px 14px 19px}.code-line:before{width:21px}.copy-btn{font-size:12px}.expected{font-size:14px}.pitfall{font-size:14px}.phase-footer .btn{font-size:13px;padding:10px 13px;white-space:normal;max-width:70%}.next-hint{text-align:left}.sources{margin-top:28px}.page-foot{align-items:flex-start;gap:18px}.page-foot>span{max-width:65%}.toast{left:50%;bottom:20px;font-size:13px}.overlay.visible{display:block;position:fixed;inset:62px 0 0;background:#0b0c0f59;z-index:25}.dialog-head{padding:18px 20px}.dialog-body{padding:20px}.dialog-head h2{font-size:18px}.dialog-body>p{font-size:15px}.notes{min-height:250px}.notes-caption{font-size:14px;align-items:flex-start}#phaseTitle{scroll-margin-top:84px}}
+@media(max-width:460px){.brand-name{display:none}.brand{width:24px}.topbar{gap:6px}.toolbar{gap:5px}.searchbox{width:70px}.toolbar #helpBtn{font-size:12px;padding:8px 7px}.doc-layout{padding-left:19px;padding-right:19px}}
+@media(max-height:650px) and (min-width:761px){.sidebar{padding-top:22px}.course-caption{margin-bottom:15px}.sidebar-bottom{padding-top:12px}.local-status{margin-top:8px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+
+.nav-count{margin-left:auto;white-space:nowrap;font-size:11px;line-height:1.8;color:#8e96a7;font-variant-numeric:tabular-nums}.inline-code{color:var(--accent-dark)}
+
+/* ===== 深色终端命令块 + 语法高亮 ===== */
+.command{background:#101623;border-color:#263043}
+.command-top{background:#1a2232;border-bottom-color:#263043;color:#8b96ab}
+.command pre{color:#dbe4f0}
+.copy-btn{color:#8b96ab}
+.copy-btn:hover{color:#6ee7a0}
+.code-line:before{color:#3ddc84}
+.tok-cmd{color:#6ee7a0;font-weight:600}
+.tok-flag{color:#b7a6f3}
+.tok-str{color:#f3c98b}
+.tok-com{color:#7b8aa3;font-style:italic}
+.command:focus-within{border-color:#3ddc84}
+
+/* ===== 左侧目录两级树（手风琴） ===== */
+.nav-children{display:none;flex-direction:column;gap:1px;margin:2px 0 6px 16px;padding:2px 0 2px 10px;border-left:1px solid #e6e9ef}
+.nav-group.active>.nav-children{display:flex}
+.nav-child{border:0;background:none;text-align:left;display:flex;gap:7px;align-items:baseline;padding:5px 8px;font-size:12.5px;color:#707889;line-height:1.55;border-radius:5px;min-width:0;cursor:pointer}
+.nav-child:hover{background:#f4f5f7;color:#242933}
+.nav-child.done{color:#296039}
+.nav-child .nc-num{font:11px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;color:#8e96a7;flex-shrink:0}
+.nav-child.done .nc-num{color:#27BD51}
+.nav-child .nc-text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+</style>
+</head>
+<body>
+<a class="sr-only" href="#phaseTitle">跳到教程正文</a>
+<div class="overlay" id="overlay"></div>
+<header class="topbar">
+<button class="mobile-toggle" id="menuToggle" aria-label="打开章节导航" aria-controls="sidebar" aria-expanded="false" data-icon="menu"></button>
+<div class="brand"><div class="brand-mark" data-icon="book"></div><div><div class="brand-name">循序</div><span class="brand-en">学习手册</span></div></div>
+<div class="toolbar"><label class="searchbox"><span data-icon="search"></span><input id="searchInput" type="search" placeholder="搜索步骤、命令…" aria-label="搜索整个教程"><kbd>⌘ K</kbd></label><button class="btn btn-quiet" id="notesBtn" aria-label="打开当前阶段的学习笔记"><span data-icon="note"></span><span class="note-button-label">笔记</span></button><button class="btn" id="helpBtn"><span data-icon="layout"></span>使用模板</button><button class="btn btn-primary" id="exportBtn" aria-label="下载当前教程 HTML"><span data-icon="download"></span><span class="export-label">下载手册</span></button></div>
+</header>
+<aside class="sidebar" id="sidebar" aria-label="学习阶段导航">
+<div class="course-label" id="sidebarTitle"></div><p class="course-caption" id="sidebarCaption"></p><p class="nav-label">学习路线</p>
+<nav class="phase-nav" id="phaseNav" aria-label="大步骤目录"></nav>
+<div class="sidebar-bottom"><div class="progress-card"><div class="progress-head"><span>学习进度</span><strong id="percent">0%</strong></div><div class="track" role="progressbar" aria-label="总学习进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progressBar"><div class="fill" id="progressFill"></div></div><p class="progress-caption" id="progressCaption"></p></div><p class="local-status"><span data-icon="shield"></span><span id="storageStatus">进度与笔记保存在当前浏览器</span></p></div>
+</aside>
+<div class="app"><div class="doc-layout">
+<main class="page" id="main">
+<div class="breadcrumb"><span>学习手册</span><span data-icon="chevronRight"></span><span id="breadcrumbTitle"></span></div>
+<div class="hero"><p class="eyebrow" id="phaseEyebrow"></p><h1 id="phaseTitle" tabindex="-1"></h1><p class="hero-description" id="courseDescription"></p></div>
+<div class="meta-row" id="metaRow"></div>
+<details class="mobile-toc" id="mobileToc"><summary><span>本页目录</span><span data-icon="chevronDown"></span></summary><nav id="mobileStepNav" aria-label="当前页小步骤"></nav></details>
+<section class="search-results" id="searchResults" hidden aria-live="polite"></section><div class="content-grid" id="contentGrid"><section id="phaseContent" aria-labelledby="phaseTitle"></section></div>
+<footer class="sources"><span>参考文档</span><div class="sources-links" id="sourceLinks"></div></footer><div class="page-foot"><span>循序 · 可复用的技术学习模板</span><button class="btn btn-quiet" id="resetBtn">重置学习记录</button></div>
+</main>
+<aside class="page-toc" id="pageToc" aria-label="本页目录"><div class="toc-heading"><span data-icon="list"></span>本页目录</div><nav id="stepNav" aria-label="当前页小步骤"></nav></aside>
+</div></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<dialog class="dialog" id="helpDialog" aria-labelledby="helpTitle"><div class="dialog-head"><h2 id="helpTitle">把任何技术，变成一条学习路线</h2><button class="icon-btn" data-close="helpDialog" aria-label="关闭模板说明" data-icon="close"></button></div><div class="dialog-body"><p>这是一个可以离线打开的单文件模板。当前的 AutoWonder 内容是完整示例，你可以保留页面设计，换成自己的学习主题。</p><ol class="how-list"><li><span class="how-num">1</span><div><strong>确定你要学什么</strong><p>准备项目名称、官方文档链接、操作系统和目标，例如“在 macOS 上安装一个框架，并跑通第一个示例”。</p></div></li><li><span class="how-num">2</span><div><strong>让 AI 按模板整理内容</strong><p>下载示例 JSON，并连同下面的提示词一起发给 AI。生成内容应核实官方文档，保留字段结构。</p></div></li><li><span class="how-num">3</span><div><strong>导入内容，保存专属手册</strong><p>导入新的 JSON 检查效果，然后点击“下载手册”。HTML 包含教程内容；学习记录可单独导出备份。</p></div></li></ol><div class="dialog-actions"><button class="btn btn-primary" id="copyPromptBtn"><span data-icon="copy"></span>复制生成提示词</button><button class="btn" id="exportJsonBtn"><span data-icon="download"></span>下载内容 JSON</button><button class="btn" id="importJsonBtn"><span data-icon="upload"></span>导入新教程</button><input type="file" accept=".json,application/json" id="importInput" hidden></div><div class="file-error" id="importError" role="alert" hidden></div><details class="dialog-section"><summary>查看生成提示词</summary><pre class="prompt-box" id="promptText"></pre></details><div class="dialog-section"><h3>也可以直接编辑 HTML</h3><p>用文本编辑器打开文件，搜索 <span class="inline-code">id="course-data"</span>，替换其中的 JSON 内容。每个教程使用独立的 <span class="inline-code">id</span>，阶段和步骤的 <span class="inline-code">id</span> 也要唯一。</p></div><div class="dialog-section"><h3>带走你的学习记录</h3><p>记录保存在当前浏览器。换浏览器、移动文件或清理浏览器数据前，可以导出备份；导入备份会覆盖本教程现有记录。</p><div class="dialog-actions"><button class="btn" id="exportNotesBtn">导出进度与笔记</button><button class="btn" id="importNotesBtn">恢复学习记录</button><input type="file" accept=".json,application/json" id="notesInput" hidden></div></div><small>离线可用 · 无第三方脚本 · 命令需自行在终端执行 · 示例文档核对日期见页面顶部</small></div></dialog>
+<dialog class="dialog" id="notesDialog" aria-labelledby="notesTitle"><div class="dialog-head"><h2 id="notesTitle">学习笔记</h2><button class="icon-btn" data-close="notesDialog" aria-label="关闭学习笔记" data-icon="close"></button></div><div class="dialog-body"><p class="notes-caption" id="notesPhaseTitle"></p><label class="sr-only" for="phaseNotes">当前阶段的学习笔记</label><textarea id="phaseNotes" class="notes" maxlength="100000" placeholder="记录你的理解、遇到的问题，或下一次想尝试的做法…"></textarea><div class="note-footer"><span>按阶段分别保存</span><span id="noteStatus">已保存</span></div></div></dialog>
+<dialog class="dialog" id="resetDialog" aria-labelledby="resetTitle"><div class="dialog-head"><h2 id="resetTitle">重新开始这份教程？</h2><button class="icon-btn" data-close="resetDialog" aria-label="关闭" data-icon="close"></button></div><div class="dialog-body"><p>这将清除本教程在当前浏览器保存的勾选进度和笔记，教程内容会保留。你可以先在“使用模板”中导出记录。</p><div class="dialog-actions reset-actions"><button class="btn" data-close="resetDialog">保留记录</button><button class="btn danger" id="confirmReset">清除并重新开始</button></div></div></dialog>
+<!-- 替换下方 JSON 即可生成新的教程；保留字段结构，id 应唯一。 -->
+<script type="application/json" id="course-data">
+{
+  "id": "autowonder-lab",
+  "title": "AutoWonder 落地实战",
+  "subtitle": "从零部署多智能体交付平台，走通第一个完整需求",
+  "description": "跟着 9 个阶段，在你的 Mac 上把阿里开源的 AutoWonder 平台跑起来：克隆源码、Docker 部署服务端、接入执行器、创建数字员工，最终让一个真实需求走完「指派 → AI 执行 → 产物回传 → 人工审批」的完整闭环。全程纯 Docker + 本机 npm，零云依赖。",
+  "level": "入门到实践",
+  "duration": "约 2~3 小时（可分多次）",
+  "updated": "2026-11-22",
+  "phases": [
+    {
+      "id": "env",
+      "title": "体检：环境准备",
+      "subtitle": "确认 Docker、Node 与磁盘网络都拿得出手",
+      "duration": "5 分钟",
+      "steps": [
+        {
+          "id": "env-docker",
+          "title": "确认 Docker Desktop 已安装并正在运行",
+          "why": "AutoWonder 服务端和 MySQL/Redis/MinIO 三大依赖全部跑在容器里，Docker 是唯一的硬依赖。",
+          "location": "终端 · 任意目录",
+          "command": "docker version --format '{{.Server.Os}}/{{.Server.Arch}} {{.ServerVersion}}'",
+          "expected": "输出形如 linux/arm64 27.x.x。记下 arm64 还是 amd64：Apple Silicon 走原生架构构建会快很多。",
+          "pitfall": {
+            "title": "报错 cannot connect to the Docker daemon",
+            "cause": "Docker Desktop 没有启动，或安装后尚未授权运行。",
+            "fix": "打开 Docker Desktop 应用，等鲸鱼图标显示 running 后重试；首次安装需要在系统设置里允许。"
+          }
+        },
+        {
+          "id": "env-node",
+          "title": "确认 Node.js 版本不低于 20",
+          "why": "执行器（npm 包 autowonder）本身只要 Node 16，但它的 Qoder provider 要驱动 qodercli，后者要求 Node 20+。",
+          "location": "终端 · 任意目录",
+          "command": "node -v",
+          "expected": "输出 v20.x.x 或更高。",
+          "pitfall": {
+            "title": "版本低于 v20",
+            "cause": "系统自带的 Node 或旧版本 Homebrew 包。",
+            "fix": "执行 brew install node@22 并按提示把它加入 PATH，或用 nvm install 22 切换后重开终端验证。"
+          }
+        },
+        {
+          "id": "env-disk",
+          "title": "确认磁盘余量与网络可达性",
+          "why": "源码、Docker 镜像和 Maven 依赖合计约需 10GB；构建过程要访问 GitHub、Docker Hub 与 Maven 中央仓库。",
+          "location": "终端 · 任意目录",
+          "command": "df -h ~ | tail -1\ncurl -sI --max-time 10 https://github.com | head -1",
+          "expected": "磁盘可用 10GB 以上；curl 返回 HTTP/2 200 或 301。",
+          "pitfall": {
+            "title": "GitHub 访问超时或很慢",
+            "cause": "国内网络到 GitHub 的链路不稳定。",
+            "fix": "阶段 2 的克隆步骤提供了镜像前缀方案；Docker 拉镜像可配置镜像加速器。构建阶段失败直接重跑即可续传，不必从头再来。"
+          }
+        },
+        {
+          "id": "env-mkdir",
+          "title": "创建工作目录",
+          "why": "把这次实验的所有东西收进一个目录，方便管理也方便日后整体清理。",
+          "location": "终端 · 用户主目录",
+          "command": "mkdir -p ~/autowonder-lab/repo ~/autowonder-lab/lib",
+          "expected": "目录创建成功，无输出。repo/ 存放源码，lib/ 存放我们自己写的编排文件。",
+          "pitfall": {
+            "title": "目录已存在",
+            "cause": "之前做过尝试。",
+            "fix": "无妨，直接复用。想彻底重来时先确认里面没有要保留的东西再删除。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "source",
+      "title": "拿到源码，先看地图",
+      "subtitle": "稀疏克隆仓库，认识服务端结构与部署拓扑",
+      "duration": "5~15 分钟",
+      "steps": [
+        {
+          "id": "src-clone",
+          "title": "稀疏克隆 aliyun/alibabacloud-landing-zone",
+          "why": "AutoWonder 的服务端源码只占这个大仓库的一个目录 ai-sdlc/auto-wonder；稀疏克隆只下载该目录的文件对象，快且省磁盘。",
+          "location": "终端 · ~/autowonder-lab/repo",
+          "command": "cd ~/autowonder-lab/repo\ngit clone --depth 1 --filter=blob:none --sparse https://github.com/aliyun/alibabacloud-landing-zone.git .\ngit sparse-checkout set ai-sdlc/auto-wonder",
+          "expected": "克隆完成，repo/ai-sdlc/auto-wonder 目录下能看到 pom.xml、src、docs 等。",
+          "pitfall": {
+            "title": "克隆中途断开或超时",
+            "cause": "网络到 GitHub 不稳定。",
+            "fix": "直接重跑同一条命令，git 会续传。仍然失败可把仓库地址换成镜像前缀：https://ghfast.top/https://github.com/aliyun/alibabacloud-landing-zone.git"
+          }
+        },
+        {
+          "id": "src-map",
+          "title": "认识服务端代码结构",
+          "why": "先知道每个目录的职责，后面排错时才知道去哪里找答案。AutoWonder 的文档质量很高，是最好的第一手资料。",
+          "location": "终端 · ~/autowonder-lab/repo/ai-sdlc/auto-wonder",
+          "command": "cd ~/autowonder-lab/repo/ai-sdlc/auto-wonder\nls -la\nls docs/community/",
+          "expected": "看到 pom.xml（Java 21 + Spring Boot 2.7 单体）、src/（后端）、frontend/（React 前端）、docs/（部署与协议文档）、APP-META/（Dockerfile）、e2e-tests/（官方端到端测试）。",
+          "pitfall": {
+            "title": "找不到某个文档里提到的文件",
+            "cause": "仓库结构与文档随版本演进。",
+            "fix": "用 ls 和 find 按文件名搜索，以仓库实际内容为准；docs/community/README.md 是部署权威入口。"
+          }
+        },
+        {
+          "id": "src-topo",
+          "title": "在心里装一张部署拓扑图",
+          "why": "动手前先建立整体观：四个容器各司其职，执行器在容器之外。理解这张图，后面每一步都知道自己在搭哪一块。",
+          "location": "本页 · 阅读理解",
+          "action": "对照理解：MySQL(存业务数据+小队模板) / Redis(缓存与队列) / MinIO(冒充阿里云 OSS，存任务包与产物) / AutoWonder 服务端(:7001，调度中枢)。执行器不在容器里——它是你 Mac 上由 npm 包启动的 daemon，通过 WebSocket 连服务端，驱动本机已登录的 Qoder 或 Claude Code 干活，模型 token 不经过平台。",
+          "expected": "你能回答：任务包存在哪里？执行器为什么必须在宿主机？平台怎么和执行器通信？",
+          "pitfall": {
+            "title": "想把执行器也塞进容器",
+            "cause": "觉得全部容器化更整洁。",
+            "fix": "执行器需要继承你本机的 HOME、环境变量和 AI CLI 登录态，放进容器反而拿不到；它天生属于宿主机。这正是「调度与执行解耦」的设计。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "deps",
+      "title": "起三大依赖",
+      "subtitle": "亲手写 docker-compose，启动 MySQL / Redis / MinIO",
+      "duration": "15 分钟",
+      "steps": [
+        {
+          "id": "deps-compose",
+          "title": "亲手编写 lib/docker-compose.yml",
+          "why": "自己写一遍才记得住三个细节：MySQL 官方镜像只在数据卷首次创建时执行 docker-entrypoint-initdb.d 里的脚本；文件名前缀决定执行顺序，schema 必须排在小队模板种子之前；三个服务要进同一个自定义网络才能用服务名互访。",
+          "location": "编辑器 · ~/autowonder-lab/lib/docker-compose.yml（新建）",
+          "action": "创建文件，写入以下内容（services 先只写三个依赖，app 服务在阶段 5 再补）：\n\nservices:\n  mysql:\n    image: mysql:8.0\n    environment:\n      MYSQL_DATABASE: autowonder\n      MYSQL_USER: autowonder\n      MYSQL_PASSWORD: change-me\n      MYSQL_ROOT_PASSWORD: change-root-me\n      TZ: Asia/Shanghai\n    ports:\n      - \"33060:3306\"\n    volumes:\n      - mysql-data:/var/lib/mysql\n      - ../repo/ai-sdlc/auto-wonder/docs/autowonder-schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro\n      - ../repo/ai-sdlc/auto-wonder/docs/autowonder-community-templates.sql:/docker-entrypoint-initdb.d/002-templates.sql:ro\n    healthcheck:\n      test: [\"CMD-SHELL\", \"mysqladmin ping --protocol=TCP -h 127.0.0.1 -uroot -pchange-root-me --silent\"]\n      interval: 5s\n      timeout: 5s\n      retries: 60\n    networks: [community]\n  redis:\n    image: redis:7-alpine\n    ports:\n      - \"63790:6379\"\n    healthcheck:\n      test: [\"CMD\", \"redis-cli\", \"ping\"]\n      interval: 5s\n      timeout: 3s\n      retries: 30\n    networks: [community]\n  minio:\n    image: quay.io/minio/minio:latest\n    command: [\"server\", \"/data\", \"--console-address\", \":9001\"]\n    environment:\n      MINIO_ROOT_USER: aw-lab-minio\n      MINIO_ROOT_PASSWORD: aw-lab-minio-secret\n      TZ: Asia/Shanghai\n    ports:\n      - \"9000:9000\"\n      - \"9001:9001\"\n    volumes:\n      - minio-data:/data\n    healthcheck:\n      test: [\"CMD\", \"mc\", \"ready\", \"local\"]\n      interval: 5s\n      timeout: 5s\n      retries: 30\n    networks: [community]\n\nvolumes:\n  mysql-data:\n  minio-data:\n\nnetworks:\n  community:\n    name: autowonder-community",
+          "expected": "文件保存成功。留意 001/002 前缀：先建表（约 170KB 的 schema），再种入 4 个小队模板。",
+          "pitfall": {
+            "title": "改了 compose 后数据没变化",
+            "cause": "initdb 脚本只在数据卷首次创建时执行，之后改文件不会重导。",
+            "fix": "需要重新导入时执行 docker compose -p autowonder-lab -f docker-compose.yml down -v 删除数据卷后再 up（会清空全部数据）。"
+          }
+        },
+        {
+          "id": "deps-up",
+          "title": "启动三个依赖容器",
+          "why": "--wait 会阻塞到所有健康检查通过，比 sleep 靠谱。MySQL 首次启动要导入 schema，约 30~60 秒。",
+          "location": "终端 · ~/autowonder-lab/lib",
+          "command": "cd ~/autowonder-lab/lib\ndocker compose -p autowonder-lab -f docker-compose.yml up -d --wait\ndocker compose -p autowonder-lab -f docker-compose.yml ps",
+          "expected": "ps 输出中 mysql、redis、minio 三行状态都是 healthy。",
+          "pitfall": {
+            "title": "minio 一直 unhealthy 或镜像拉不下来",
+            "cause": "quay.io 访问不畅或本地缺少 mc 命令。",
+            "fix": "重试拉取或配置镜像加速；healthcheck 里的 mc 是 MinIO 镜像自带的，宿主机不需要安装。"
+          }
+        },
+        {
+          "id": "deps-verify",
+          "title": "验证数据库里已经种入了 AI 团队",
+          "why": "squad_template 表里的 4 个模板就是数字员工的出厂编制，确认它们进来了，阶段 6 才有模板可用。",
+          "location": "终端 · ~/autowonder-lab/lib",
+          "command": "docker compose -p autowonder-lab -f docker-compose.yml exec mysql mysql -uautowonder -pchange-me autowonder -e \"SELECT id,name,status FROM squad_template;\"",
+          "expected": "4 行记录：独立开发者、开发+评审双人组、标准研发交付小队、全链路研发协作小队，status 均为 ACTIVE。",
+          "pitfall": {
+            "title": "提示表不存在",
+            "cause": "schema 导入还在进行中，或导入失败。",
+            "fix": "等 30 秒重试；仍失败则查看 docker compose -p autowonder-lab -f docker-compose.yml logs mysql 中的导入报错。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "build",
+      "title": "构建服务端镜像",
+      "subtitle": "多阶段构建，宿主机不用装 JDK 和 Maven",
+      "duration": "10~30 分钟（首次）",
+      "steps": [
+        {
+          "id": "build-image",
+          "title": "读懂官方 Dockerfile 再构建",
+          "why": "Dockerfile 是两阶段的：先在 maven:3.9.9-eclipse-temurin-21 镜像里编译 Java 与前端，再只把 target/auto-wonder.jar 拷进 JRE 运行时镜像。你的 Mac 全程不需要安装任何构建工具。",
+          "location": "终端 · ~/autowonder-lab/repo/ai-sdlc/auto-wonder",
+          "command": "cat ~/autowonder-lab/repo/ai-sdlc/auto-wonder/APP-META/docker-config/Dockerfile\ncd ~/autowonder-lab/repo/ai-sdlc/auto-wonder\ndocker build -t autowonder-community:local .\ndocker image ls autowonder-community:local",
+          "expected": "构建成功，镜像列表出现 autowonder-community:local，约 300~400MB。Apple Silicon 上原生 arm64 构建，无需 --platform 参数。",
+          "pitfall": {
+            "title": "Maven 或 npm 依赖下载超时导致构建失败",
+            "cause": "首次构建要下载大量依赖，网络波动很常见。",
+            "fix": "直接重跑 docker build：依赖挂在 build cache 上，已下载的部分会复用。多次失败可给 Docker 配代理或镜像加速。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ignite",
+      "title": "点火：密钥、桶与启动",
+      "subtitle": "生成两把关键密钥，用 MinIO 顶替 OSS，拉起服务端",
+      "duration": "10 分钟",
+      "steps": [
+        {
+          "id": "ignite-env",
+          "title": "生成密钥并编写 lib/.env",
+          "why": "AUTOWONDER_SECRET_MASTER_KEY 是 AES-256-GCM 主密钥（必须恰好 32 字节，base64 后 44 字符），加密平台保存的业务凭证——一旦丢失，库里 enc:v1: 密文永久不可读。S3 三件套是官方 e2e 测试同款的 MinIO 方案。",
+          "location": "终端 · ~/autowonder-lab/lib",
+          "command": "cd ~/autowonder-lab/lib\nopenssl rand -base64 32\nopenssl rand -base64 48",
+          "action": "把两条随机串分别填入下面模板的 MASTER_KEY 与 JWT_SECRET，保存为 lib/.env：\n\nSPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/autowonder?useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai\nSPRING_DATASOURCE_USERNAME=autowonder\nSPRING_DATASOURCE_PASSWORD=change-me\nREDIS_HOST=redis\nREDIS_PORT=6379\nAUTOWONDER_SECRET_MASTER_KEY=(第一串)\nAUTOWONDER_JWT_SECRET=(第二串)\nAUTOWONDER_PUBLIC_BASE_URL=http://localhost:7001\nAUTOWONDER_VERSION=lab\nOSS_ENABLED=false\nS3_ENABLED=true\nS3_ENDPOINT=http://minio:9000\nS3_PUBLIC_ENDPOINT=http://127.0.0.1:9000\nS3_REGION=us-east-1\nS3_ACCESS_KEY_ID=aw-lab-minio\nS3_ACCESS_KEY_SECRET=aw-lab-minio-secret\nOSS_BUCKET=autowonder-lab\nAUTOWONDER_SLS_ENABLED=false\nAUTOWONDER_AONE_ENABLED=false\nAUTOWONDER_COMMUNITY_EDITION=true",
+          "expected": ".env 保存成功。S3_ENDPOINT 走容器网络给服务端用，S3_PUBLIC_ENDPOINT 走 127.0.0.1 给浏览器和执行器的签名链接用——两者各司其职。",
+          "pitfall": {
+            "title": "master key 长度不对或随手改了",
+            "cause": "手工截断或事后换 key。",
+            "fix": "openssl rand -base64 32 的输出原样使用。生产环境必须把 key 备份在数据库之外；实验环境丢了就删卷重来。"
+          }
+        },
+        {
+          "id": "ignite-app-yaml",
+          "title": "给 compose 追加 app 服务",
+          "why": "服务端容器通过 env_file 读取 .env，depends_on 保证三大依赖健康后才启动。",
+          "location": "编辑器 · ~/autowonder-lab/lib/docker-compose.yml",
+          "action": "在 services: 下追加一段（与 mysql 平级，注意缩进两格）：\n\n  app:\n    image: autowonder-community:local\n    depends_on:\n      mysql:\n        condition: service_healthy\n      redis:\n        condition: service_healthy\n      minio:\n        condition: service_healthy\n    env_file:\n      - .env\n    ports:\n      - \"127.0.0.1:7001:7001\"\n    networks: [community]",
+          "expected": "保存后 docker compose config 校验语法无报错（可先跑一遍确认）。",
+          "pitfall": {
+            "title": "yaml: line xxx: did not find expected key",
+            "cause": "缩进不对，YAML 对空格敏感。",
+            "fix": "app 前面是两个空格，与 mysql、redis 平级；env_file、ports 再缩进两格。用 docker compose -f docker-compose.yml config 检查。"
+          }
+        },
+        {
+          "id": "ignite-bucket",
+          "title": "在 MinIO 里创建对象桶",
+          "why": "服务端启动时无条件装配对象存储，没有桶直接起不来。之后浏览器打开 MinIO 控制台可以亲眼围观每个任务包和产物。",
+          "location": "终端 · 任意目录",
+          "command": "docker run --rm --network autowonder-community -e MC_HOST_m=http://aw-lab-minio:aw-lab-minio-secret@minio:9000 --entrypoint mc quay.io/minio/mc mb --ignore-existing m/autowonder-lab",
+          "expected": "输出 Bucket created successfully（已存在时安静通过）。",
+          "pitfall": {
+            "title": "连接 minio:9000 被拒绝",
+            "cause": "MinIO 容器未启动或网络名不对。",
+            "fix": "先确认阶段 3 的三个容器 healthy，且网络名为 autowonder-community。"
+          }
+        },
+        {
+          "id": "ignite-up",
+          "title": "启动服务端并做健康检查",
+          "why": "checkpreload 是应用层的存活探针；capabilities 返回集成能力清单，能出 JSON 说明 Spring 上下文完整起来了。",
+          "location": "终端 · ~/autowonder-lab/lib",
+          "command": "cd ~/autowonder-lab/lib\ndocker compose -p autowonder-lab -f docker-compose.yml up -d --wait app\ncurl -fsS --retry 20 --retry-delay 5 --retry-connrefused http://localhost:7001/checkpreload.htm\ncurl -fsS http://localhost:7001/api/integrations/capabilities",
+          "expected": "第一行输出 OK；第二行输出 JSON，其中包含 aoneEnabled:false。到这里平台后端就活了。",
+          "pitfall": {
+            "title": "app 反复重启或起不来",
+            "cause": "多数是 .env 有笔误、连不上依赖或桶不存在。",
+            "fix": "看日志定位：docker compose -p autowonder-lab -f docker-compose.yml logs app，把第一条 ERROR 贴给 Claude 一起分析。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "platform",
+      "title": "平台初始化",
+      "subtitle": "注册用户、创建组织、应用第一支 AI 小队",
+      "duration": "10 分钟",
+      "steps": [
+        {
+          "id": "plat-register",
+          "title": "注册首个用户并创建组织",
+          "why": "组织是 AutoWonder 的租户边界：组织到工作空间到小队到数字员工，权限与仓库都挂在组织之下。第一个注册的用户顺理成章成为 owner。",
+          "location": "浏览器 · http://localhost:7001/register",
+          "action": "打开注册页创建账号（本地实验随意填），登录后在组织选择页点击创建组织，起个名字。界面为中文，若默认英文可在设置中切换。",
+          "expected": "进入组织主界面，侧边能看到工作项、小队、数字员工、执行器等入口。",
+          "pitfall": {
+            "title": "登录后空白或接口 401",
+            "cause": "JWT_SECRET 配置异常或服务端还没完全就绪。",
+            "fix": "刷新重试；持续出现就看 app 日志排查 .env。"
+          }
+        },
+        {
+          "id": "plat-squad",
+          "title": "应用「独立开发者」小队模板",
+          "why": "第一次跑通选最小编制（1 个数字员工），链路最短、变量最少。4 个内置模板就是阶段 3 验证过的那 4 行数据。",
+          "location": "浏览器 · 小队模板页面",
+          "action": "进入小队模板页面，选择「独立开发者」应用到组织。",
+          "expected": "组织里出现一个开发者角色的数字员工。",
+          "pitfall": {
+            "title": "模板列表是空的",
+            "cause": "阶段 3 的 002-templates.sql 没有导入（数据卷在导入前就已存在）。",
+            "fix": "手工补导：docker exec -i 容器 mysql -uautowonder -pchange-me autowonder 小于 repo/ai-sdlc/auto-wonder/docs/autowonder-community-templates.sql（种子脚本幂等，可重复执行）。"
+          }
+        },
+        {
+          "id": "plat-read",
+          "title": "读一读数字员工的人设",
+          "why": "数字员工的全部智能就藏在三段配置里：Soul.md（公共人设）、Agent.md（角色职责）、SDLC 步骤链（每步的说明与门禁）。步骤说明写得越像给真人的任务书，交付质量越高。",
+          "location": "浏览器侧 · 数字员工详情页",
+          "action": "打开刚生成的数字员工，浏览它的配置：找到 SDLC 步骤，看看每一步的执行说明；留意「完成本步骤必须人工确认」这类门禁开关的位置（先不急着改）。",
+          "expected": "你能说出这个数字员工有几个步骤、每步期望产出什么。",
+          "pitfall": {
+            "title": "看不懂配置项之间的层次",
+            "cause": "Soul/Agent/步骤三层职责容易混。",
+            "fix": "记口诀：公共信息进 Soul，角色职责进 Agent，某一步特有的要求写在对应步骤里——职责单一、信息内聚。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "executor",
+      "title": "执行器接入",
+      "subtitle": "让你的 Mac 成为 AI 工人的手",
+      "duration": "15 分钟",
+      "steps": [
+        {
+          "id": "exe-register",
+          "title": "在平台注册执行器",
+          "why": "执行器是平台眼里的执行单元，注册后拿到 WebSocket 端点、token 和执行器 ID 三件套——这就是它的身份。",
+          "location": "浏览器 · 执行器页面",
+          "action": "新建执行器，客户端类型选 Qoder CLI（想用 Claude Code 也可以，前提是本机已装好并登录）。保存后页面会生成一条完整的 npx autowonder connect 命令，整条复制下来。再把这个执行器绑定给独立开发者数字员工。",
+          "expected": "拿到了以 npx -y autowonder connect --ws-url 开头的完整命令（在剪贴板里）。",
+          "pitfall": {
+            "title": "忘了绑定数字员工",
+            "cause": "执行器和数字员工是两个概念，需要关联才会派活。",
+            "fix": "回到数字员工或执行器的绑定设置里补上对应关系，否则任务永远不会派给这台机器。"
+          }
+        },
+        {
+          "id": "exe-connect",
+          "title": "宿主机连接服务端",
+          "why": "连接命令会自动做三件事：安装 npm 包内置的 Go daemon、需要时自动 npm 安装 qodercli、未登录时弹出浏览器登录 Qoder。模型费用走你 CLI 的账号，平台不经手 token。",
+          "location": "终端 · 任意目录（新开一个窗口，它会常驻前台）",
+          "command": "npx -y autowonder connect --ws-url ws://localhost:7001/ws/executor --token 替换为你的token --executor-id 替换为你的id --provider qoder",
+          "action": "把阶段 7.1 复制的整条命令原样粘贴执行，不要手抄——token 很长，错一个字符就连不上。",
+          "expected": "终端依次出现 Provider: qoder、Connecting...、Qoder login（首次），浏览器完成 Qoder 登录后终端安静下来表示已连上并开始等任务。",
+          "pitfall": {
+            "title": "连接后马上断开或一直重连",
+            "cause": "token/executor-id 抄错，或服务端 ws 路径不通。",
+            "fix": "回到执行器页面重新复制整条命令；用 curl -s http://localhost:7001/checkpreload.htm 确认服务端在；保持这个终端开着不要关。"
+          }
+        },
+        {
+          "id": "exe-online",
+          "title": "确认执行器在线",
+          "why": "调度器只给在线的执行器派任务，这一步是验收通路。",
+          "location": "浏览器 · 执行器页面 + 连接终端",
+          "action": "刷新执行器页面看状态是否变为在线；同时回看终端里的连接日志。",
+          "expected": "执行器状态在线。若不在线，把终端日志贴给 Claude。",
+          "pitfall": {
+            "title": "页面在线但终端报错退出",
+            "cause": "daemon 与 qodercli 版本或登录态问题。",
+            "fix": "重跑命令触发自动安装/登录；Node 版本低于 20 时先升级。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "firsttask",
+      "title": "第一个完整需求",
+      "subtitle": "从一张工作项开始，走通全链路闭环",
+      "duration": "30~60 分钟",
+      "steps": [
+        {
+          "id": "task-repo",
+          "title": "准备练习仓库",
+          "why": "第一次别拿真实项目练手。一个只有计算器模块和空测试目录的小仓库，验收标准清晰，最适合观察全流程。",
+          "location": "终端 · ~/demo-calc（GitHub 上建一个同名空仓库）",
+          "command": "mkdir -p ~/demo-calc/tests && cd ~/demo-calc\ngit init\ngit remote add origin https://github.com/你的用户名/demo-calc.git",
+          "action": "写一个 calculator.py：实现 add/minus 两个方法；tests/ 留空；README.md 写清楚如何运行 pytest。提交并推送到 GitHub。仓库要能被执行器访问——私有仓库需要给执行器本机配置好对应的 git 凭证。",
+          "expected": "GitHub 上能看到这个仓库，本机 git push 成功。",
+          "pitfall": {
+            "title": "执行器 clone 仓库失败",
+            "cause": "私有仓库无权限，或 HTTPS 凭证未配置。",
+            "fix": "最简单的办法：实验期间设为公开仓库；或在本机配置好 GitHub CLI / SSH key，执行器继承宿主机凭证。"
+          }
+        },
+        {
+          "id": "task-workitem",
+          "title": "创建工作项并指派",
+          "why": "工作项描述的质量约等于交付质量。把验收标准写成可执行的句子，数字员工才知道做完长什么样。",
+          "location": "浏览器 · 工作项创建页",
+          "action": "标题：为 Calculator 增加 percentage() 方法及单元测试。描述写清：函数签名 percentage(part, whole) 返回百分比数值（保留两位小数）；边界情况 0%、100%、负数各一条测试；验收标准为 pytest 全部通过。关联 demo-calc 仓库，指派给独立开发者数字员工。",
+          "expected": "工作项创建成功，状态变为待处理/执行中。",
+          "pitfall": {
+            "title": "任务一直没人接",
+            "cause": "执行器离线、未绑定数字员工，或组织下没关联仓库。",
+            "fix": "按顺序检查：执行器页面在线状态、绑定关系、工作项里仓库关联。都正常就看服务端日志有没有调度记录。"
+          }
+        },
+        {
+          "id": "task-watch",
+          "title": "围观任务包的诞生与执行",
+          "why": "这是全套系统最值得看的五分钟：任务包躺在对象存储里，工作区在你硬盘上，中间靠 WebSocket 牵线——调度与执行的物理分界一目了然。",
+          "location": "浏览器 · MinIO 控制台 + 终端",
+          "command": "ls ~/autowonder_workspaces_qoder_*/\nfind ~/autowonder_workspaces_qoder_* -name task-brief.md | head -3",
+          "action": "打开 http://localhost:9001（账号 aw-lab-minio / aw-lab-minio-secret），进 autowonder-lab 桶看刚出现的任务包 zip；回执行器终端看认领、下载、建工作区的过程；用上面的命令找到 task-brief.md 打开读一读——这就是数字员工实际领到的任务书。",
+          "expected": "工作区出现 git worktree；task-brief.md 内容就是你在工作项里写的需求；MinIO 里有对应对象。",
+          "pitfall": {
+            "title": "工作区目录找不到",
+            "cause": "目录名带执行器 ID 后缀，或任务尚未派发。",
+            "fix": "用 ls -d ~/autowonder_workspaces* 列出所有候选；确认执行器在线且工作项已指派。"
+          }
+        },
+        {
+          "id": "task-approve",
+          "title": "人工门禁与验收",
+          "why": "体会 AutoWonder 与全自动 agent 的分野：审批绑定产物指纹，产物一变审批作废。人机权责是协议的一部分，不是外挂。",
+          "location": "浏览器 · 工作项详情 + 终端",
+          "action": "若步骤配置了人工确认门禁，工作项会进入待决策状态，选择批准继续或要求修改；然后按工作项里的验收标准在 demo-calc 里跑一遍 pytest；最后查看数字员工产出的代码改动（diff、说明、测试报告）。",
+          "expected": "percentage() 实现与单元测试到位，pytest 全绿；你能完整说出这次任务从指派到交付经过了哪些环节。",
+          "pitfall": {
+            "title": "产物测试没过或实现不符合要求",
+            "cause": "需求描述不够精确，或模型发挥偏离。",
+            "fix": "用门禁的要求修改退回并写明具体意见；同时回头打磨工作项描述——这就是真实落地时最值得投入的环节。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "title": "复盘与进阶",
+      "subtitle": "从跑通了到看懂了",
+      "duration": "自由发挥",
+      "steps": [
+        {
+          "id": "review-squad",
+          "title": "换三人小队重跑同一个需求",
+          "why": "开发、评审、测试三个数字员工之间的流转与交叉产出，才是这套平台的看家戏，也最接近企业落地的真实形态。",
+          "location": "浏览器 · 小队模板 + 工作项",
+          "action": "应用「标准研发交付小队」模板，为新小队绑定执行器，把 percentage 需求换成新需求（比如再加一个 average() 方法）重新走一遍，重点观察任务在角色间如何流转、评审意见如何回传。",
+          "expected": "能看到同一工作项在多个数字员工之间推进，每步产物可追溯。",
+          "pitfall": {
+            "title": "多角色流转卡住",
+            "cause": "某个角色没绑定可用执行器。",
+            "fix": "一个执行器可以服务多个数字员工；确认每个角色的执行器绑定都指向在线的那台。"
+          }
+        },
+        {
+          "id": "review-protocol",
+          "title": "通读调度协议文档",
+          "why": "这份约 40KB 的规范把你眼见的现象——认领、心跳、产物指纹、断点恢复——全部形式化。读完它，你就有能力评估这套协议哪些能搬进自家系统。",
+          "location": "终端 · 任意目录",
+          "command": "less ~/autowonder-lab/repo/ai-sdlc/auto-wonder/docs/scheduler-executor-protocol.md",
+          "expected": "对执行器注册、任务认领、结果上报、恢复语义建立完整认识，能对照手册阶段 8 的观察说出对应的消息类型。",
+          "pitfall": {
+            "title": "读不懂某些字段",
+            "cause": "缺少上下文。",
+            "fix": "结合 docs/runtime-usage.md 与 docs/dispatch-requests.md 交叉阅读；也可以把疑问直接抛给 Claude 讨论。"
+          }
+        },
+        {
+          "id": "review-notes",
+          "title": "记录版本与三句话复盘",
+          "why": "把做过了转换成我知道为什么，也为下一次实验留下起点。记下实际版本，未来复现和对比问题才有依据。",
+          "location": "终端 + 右上角笔记",
+          "command": "docker compose -p autowonder-lab -f ~/autowonder-lab/lib/docker-compose.yml ps\nnode -v\nnpm ls -g autowonder 2>/dev/null || echo \"npx 临时安装\"",
+          "action": "点击右上角笔记，写下三句话：① 调度与执行的边界画在哪里、各自负责什么；② 这次遇到的一个坑和解决办法；③ 下一个想验证的问题（比如给某步骤打开人工门禁试试待决策流）。顺手记录当前镜像、Node 版本和日期。",
+          "expected": "不看手册也能画出部署拓扑图，并解释任务包从创建到产物回传的完整路径。",
+          "pitfall": {
+            "title": "勾完了却讲不清每一步",
+            "cause": "只跟着复制命令，没有建立命令、组件与结果之间的联系。",
+            "fix": "回到说不清的阶段，先读每步的为什么，再用自己的话解释一遍。勾选只是个人记录，不代表自动验证通过。"
+          }
+        }
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "title": "autowonder · npm",
+      "url": "https://www.npmjs.com/package/autowonder",
+      "description": "执行器客户端运行时的官方发布页与 README。"
+    },
+    {
+      "title": "服务端源码 · GitHub",
+      "url": "https://github.com/aliyun/alibabacloud-landing-zone/tree/master/ai-sdlc/auto-wonder",
+      "description": "Community 版服务端源码与全部文档所在目录。"
+    },
+    {
+      "title": "Community 部署指南",
+      "url": "https://github.com/aliyun/alibabacloud-landing-zone/blob/master/ai-sdlc/auto-wonder/docs/community/README.md",
+      "description": "依赖要求、环境变量、构建与启动的权威说明。"
+    },
+    {
+      "title": "客户端运行时使用指南",
+      "url": "https://github.com/aliyun/alibabacloud-landing-zone/blob/master/ai-sdlc/auto-wonder/docs/runtime-usage.md",
+      "description": "执行器命令清单、参数表与常见问题 QA。"
+    },
+    {
+      "title": "上手教程 · CSDN",
+      "url": "https://blog.csdn.net/yaya_jn/article/details/168557918",
+      "description": "第三方图文教程：从 Qoder 会话到执行器注册的完整截图流程。"
+    },
+    {
+      "title": "Qoder 官网",
+      "url": "https://qoder.com/zh",
+      "description": "执行器驱动的 Agentic 编程平台，注册 Qoder 账号用于执行器登录。"
+    }
+  ]
+}
+</script>
+<script>
+'use strict';
+const ICONS={book:'<path d="M12 6c-3-2-6-2-9-1v15c3-1 6-1 9 1 3-2 6-2 9-1V5c-3-1-6-1-9 1Z"/><path d="M12 6v15"/>',layers:'<path d="m12 3 10 6-10 6L2 9l10-6Z"/><path d="m2 13 10 6 10-6M2 17l10 6 10-6"/>',check:'<path d="m5 12 4 4L19 6"/>',shield:'<path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/><path d="m8 12 3 3 5-6"/>',chevronRight:'<path d="m9 5 7 7-7 7"/>',chevronDown:'<path d="m6 9 6 6 6-6"/>',search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',layout:'<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/>',download:'<path d="M12 3v12m-5-5 5 5 5-5M4 16v4h16v-4"/>',upload:'<path d="M12 16V4m-5 5 5-5 5 5M4 17v3h16v-3"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/>',list:'<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',calendar:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 11h18"/>',terminal:'<path d="m4 6 6 6-6 6m9 0h7"/>',copy:'<rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V3H3v13h5"/>',alert:'<path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5m0 3h.01"/>',target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',bulb:'<path d="M8 16c0-2-3-3-3-7a7 7 0 0 1 14 0c0 4-3 5-3 7M8 17h8m-7 3h6"/>',note:'<path d="M12 3H4v18h16v-9M9 15l2-5 8-8 3 3-8 8-5 2Z"/>',menu:'<path d="M3 6h18M3 12h18M3 18h18"/>',close:'<path d="m6 6 12 12M6 18 18 6"/>'};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const icon=name=>'<svg viewBox="0 0 24 24" aria-hidden="true">'+(ICONS[name]||ICONS.book)+'</svg>';
+document.querySelectorAll('[data-icon]').forEach(el=>el.innerHTML=icon(el.dataset.icon));
+let course=JSON.parse($('course-data').textContent),state,active=0,toastTimer,saveTimer;
+let storageAvailable=true,currentStepId='',scrollFrame=false;
+const PROMPT=`请根据我指定的技术主题，参考我附带的 JSON 结构，生成一份中文分步学习教程，只输出合法 JSON。\n\n主题：[填写框架或项目]\n操作系统：[填写 macOS / Windows / Linux]\n我的基础：[填写]\n学习目标：[例如完成安装并运行首个示例]\n官方文档：[粘贴链接]\n\n要求：\n1. 查询并核实官方文档，注明核对日期和来源 URL，不编造版本要求。\n2. 按 5–8 个大阶段组织，每阶段包含 2–5 个可独立验证的小步骤。\n3. 每步写清：title（做什么）、why（为什么）、location（执行目录或工具）、command（可复制的真实命令，无 $ 前缀；无命令则为空）、action（可选，界面或编辑器操作）、expected（如何确认成功）、pitfall（含 title、cause、fix，给出具体排错方法）。\n4. 不同操作系统的命令差异必须明确；禁止提供不加解释的删除命令、sudo 或远程脚本执行命令。\n5. 每阶段包含 id、title、subtitle、duration、steps。保留示例 JSON 的字段结构，id 必须改为本教程独立且唯一的值；所有步骤 id 在教程内唯一。\n6. 不把 command 命令块当作说明文字区。涉及编辑源文件时，将操作和代码写入 action。\n7. resources 与每个阶段都必须有实际内容。资源链接仅用 https://。\n8. 估计阅读和动手时长，但不要声称已经在我的机器运行或验证。`;
+$('promptText').textContent=PROMPT;
+function key(){return 'learnbook:v1:'+course.id}
+function stepIds(){return course.phases.flatMap(p=>p.steps.map(s=>s.id))}
+function cleanState(raw){const ids=new Set(stepIds()),phaseIds=new Set(course.phases.map(p=>p.id));return {done:Array.isArray(raw?.done)?[...new Set(raw.done.filter(x=>ids.has(x)))]:[],notes:raw?.notes&&typeof raw.notes==='object'?Object.assign(Object.create(null),Object.fromEntries(Object.entries(raw.notes).filter(([id,n])=>phaseIds.has(id)&&typeof n==='string').map(([id,n])=>[id,n.slice(0,100000)]))):Object.create(null),active:phaseIds.has(raw?.active)?raw.active:course.phases[0].id,expanded:Array.isArray(raw?.expanded)?[...new Set(raw.expanded.filter(id=>phaseIds.has(id)))]:[phaseIds.has(raw?.active)?raw.active:course.phases[0].id]}}
+function loadState(){try{state=cleanState(JSON.parse(localStorage.getItem(key())||'null'));storageAvailable=true}catch{state=cleanState(null);storageAvailable=false}active=Math.max(0,course.phases.findIndex(p=>p.id===state.active));currentStepId=course.phases[active].steps[0].id;updateStorageStatus()}
+function saveState(){try{localStorage.setItem(key(),JSON.stringify(state));storageAvailable=true}catch{storageAvailable=false}updateStorageStatus()}
+function updateStorageStatus(){$('storageStatus').textContent=storageAvailable?'进度与笔记保存在当前浏览器':'暂存于本页，请导出记录备份';const ns=$('noteStatus');if(ns)ns.textContent=storageAvailable?'已保存':'仅本页暂存'}
+function totalDone(){return state.done.length}
+function phaseDone(p){return p.steps.filter(s=>state.done.includes(s.id)).length}
+function renderChrome(){
+if(!course.phases[active].steps.some(s=>s.id===currentStepId))currentStepId=course.phases[active].steps[0].id;document.title=course.title+' · 循序学习手册';$('sidebarTitle').textContent=course.title;$('sidebarCaption').textContent=course.subtitle;$('breadcrumbTitle').textContent=course.title;
+
+$('sourceLinks').innerHTML=course.resources.map(r=>'<a href="'+esc(r.url)+'" target="_blank" rel="noopener noreferrer" title="'+esc(r.description||r.title)+'">'+esc(r.title)+'</a>').join('');renderProgress();
+}
+function renderProgress(){const total=stepIds().length,done=totalDone(),percent=Math.round(done/total*100);$('percent').textContent=percent+'%';$('progressFill').style.width=percent+'%';$('progressBar').setAttribute('aria-valuenow',percent);$('progressCaption').textContent='已完成 '+done+' / '+total+' 个步骤';
+renderDirectory();renderToc();}
+function renderDirectory(){
+const nav=$('phaseNav'),oldScroll=nav.scrollTop;
+nav.innerHTML=course.phases.map((p,i)=>{const done=phaseDone(p),complete=done===p.steps.length;
+const children=p.steps.map((s,j)=>'<button class="nav-child '+(state.done.includes(s.id)?'done':'')+'" data-phase="'+i+'" data-target-step="'+esc(s.id)+'"><span class="nc-num">'+(i+1)+'.'+(j+1)+'</span><span class="nc-text">'+esc(s.title)+'</span></button>').join('');
+return '<div class="nav-group '+(i===active?'active':'')+'"><button class="nav-item '+(i===active?'active ':'')+(complete?'done':'')+'" data-phase="'+i+'" '+(i===active?'aria-current="page"':'')+'><span class="nav-number">'+(complete?icon('check'):String(i+1).padStart(2,'0'))+'</span><span class="nav-text">'+esc(p.title)+'</span><span class="nav-count">'+done+'/'+p.steps.length+'</span></button><div class="nav-children">'+children+'</div></div>'}).join('');
+nav.scrollTop=oldScroll;
+}
+function renderToc(){const p=course.phases[active];const markup=p.steps.map((step,i)=>'<a class="toc-link '+(step.id===currentStepId?'active ':'')+(state.done.includes(step.id)?'done':'')+'" href="#step-'+esc(step.id)+'" data-step-target="'+esc(step.id)+'" '+(step.id===currentStepId?'aria-current="location"':'')+'><span class="step-label">'+(active+1)+'.'+(i+1)+'</span><span class="step-name">'+esc(step.title)+'</span>'+(state.done.includes(step.id)?'<span class="toc-check" aria-label="已完成">'+icon('check')+'</span>':'')+'</a>').join('');$('stepNav').innerHTML=markup;$('mobileStepNav').innerHTML=markup}
+function updateStepHighlight(){document.querySelectorAll('.toc-link').forEach(link=>{const on=link.dataset.stepTarget===currentStepId;link.classList.toggle('active',on);if(on)link.setAttribute('aria-current','location');else link.removeAttribute('aria-current')})}
+function jumpToStep(id){const found=course.phases[active].steps.some(s=>s.id===id);if(!found)return;currentStepId=id;updateStepHighlight();$('mobileToc').open=false;const target=$('step-'+id);target?.scrollIntoView({behavior:'smooth',block:'start'});target?.focus({preventScroll:true})}
+function renderPhase(){const p=course.phases[active];$('searchInput').value='';$('searchResults').hidden=true;$('contentGrid').hidden=false;$('pageToc').hidden=false;$('mobileToc').hidden=false;$('mobileToc').open=false;
+$('phaseEyebrow').textContent='第 '+(active+1)+' 章 / 共 '+course.phases.length+' 章';$('phaseTitle').textContent=p.title;$('courseDescription').textContent=p.subtitle;
+$('metaRow').innerHTML='<span>'+icon('clock')+esc(p.duration)+'</span><span>'+icon('list')+p.steps.length+' 个步骤</span><span>'+icon('calendar')+'文档核对 '+esc(course.updated)+'</span>';renderToc();
+$('phaseContent').innerHTML='<div class="steps">'+p.steps.map((s,i)=>renderStep(s,i)).join('')+'</div><div class="phase-footer"><button class="btn" id="prevBtn" '+(active===0?'disabled':'')+'>上一阶段</button><button class="btn btn-primary" id="nextBtn">'+(active===course.phases.length-1?'检查学习成果':'下一阶段 · '+esc(course.phases[active+1].title))+'</button></div><p class="next-hint">'+(phaseDone(p)===p.steps.length?'本阶段已完成，继续保持。':'确认结果符合预期后，勾选每一步的“已掌握”。')+'</p><div id="completion" class="completion" hidden></div>';
+$('notesPhaseTitle').textContent='第 '+(active+1)+' 章 · '+p.title;
+$('phaseNotes').value=state.notes[p.id]||'';$('phaseNotes').oninput=e=>{state.notes[p.id]=e.target.value;saveState()};$('prevBtn').onclick=()=>selectPhase(active-1,true);$('nextBtn').onclick=()=>active<course.phases.length-1?selectPhase(active+1,true):showCompletion();updateStorageStatus();}
+function hl(line){
+if(/^\s*(#|\/\/)/.test(line))return '<span class="tok-com">'+esc(line)+'</span>';
+const parts=String(line).split(/(\s+)/);let started=false,out='';
+for(let k=0;k<parts.length;k++){const t=parts[k];
+if(!t||!t.trim()){out+=esc(t);continue}
+const e=esc(t);
+if(!started){started=true;out+='<span class="tok-cmd">'+e+'</span>';continue}
+if(/^-{1,2}[A-Za-z]/.test(t)){out+='<span class="tok-flag">'+e+'</span>';continue}
+if(/^["']/.test(t)||/["']$/.test(t)){out+='<span class="tok-str">'+e+'</span>';continue}
+out+=e}
+return out}
+function renderStep(s,i){const done=state.done.includes(s.id);return '<article class="step-card '+(done?'complete':'')+'" id="step-'+esc(s.id)+'" tabindex="-1"><div class="step-header"><span class="step-counter">'+(active+1)+'.'+(i+1)+'</span><h2 class="step-title">'+esc(s.title)+'</h2><label class="check-control"><input type="checkbox" data-step="'+esc(s.id)+'" '+(done?'checked':'')+' aria-label="标记 '+esc(s.title)+' 为已掌握">已掌握</label></div><div class="step-content"><p class="why"><strong>为什么做这一步</strong> · '+esc(s.why)+'</p>'+(s.action?'<div class="action">'+esc(s.action)+'</div>':'')+(s.command?'<div class="command"><div class="command-top"><div class="terminal-label">'+icon('terminal')+'<span>'+esc(s.location)+'</span></div><button class="copy-btn" data-copy-step="'+esc(s.id)+'" aria-label="复制 '+esc(s.title)+' 的命令">'+icon('copy')+'<span>复制</span></button></div><pre><code>'+s.command.split('\n').map(line=>'<span class="code-line">'+hl(line)+'</span>').join('')+'</code></pre></div>':'<p class="why"><strong>操作位置</strong> · '+esc(s.location)+'</p>')+'<div class="expected">'+icon('check')+'<div><strong>成功标志</strong>'+esc(s.expected)+'</div></div>'+(s.pitfall?'<details class="pitfall"><summary>'+icon('alert')+'<span>常见坑 · '+esc(s.pitfall.title)+'</span><span class="chevron">'+icon('chevronDown')+'</span></summary><div class="pitfall-body"><p><b>可能原因：</b>'+esc(s.pitfall.cause)+'</p><p><b>怎么解决：</b>'+esc(s.pitfall.fix)+'</p></div></details>':'')+'</div></article>'}
+const mobileQuery=window.matchMedia('(max-width:760px)');
+function syncNav(){$('sidebar').inert=mobileQuery.matches&&!$('sidebar').classList.contains('open')}
+mobileQuery.addEventListener('change',()=>{if(!mobileQuery.matches)closeNav();syncNav()});
+function closeNav(returnFocus=false){const wasOpen=$('sidebar').classList.contains('open');$('sidebar').classList.remove('open');$('overlay').classList.remove('visible');$('menuToggle').setAttribute('aria-expanded','false');syncNav();if(returnFocus&&wasOpen)$('menuToggle').focus()}
+function selectPhase(index,focus=false,stepId){if(index<0||index>=course.phases.length)return;active=index;state.active=course.phases[active].id;currentStepId=course.phases[active].steps.some(s=>s.id===stepId)?stepId:course.phases[active].steps[0].id;state.expanded=[...new Set([...state.expanded,state.active])];saveState();renderProgress();renderPhase();closeNav();if(focus){requestAnimationFrame(()=>{const dest=stepId?$('step-'+currentStepId):$('phaseTitle');dest?.scrollIntoView({behavior:'smooth',block:'start'});dest?.focus({preventScroll:true})})}}
+window.addEventListener('scroll',()=>{if(scrollFrame||$('contentGrid').hidden)return;scrollFrame=true;requestAnimationFrame(()=>{scrollFrame=false;const cards=[...document.querySelectorAll('.step-card')];const offset=document.querySelector('.topbar').getBoundingClientRect().height+90;let selected=cards[0];for(const card of cards){if(card.getBoundingClientRect().top<=offset)selected=card;else break}if(Math.ceil(window.scrollY+window.innerHeight)>=document.documentElement.scrollHeight-2)selected=cards.at(-1);if(selected){const next=selected.id.slice(5);if(next!==currentStepId){currentStepId=next;updateStepHighlight()}}})},{passive:true});
+function showCompletion(){const remaining=stepIds().length-totalDone(),box=$('completion');box.hidden=false;box.innerHTML=remaining?'<strong>还差 '+remaining+' 个步骤，完成你的学习闭环。</strong>回到左侧章节确认实际结果，再勾选“已掌握”。已浏览不等于已完成。':'<strong>这条学习路线，你已经走通了。</strong>试着不用手册再做一次，并用自己的话解释关键步骤。你也可以导出学习笔记，留下这次实践的收获。';box.scrollIntoView({behavior:'smooth',block:'nearest'})}
+document.addEventListener('click',async e=>{const stepLink=e.target.closest('[data-step-target]');if(stepLink){e.preventDefault();jumpToStep(stepLink.dataset.stepTarget);return}const phase=e.target.closest('[data-phase]');if(phase)selectPhase(Number(phase.dataset.phase),true,phase.dataset.targetStep);const cb=e.target.closest('[data-copy-step]');if(cb){const step=course.phases.flatMap(p=>p.steps).find(s=>s.id===cb.dataset.copyStep);if(await copy(step.command)){cb.innerHTML=icon('check')+'<span>已复制</span>';setTimeout(()=>{if(cb.isConnected)cb.innerHTML=icon('copy')+'<span>复制</span>'},1800)}}const close=e.target.closest('[data-close]');if(close)$(close.dataset.close).close()});
+document.addEventListener('change',e=>{if(e.target.matches('[data-step]')){const id=e.target.dataset.step;state.done=e.target.checked?[...new Set([...state.done,id])]:state.done.filter(x=>x!==id);saveState();renderProgress();e.target.closest('.step-card').classList.toggle('complete',e.target.checked);const hint=document.querySelector('.next-hint');if(hint)hint.textContent=phaseDone(course.phases[active])===course.phases[active].steps.length?'本阶段已完成，继续保持。':'确认结果符合预期后，勾选每一步的“已掌握”。';const completion=$('completion');if(completion)completion.hidden=true;if(totalDone()===stepIds().length)toast('全部步骤已完成，做得好！')}});
+function toast(message){$('toast').textContent=message;$('toast').classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('visible'),2800)}
+async function copy(text){try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(text)}else{fallbackCopy(text)}toast('已复制到剪贴板');return true}catch{try{fallbackCopy(text);toast('已复制到剪贴板');return true}catch{toast('复制不可用，请选中文本手动复制');return false}}}
+function fallbackCopy(text){const el=document.createElement('textarea');el.value=text;el.style.position='fixed';el.style.opacity='0';const host=document.querySelector('dialog[open]')||document.body;host.appendChild(el);el.select();const ok=document.execCommand('copy');el.remove();if(!ok)throw Error('copy failed')}
+function search(value){const q=value.trim().toLocaleLowerCase();if(!q){$('searchResults').hidden=true;$('contentGrid').hidden=false;$('pageToc').hidden=false;$('mobileToc').hidden=false;return}$('searchResults').hidden=false;$('contentGrid').hidden=true;$('pageToc').hidden=true;$('mobileToc').hidden=true;const results=[];course.phases.forEach((p,index)=>p.steps.forEach(s=>{if([p.title,s.title,s.why,s.action,s.command,s.expected,s.location,s.pitfall?.title,s.pitfall?.cause,s.pitfall?.fix].join(' ').toLocaleLowerCase().includes(q))results.push({p,s,index})}));$('searchResults').innerHTML='<h2>找到 '+results.length+' 个相关步骤</h2>'+(results.length?results.map(({p,s,index})=>'<button class="search-result" data-phase="'+index+'" data-target-step="'+esc(s.id)+'"><span class="result-phase">'+esc(p.title)+'</span><span class="result-title">'+esc(s.title)+'</span><span class="result-excerpt">'+esc(s.why.slice(0,100))+'</span></button>').join(''):'<div class="empty-state">没有匹配的步骤。试试“安装”“端口”或命令名称。</div>')}
+$('searchInput').addEventListener('input',e=>search(e.target.value));document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('searchInput').focus()}if(e.key==='Escape')closeNav(true)});
+$('menuToggle').onclick=()=>{const open=$('sidebar').classList.toggle('open');$('overlay').classList.toggle('visible',open);$('menuToggle').setAttribute('aria-expanded',String(open));syncNav();if(open)$('phaseNav').querySelector('.nav-item.active').focus()};$('overlay').onclick=()=>closeNav(true);
+$('notesBtn').onclick=()=>{$('notesDialog').showModal();$('phaseNotes').focus()};
+$('helpBtn').onclick=()=>{$('importError').hidden=true;$('helpDialog').showModal()};$('resetBtn').onclick=()=>$('resetDialog').showModal();$('confirmReset').onclick=()=>{state=cleanState(null);active=0;saveState();renderChrome();renderPhase();$('resetDialog').close();toast('已清除本教程的学习记录')};
+function download(content,name,type){const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000)}
+function filename(name){return name.replace(/[<>:"/\\|?*\u0000-\u001f]/g,'-').slice(0,100)}
+$('exportJsonBtn').onclick=()=>download(JSON.stringify(course,null,2),filename(course.title)+'-教程内容.json','application/json');$('copyPromptBtn').onclick=()=>copy(PROMPT);
+$('exportBtn').onclick=()=>{const cloned=document.documentElement.cloneNode(true);cloned.querySelector('#course-data').textContent='\n'+JSON.stringify(course,null,2).replace(/</g,'\\u003c')+'\n';cloned.querySelectorAll('dialog').forEach(d=>d.removeAttribute('open'));cloned.querySelectorAll('#phaseNav,#phaseContent,#searchResults,#stepNav,#mobileStepNav').forEach(el=>el.replaceChildren());cloned.querySelector('#mobileToc').removeAttribute('open');cloned.querySelector('#phaseNotes').value='';cloned.querySelector('#phaseNotes').textContent='';cloned.querySelector('#notesPhaseTitle').textContent='';cloned.querySelector('#sidebar').classList.remove('open');cloned.querySelector('#overlay').classList.remove('visible');cloned.querySelector('#menuToggle').setAttribute('aria-expanded','false');cloned.querySelector('#toast').classList.remove('visible');cloned.querySelector('#searchInput').value='';cloned.querySelector('#importError').textContent='';cloned.querySelector('#importError').hidden=true;download('<!doctype html>\n'+cloned.outerHTML,filename(course.title)+'-学习手册.html','text/html;charset=utf-8');toast('已下载 HTML 手册；笔记可单独导出')};
+$('exportNotesBtn').onclick=()=>download(JSON.stringify({type:'learnbook-progress',version:1,courseId:course.id,exportedAt:new Date().toISOString(),state},null,2),filename(course.title)+'-学习记录.json','application/json');
+function validateCourse(d){const fail=s=>{throw Error(s)};if(!d||typeof d!=='object')fail('教程应为 JSON 对象。');for(const k of ['id','title','subtitle','description','level','duration','updated'])if(typeof d[k]!=='string'||!d[k].trim())fail('缺少文本字段：'+k);if(!/^[a-zA-Z0-9_-]+$/.test(d.id))fail('教程 id 只能包含字母、数字、短横线和下划线。');if(!Array.isArray(d.phases)||!d.phases.length||d.phases.length>20)fail('教程需要 1–20 个阶段。');const pids=new Set(),sids=new Set();d.phases.forEach((p,i)=>{for(const k of ['id','title','subtitle','duration'])if(typeof p[k]!=='string'||!p[k])fail('阶段 '+(i+1)+' 缺少 '+k);if(!/^[a-zA-Z0-9_-]+$/.test(p.id)||pids.has(p.id))fail('阶段 id 必须唯一，并仅含字母、数字、短横线或下划线。');pids.add(p.id);if(!Array.isArray(p.steps)||!p.steps.length||p.steps.length>50)fail('每阶段需要 1–50 个步骤。');p.steps.forEach(s=>{for(const k of ['id','title','why','location','expected'])if(typeof s[k]!=='string'||!s[k])fail('步骤缺少 '+k);if(!/^[a-zA-Z0-9_-]+$/.test(s.id)||sids.has(s.id))fail('所有步骤 id 必须唯一，并仅含字母、数字、短横线或下划线。');sids.add(s.id);if(s.command!=null&&typeof s.command!=='string')fail('command 必须是文本。');if(s.action!=null&&typeof s.action!=='string')fail('action 必须是文本。');if(!s.command&&!s.action)fail('步骤 '+s.title+' 需要 command 或 action。');if(!s.pitfall||['title','cause','fix'].some(k=>typeof s.pitfall[k]!=='string'))fail('步骤 '+s.title+' 缺少完整 pitfall。')})});if(!Array.isArray(d.resources)||!d.resources.length)fail('需要至少一个官方参考资源。');d.resources.forEach(r=>{if(typeof r.title!=='string'||typeof r.url!=='string')fail('资源需要 title 和 url。');let u;try{u=new URL(r.url)}catch{fail('资源链接格式不正确。')}if(!['https:','http:'].includes(u.protocol))fail('资源链接仅允许 http/https。')});return d}
+function showImportError(message){$('importError').textContent=message;$('importError').hidden=false}
+$('importJsonBtn').onclick=()=>$('importInput').click();$('importInput').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>2*1024*1024)throw Error('文件超过 2 MB，请精简内容。');const next=validateCourse(JSON.parse(await file.text()));course=next;loadState();renderChrome();renderPhase();$('helpDialog').close();window.scrollTo(0,0);toast('已载入新教程，可下载 HTML 保存')}catch(err){showImportError('导入失败：'+err.message)}finally{e.target.value=''}};
+$('importNotesBtn').onclick=()=>$('notesInput').click();$('notesInput').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>2*1024*1024)throw Error('文件超过 2 MB。');const data=JSON.parse(await file.text());if(data.type!=='learnbook-progress'||data.version!==1||data.courseId!==course.id||!data.state)throw Error('请选择本教程导出的学习记录。');state=cleanState(data.state);active=Math.max(0,course.phases.findIndex(p=>p.id===state.active));saveState();renderChrome();renderPhase();$('helpDialog').close();toast('学习进度与笔记已恢复')}catch(err){showImportError('恢复失败：'+err.message)}finally{e.target.value=''}};
+loadState();renderChrome();renderPhase();syncNav();
+</script>
+</body>
+</html>

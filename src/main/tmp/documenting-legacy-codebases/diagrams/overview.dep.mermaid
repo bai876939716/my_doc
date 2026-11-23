@@ -1,0 +1,18 @@
+graph TD
+    subgraph 运行时装配
+        MAIN[uvicorn 单进程<br/>同步端点跑线程池] --> REG[会话注册表<br/>会话锁+入口锁(进程内)]
+        REG --> CP{检查点后端}
+        CP -->|memory| MEM[进程内 saver+索引<br/>重启丢会话]
+        CP -->|postgres| PGS[PG 池 1-10 连接<br/>检查点+索引+归档]
+        PGS --> CLEAN[后台清理线程<br/>每 30 分钟]
+    end
+    subgraph 外部依赖
+        LLM[百炼 LLM<br/>OpenAI 兼容/30s 超时]
+        MDY[明道云 v3<br/>全 200 协议/静态头鉴权]
+        SHOP[base-shop<br/>内网 HTTP 无鉴权]
+        NACOS[Nacos<br/>gRPC 8848+9848]
+    end
+    MAIN -.启动读配置.-> NACOS
+    REG -.每打字轮.-> LLM
+    SHOP -.建会话带出.-> REG
+    MDY -.字典 TTL 刷新+建单.-> MAIN

@@ -1,0 +1,22 @@
+stateDiagram-v2
+    [*] --> collecting: 建会话(带出+首屏)
+    collecting --> collecting: 发消息/点选/上传<br/>(每轮以下一待办收尾)
+    collecting --> confirm: 议程清空(DefaultFill 补默认)
+    confirm --> confirm: 打字改值/补值<br/>(复述后静默重挂)
+    confirm --> collecting: 改点选型字段<br/>(重开卡,重新采集)
+    confirm --> done: 提交且校验全过+建单成功
+    confirm --> confirm: 建单失败(确认单保留可重试)
+    collecting --> fallback: 连续边界轮达阈值<br/>或 LLM 配额耗尽
+    confirm --> fallback: 同上(确认态有专门拉回话术)
+    fallback --> confirm: 向导议程清空(照常确认)
+    fallback --> done: 提交(0 LLM 交单)
+    done --> [*]: 归档+清索引(重进=新单,会话锁死)
+
+    note right of confirm
+        等待确认是数据(confirm_pending)
+        不是控制流,图无 interrupt
+    end note
+    note right of done
+        done 后再发消息: 42201 拒改
+        submit 幂等: 原号返回
+    end note

@@ -1,0 +1,38 @@
+sequenceDiagram
+    participant FE as H5 前端
+    participant GW as 网关(注入 X-Uid)
+    participant API as api 层
+    participant EN as 引擎(LangGraph)
+    participant LLM as 百炼 LLM
+    participant BS as base-shop
+    participant MDY as 明道云
+    participant PG as PostgreSQL
+
+    FE->>GW: POST /sessions {store_no}
+    GW->>API: + X-Uid
+    API->>PG: 查活跃索引(未命中)
+    API->>EN: 建会话轮
+    EN->>BS: 员工档案(uid)/门店(store_no)/大区
+    BS-->>EN: 姓名/手机号/门店名/大区(查无退空)
+    EN-->>FE: 首屏三件套(状态条/开场白/快捷卡)
+    FE->>API: POST messages {type:text}
+    API->>EN: 打字轮
+    EN->>LLM: 联合抽取(流程状态+脱敏快照+原话)
+    LLM-->>EN: 意图+字段增量+候选
+    EN->>EN: 闸门(白名单/长度/字典/识别器/原话印证)
+    EN-->>FE: 追问类别(Top3 卡或全量卡)
+    FE->>API: POST messages {type:enum_pick}
+    API->>EN: 点选轮(0 LLM)
+    EN-->>FE: 问照片(引导卡)
+    FE->>MDY: 前端直传附件
+    FE->>API: POST messages {type:upload_done, attachments}
+    EN-->>FE: 问电话(默认号确认卡或开口要)
+    FE->>API: POST messages {type:phone}
+    EN-->>FE: 确认单(手机号掩码)
+    FE->>API: POST /submit
+    API->>EN: 内部手势 submit
+    EN->>EN: 全量重校验+包级校验
+    EN->>MDY: 建单(类别 rowId/大区 key 反查写入)
+    MDY-->>EN: rowid→回查单号
+    EN-->>FE: 结果卡(order_no)
+    API->>PG: 终态归档+清活跃索引

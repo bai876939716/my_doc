@@ -1,0 +1,44 @@
+@startuml 降级与卡片向导
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+
+title 打字轮的降级链:LLM 轮 → 规则脑轮(0 LLM)→ 卡片向导(粘性)
+
+start
+:用户打字;
+if (已处向导模式(mode=fallback)?) then (是)
+  :本轮直接归降级管(粘性:进入后不再调 LLM);
+else (否)
+  if (本会话 LLM 次数已用满?\n(llm_quota_per_session,默认30)) then (是)
+    :配额轮:不再调 LLM,转规则脑;
+  else (否)
+    :正常轮:百炼联合抽取;
+    stop
+  endif
+endif
+partition "规则脑(纯规则,0 LLM)" {
+  if (识别器槽命中?\n(正则抓到值,且原话点名该字段或正等它的新值)) then (命中)
+    :产出与 LLM 同构的意图对象\n直填/改值,下游零感知,照常过闸门;
+    stop
+  elseif (点名字段 + 动作词?\n(改/换/重选/选错,但没给值)) then (命中)
+    :转入「改值」挂起:\n本轮以追问收尾,下轮裸值按它消解;
+    stop
+  else (没命中)
+    :按边界轮处理:\n失败计数 +1,拉回话术\n+ 重发当前待办/确认单;
+  endif
+}
+if (连续失败 ≥ fallback_after_fails?\n(默认15)) then (是)
+  :卡片向导接管:mode=fallback(粘性);
+  :只点卡照样交单:\n描述槽免问(卡片路径不问,\nDefaultFill 按类别拼默认描述)\n待办清空则回确认单;
+else (否)
+  :本轮以当前待办收尾,等下一条;
+endif
+stop
+
+note right
+  点选轮永远不经过这条链:
+  降级只换打字轮的通道,
+  点选/上传照常推进(0 LLM)
+end note
+@enduml

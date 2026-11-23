@@ -1,0 +1,53 @@
+@startuml 系统组件与部署
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam rectangle {
+  BorderColor #A5D6A7
+  ArrowColor #607D8B
+}
+
+title AgentServerCenter 部署上下文(单副本部署单元)
+
+actor "店员 / 店长" as USER
+rectangle "App 报修页 H5" as FE
+rectangle "网关 / Java 转发层" as GW {
+  card "认证后替换注入 X-Uid\n(绝不透传客户端可伪造值)"
+}
+rectangle "AgentServerCenter\n单副本 · FastAPI 同步线程池(40)" as ASC {
+  card "五接口 /agent/repair/v1\nsessions · messages · 会话查询 · submit · exit" as ROUTES
+  card "会话注册表\n入口锁 + 会话锁(进程内)\n活跃索引 rp:active:{uid}:{store_no}" as REG
+  card "通用采集图引擎\n业务无关,一张图跑所有业务" as ENGINE
+  card "技能包 repair\n7 槽位声明 + 字典 + 话术 + 工具\n(接新业务零改 core)" as PACK
+  card "降级规则脑\n配额耗尽 / 向导模式,0 LLM" as DEGRADE
+}
+cloud "百炼 LLM\n缺 LLM_BASE_URL/API_KEY 拒启动\n每会话配额 30 次" as LLM
+database "PostgreSQL\n检查点 + 活跃索引 + 归档表\nTTL 清理线程兜底(7天)" as PG
+cloud "base-shop 主数据\n门店 / 员工档案\n(可选;未配置退 Mock 不伪造)" as SHOP
+cloud "明道云 HAP\n报修工作表 + 分类字典真值\n(REAL_ORDER_ENABLED 开关)" as MDY
+cloud "Nacos 配置中心(可选)\n优先级 env > Nacos > .env > 默认" as NACOS
+
+USER --> FE
+FE --> GW
+GW --> ROUTES
+ROUTES --> REG
+REG --> ENGINE
+ENGINE --> PACK
+ENGINE --> DEGRADE
+ASC --> LLM : 打字轮联合抽取\n(全流程唯一调用点)
+ASC --> SHOP : 建会话带出\n门店/报修人/手机号
+ASC --> MDY : 建单 + 分类字典在线真值
+ASC --> PG : 检查点每轮写入 / 归档
+NACOS ..> ASC : 启动期读配置
+
+note bottom of ASC
+  单副本约束:会话互斥锁与建单幂等缓存
+  都在进程内,多副本会串会话;
+  扩容前先落 PG advisory lock
+  (app/api/sessions.py TODO)
+end note
+note bottom of FE
+  附件协议:前端直传明道云后传引用,
+  会话与确认卡原样回显 {name,url}
+end note
+@enduml

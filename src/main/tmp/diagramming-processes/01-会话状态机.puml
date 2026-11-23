@@ -1,0 +1,46 @@
+@startuml 会话状态机
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam state {
+  BackgroundColor #FFFDE7
+  BorderColor #A5D6A7
+  ArrowColor #607D8B
+  FontSize 13
+}
+
+title 报修会话状态机\n状态口径 = 接口 _api_state(app/api/routes.py):collecting / confirm / fallback / done
+
+state "采集态 collecting\n议程非空,逐槽采集" as COLLECT
+state "确认态 confirm\n确认单展示中,等核对/改/提交" as CONFIRM
+state "降级向导态 fallback\n卡片向导接管,粘性" as FALLBACK
+state "已出单 done\n锁定:再发消息拒收,重复提交原号返回" as DONE
+state "已归档 / 已销毁\n归档表落档,检查点销毁" as ARCHIVED
+
+[*] --> COLLECT : 建会话轮\n带出档案 + 首屏三件套
+COLLECT --> COLLECT : 答一项划一项\n下发下一待办卡
+COLLECT --> CONFIRM : 必填槽全部就绪
+CONFIRM --> COLLECT : 用户改值/补值\n(待办重开,回采集)
+CONFIRM --> COLLECT : 提交校验不过\n(缺项塞回议程)
+CONFIRM --> DONE : 确认态提交且建单成功
+CONFIRM --> CONFIRM : 建单失败\n(确认单重发,可重试)
+COLLECT --> FALLBACK : 连续边界轮\n≥ fallback_after_fails(默认15)
+CONFIRM --> FALLBACK : 确认态被打断的边界轮\n失败计数同样累计
+FALLBACK --> CONFIRM : 向导待办清空\n(原在确认的也回确认单)
+FALLBACK --> FALLBACK : 点选照常推进(0 LLM)
+COLLECT --> ARCHIVED : 主动放弃\n(exit abandon / 重新开始)
+CONFIRM --> ARCHIVED : 主动放弃
+FALLBACK --> ARCHIVED : 主动放弃
+COLLECT --> ARCHIVED : 7天不活跃\n(active_ttl_days),后台清理线程
+
+note right of DONE
+  出单后 exit 忽略(终态无需退出)
+  重进 = 活跃索引作废,另起新单
+  幂等两层:接口预检 + 建单节点守卫
+end note
+note right of FALLBACK
+  粘性:进入后打字轮永远不再调 LLM
+  配额耗尽(llm_quota_per_session=30)
+  同理:规则脑接管,0 LLM 照常写值
+end note
+@enduml
