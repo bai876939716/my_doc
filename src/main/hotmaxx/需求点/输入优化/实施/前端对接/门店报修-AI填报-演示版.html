@@ -496,12 +496,12 @@ details.sc .bd{padding:8px 11px 11px;font-size:11.5px;color:#5c5c5c;line-height:
         <p><b>操作</b>重置 → ❄️冷柜卡 → 2 张照片 → 两选 → ✓ 号码。</p>
         <p><b>预期</b>确认单在屏（类别=冷柜）。</p>
       </div>
-      <div class="step"><div class="sh"><span class="no">2</span>说改类别</div>
-        <p><b>操作</b>发「报修类别改一下」。</p>
-        <p><b>预期</b>「好，重新选一下报修类别：」+ 全量类别卡。</p>
+      <div class="step"><div class="sh"><span class="no">2</span>点类别重选</div>
+        <p><b>操作</b>点确认单上的「报修类别」。</p>
+        <p><b>预期</b>直接弹出全量两级选择框（可取消、回显当前已选）——快捷卡路径没经过类别卡也能弹，确认单自带全量数据。打字说「报修类别改一下」同样有效（服务端重发类别卡）。</p>
       </div>
       <div class="step"><div class="sh"><span class="no">3</span>点新类别</div>
-        <p><b>操作</b>点「门店广告类 - 广告维修」。</p>
+        <p><b>操作</b>弹窗里选「工程类 - 空调不制冷/热」（静态字典）。</p>
         <p><b>预期</b>提示「照片如果拍的不是现在这个设备，重新传一下」——<b>照片保留不强制作废</b>，议程无欠账直接回新确认单；描述按新类别重算。</p>
       </div>
       <div class="step"><div class="sh"><span class="no">4</span>直接提交</div>
@@ -1218,15 +1218,21 @@ function confirmVal(field){                   // 最新确认单里某字段的�
   const it=items.find(i=>i.field===field);
   return it&&it.value!=null?String(it.value):'';
 }
+function confirmCatOptions(){                 // 确认单 category 项自带的全量两级联动（服务端附带）：快捷卡路径没经过类别卡也能直接弹窗
+  const it=((S.confirmData||{}).groups||[]).flatMap(g=>g.items||[]).find(i=>i.field==='category');
+  const o=it&&it.options;
+  return Array.isArray(o)&&o.length?o:null;
+}
 function editField(field){                     // 确认单上的「修改」
   if(field==='category'){
     const onPick=v=>{
       sendGesture({type:'enum_pick', field:'category', value:v});   // 照片不作废：服务端只提示自查
     };
-    if(S.catGrouped && S.catGrouped.length)
-      groupedPickModal('重选报修类别', S.catGrouped, onPick, '照片若与新类别不符可重新上传，对得上就保留', confirmVal('category'));
+    const src=S.catGrouped&&S.catGrouped.length?S.catGrouped:confirmCatOptions();
+    if(src)
+      groupedPickModal('重选报修类别', src, onPick, '照片若与新类别不符可重新上传，对得上就保留', confirmVal('category'));
     else if(S.catCache.length) pickModal('重选报修类别', S.catCache, onPick, '照片若与新类别不符可重新上传，对得上就保留', confirmVal('category'));
-    else sendText('报修类别改一下');            // 本会话没经过类别卡（如快捷卡直达，无缓存）：让服务端重发全量类别卡
+    else sendText('报修类别改一下');            // 极老后端无附带也无缓存：让服务端重发全量类别卡
   }else if(field==='photos'){
     uploadFlow();                               // 重新调起上传：已传按 url 去重只补新增（口径：照片只补增不作废）
   }else if(field==='phone'){

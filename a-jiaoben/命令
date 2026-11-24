@@ -1,7 +1,7 @@
 查看 Pod 名称
 kubectl -n python get pods
 
-kubectl -n python logs -f dev-python-provider-agent-server-center-7d777c6666-b2tjd --tail=200
+kubectl -n python logs -f dev-python-provider-agent-server-center-7d4dddff56-l6tzw --tail=200
 
 
 中间层 java 服务

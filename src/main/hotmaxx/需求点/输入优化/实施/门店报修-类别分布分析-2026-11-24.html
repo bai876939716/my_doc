@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>门店报修 · 类别分布分析（2026-11-24）</title>
+<style>
+:root { color-scheme: light; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+       background: #f6f5f2; color: #26231e; padding: 40px 20px; line-height: 1.6; }
+.page { max-width: 980px; margin: 0 auto; }
+h1 { font-size: 26px; letter-spacing: .5px; }
+.meta { color: #7a756c; font-size: 13px; margin: 8px 0 32px; }
+.meta b { color: #4a453d; font-weight: 600; }
+h2 { font-size: 18px; margin: 44px 0 6px; }
+.sub { color: #7a756c; font-size: 13px; margin-bottom: 16px; }
+.kpis { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.kpi { background: #fff; border: 1px solid #e6e2da; border-radius: 10px; padding: 14px 18px; flex: 1; min-width: 140px; }
+.kpi .v { font-size: 22px; font-weight: 700; }
+.kpi .k { font-size: 12px; color: #8a857c; }
+.chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 10px; }
+.chip { background: #fff; border: 1px solid #e6e2da; border-radius: 10px; padding: 12px 14px; display: flex; gap: 10px; }
+.chip .rank { font-size: 13px; font-weight: 700; color: #b0aa9f; min-width: 18px; padding-top: 2px; }
+.chip-name { font-size: 14px; font-weight: 600; }
+.chip-l1 { font-size: 11px; color: #a09a8f; font-weight: 400; margin-left: 6px; }
+.chip-meta { font-size: 12px; color: #8a857c; margin: 2px 0 6px; }
+.chip-bar { height: 4px; background: #efece5; border-radius: 2px; overflow: hidden; }
+.chip-bar i { display: block; height: 100%; background: #c96f2d; border-radius: 2px; }
+.chip.trend-up { border-color: #d9b98f; }
+.tr { color: #c96f2d; font-size: 11px; }
+.chip.trend-up .tr { color: #b0431f; }
+.note { background: #fff; border: 1px solid #e6e2da; border-radius: 10px; padding: 16px 20px; font-size: 14px; }
+.note p { margin: 6px 0; }
+.note b { color: #4a453d; }
+.treebox { background: #fff; border: 1px solid #e6e2da; border-radius: 10px; padding: 14px 8px; font-size: 13.5px; }
+.thead { display: flex; gap: 10px; padding: 4px 8px; color: #a09a8f; font-size: 12px; border-bottom: 1px solid #efece5; margin-bottom: 6px; }
+.thead .tbar { flex: 1; }
+.trow { display: flex; align-items: center; gap: 10px; padding: 4px 8px; border-radius: 6px; }
+.trow:hover { background: #faf8f4; }
+.caret { width: 16px; color: #a09a8f; cursor: pointer; user-select: none; font-size: 11px; text-align: center; }
+.caret.hidden { visibility: hidden; }
+.tname { min-width: 280px; }
+.tname.l1 { font-weight: 700; }
+.tbar { flex: 1; height: 10px; background: #f1eee7; border-radius: 3px; overflow: hidden; }
+.tbar i { display: block; height: 100%; background: #c96f2d; opacity: .85; }
+.tnode.l1 > .trow .tbar i { background: #8a6a4b; }
+.tnum { width: 64px; text-align: right; font-variant-numeric: tabular-nums; }
+.tnum.sub { width: 52px; color: #8a857c; }
+.tpct { width: 56px; text-align: right; color: #8a857c; font-variant-numeric: tabular-nums; }
+.months { display: flex; align-items: flex-end; gap: 4px; height: 120px; background: #fff;
+          border: 1px solid #e6e2da; border-radius: 10px; padding: 14px 14px 6px; }
+.mcol { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; }
+.mcol i { display: block; width: 70%; background: #c96f2d; opacity: .8; border-radius: 2px 2px 0 0; }
+.mcol span { font-size: 9px; color: #a09a8f; margin-top: 4px; transform: rotate(-45deg); white-space: nowrap; }
+footer { margin-top: 44px; color: #a09a8f; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>门店报修 · 类别分布分析</h1>
+  <div class="meta">数据源：明道云正式环境「门店报修」表（AppKey 79f1…，全量 <b>28,098</b> 行，2022-11 ~ 2026-11）
+    · 报修类别取 reportType 全路径 · 统计口径 <b>近90天</b>=2026-08-25 后（按报修月份归档）· 生成于 2026-11-24</div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="v">28,098</div><div class="k">全量报修单</div></div>
+    <div class="kpi"><div class="v">55</div><div class="k">叶子类别数</div></div>
+    <div class="kpi"><div class="v">87.6%</div><div class="k">近90天工程类占比</div></div>
+    <div class="kpi"><div class="v">69%</div><div class="k">TOP12 叶子覆盖(近90天)</div></div>
+  </div>
+
+  <h2>快捷卡片推荐（按近90天单量排序）</h2>
+  <div class="sub">前 12 个叶子类别已覆盖近90天全部报修的 69.5%；▲ 标记 = 近90天月均较此前 9 个月月均上升 ≥25%</div>
+  <div class="chips">
+      <div class="chip trend-up">
+        <span class="rank">1</span>
+        <div class="chip-body">
+          <div class="chip-name">摄像头-离线（已重启仍失败）<span class="chip-l1">工程类</span></div>
+          <div class="chip-meta">近90天 218 单 · 11.0% <span class="tr">▲</span></div>
+          <div class="chip-bar"><i style="width:100.0%"></i></div>
+        </div>
+      </div>
+      <div class="chip ">
+        <span class="rank">2</span>
+        <div class="chip-body">
+          <div class="chip-name">照明灯（1至4个）<span class="chip-l1">工程类</span></div>
+          <div class="chip-meta">近90天 203 单 · 10.3% <span class="tr">—</span></div>
+          <div class="chip-bar"><i style="width:93.1%"></i></div>
+        </div>
+      </div>
+      <div class="chip ">
+        <span class="rank">3</span>
+        <div class="chip-body">
+          <div class="chip-name">门头字/LOGO字不亮<span class="chip-l1">工程类</span></div>
+          <div class="chip-meta">近90天 149 单 · 7.5% <span class="tr">—</span></div>
+          <div class="chip-bar"><i style="width:68.3%"></i></div>
+        </div>
+      </div>
+      <div class="chip ">
+        <span class="rank">4</span>
+        <div class="chip-body">
+          <div class="chip-name">照明灯（超过4个）<span class="chip-l1">工程类</span></div>
+          <div class="chip-meta">近90天 138 单 · 7.0% <span class="tr">—</span></div>
+          <div class="chip-bar"><i style="width:63.3%"></i></div>
+        </div>
+      </div>
+      <div class="chip ">
+        <span class="rank">5</span>
+        <div class="chip-body">
+          <div class="chip-name">风幕柜/冷藏柜（过保）（门店自修）<span class="chip-l1">工程类</span></div>
+          <div class="chip-meta">近90天 119 单 · 6.0% <span class="tr">—</span></div>
+          <div class="chip-bar"><i style="width:54.6%"></i></div>
+        </div>
+      </div>
+      <div class="chip trend-down">
+        <span class="rank">6</span>
+        <div class="chip-body">
+          <div class="chip-name">工程-其他（不含调改）<span class="chip-l1">工程类</span></div>
+          <div class="chip-meta">近90天 109 单 · 5.5% <span class="tr">▼</span></div>
+          <div class="chip-bar"><i style="width:50.0%"></i></div>
+        </div>
+      </div>
+      <div class="chip ">
+        <span class="rank">7</span>
+        <div class="chip-body">
+          <div class="chip-name">开关 / 插座 / 线路<span class="chip-l1">工程类</span></div>
+          <div class="chip-meta">近90天 104 单 · 5.3% <span class="tr">—</span></div>
+          <div class="chip-bar"><i style="width:47.7%"></i></div>
+        </div>
+      </div>
+      <div class="chip ">
+        <span class="rank">8</span>
+        <div class="chip-body">
+          <div class="chip-name">摄像头-其他问题<span class="chip-l1">工程类</span></div>
+          <div class="chip-meta">近90天 92 单 · 4.7% <span class="tr">—</span></div>
+          <div class="chip-bar"><i style="width:42.2%"></i></div>
+        </div>
+      </div>
+      <div class="chip ">
+        <span class="rank">9</span>
+        <div class="chip-body">
+          <div class="chip-name">冻柜不制冷（过保）（门店自修）<span class="chip-l1">工程类</span></div>
+          <div class="chip-meta">近90天 91 单 · 4.6% <span class="tr">—</span></div>
+          <div class="chip-bar"><i style="width:41.7%"></i></div>
+        </div>
+      </div>
+      <div class="chip ">
+        <span class="rank">10</span>
+        <div class="chip-body">
+          <div class="chip-name">地砖地板 / 踢脚线<span class="chip-l1">工程类</span></div>
+          <div class="chip-meta">近90天 52 单 · 2.6% <span class="tr">—</span></div>
+          <div class="chip-bar"><i style="width:23.9%"></i></div>
+        </div>
+      </div>
+      <div class="chip ">
+        <span class="rank">11</span>
+        <div class="chip-body">
+          <div class="chip-name">外部大门关不上/打不开<span class="chip-l1">特别紧急（慎重选择）</span></div>
+          <div class="chip-meta">近90天 50 单 · 2.5% <span class="tr">—</span></div>
+          <div class="chip-bar"><i style="width:22.9%"></i></div>
+        </div>
+      </div>
+      <div class="chip ">
+        <span class="rank">12</span>
+        <div class="chip-body">
+          <div class="chip-name">电视<span class="chip-l1">工程类</span></div>
+          <div class="chip-meta">近90天 47 单 · 2.4% <span class="tr">—</span></div>
+          <div class="chip-bar"><i style="width:21.6%"></i></div>
+        </div>
+      </div></div>
+
+  <div class="note" style="margin-top:14px">
+    <p><b>① 头部全是工程类。</b>近90天工程类 87.6%、营运用具类 8.2%、特别紧急 4.2%。营运用具里最高的「扫码枪」近90天仅 28 单（1.4%），挤不进卡片位——快捷卡片全部给工程类是数据支持的选择。</p>
+    <p><b>② 摄像头问题在暴涨。</b>「摄像头-离线」历史占比 3.2%，近90天 11.0%（218 单，月均较前 9 个月翻倍以上），已是第一大类；「摄像头-其他问题」同样在涨。摄像头系列合计近 90 天 16%，值得单独占两格卡片。</p>
+    <p><b>③ 两张照明灯卡建议合并展示。</b>「照明灯（1至4个）」+「照明灯（超过4个）」合计近90天 17.2%，可做一张卡进二级选择，省一格位。</p>
+    <p><b>④ 特别紧急不建议进快捷卡片。</b>「外部大门关不上/打不开」近90天 50 单够得上第 11 名，但该分类本身标注「慎重选择」，放快捷入口有诱导误用的风险，建议只保留在对话/表单路径里。</p>
+    <p><b>⑤ 别忘兜底。</b>剩余 45% 的量分散在 40+ 个长尾类别，卡片之外仍需自由输入兜底（这正是 AI 填报的入口价值）。</p>
+  </div>
+
+  <h2>分类树（全量 4 年数据，条形=全量占比）</h2>
+  <div class="sub">点 ▾ 折叠/展开 · 三列数字依次为：全量单数 / 近90天 / 全量占比</div>
+  <div class="treebox">
+    <div class="thead"><span style="width:16px"></span><span class="tname" style="min-width:280px">类别</span><span class="tbar"></span><span class="tnum">全量</span><span class="tnum sub">90天</span><span class="tpct">占比</span></div>
+    
+      <div class="tnode">
+        <div class="trow" style="padding-left:8px">
+          <span class="caret hidden">▾</span>
+          <span class="tname l1">购物袋</span>
+          <span class="tbar"><i style="width:0.15%"></i></span>
+          <span class="tnum">13</span>
+          <span class="tnum sub">0</span>
+          <span class="tpct">0.0%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:8px">
+          <span class="caret ">▾</span>
+          <span class="tname l1">工程类</span>
+          <span class="tbar"><i style="width:0.15%"></i></span>
+          <span class="tnum">0</span>
+          <span class="tnum sub">0</span>
+          <span class="tpct">0.0%</span>
+        </div>
+        <div class="tkids">
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">照明灯（1至4个）</span>
+          <span class="tbar"><i style="width:9.97%"></i></span>
+          <span class="tnum">2,769</span>
+          <span class="tnum sub">203</span>
+          <span class="tpct">10.0%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">门头字/LOGO字不亮</span>
+          <span class="tbar"><i style="width:7.59%"></i></span>
+          <span class="tnum">2,106</span>
+          <span class="tnum sub">149</span>
+          <span class="tpct">7.6%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">工程-其他（不含调改）</span>
+          <span class="tbar"><i style="width:6.35%"></i></span>
+          <span class="tnum">1,762</span>
+          <span class="tnum sub">109</span>
+          <span class="tpct">6.3%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">照明灯（超过4个）</span>
+          <span class="tbar"><i style="width:6.23%"></i></span>
+          <span class="tnum">1,730</span>
+          <span class="tnum sub">138</span>
+          <span class="tpct">6.2%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">开关 / 插座 / 线路</span>
+          <span class="tbar"><i style="width:5.68%"></i></span>
+          <span class="tnum">1,577</span>
+          <span class="tnum sub">104</span>
+          <span class="tpct">5.7%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">风幕柜/冷藏柜（过保）（门店自修）</span>
+          <span class="tbar"><i style="width:5.23%"></i></span>
+          <span class="tnum">1,451</span>
+          <span class="tnum sub">119</span>
+          <span class="tpct">5.2%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">灭火器（门店自修）</span>
+          <span class="tbar"><i style="width:3.26%"></i></span>
+          <span class="tnum">906</span>
+          <span class="tnum sub">47</span>
+          <span class="tpct">3.3%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">摄像头-离线（已重启仍失败）</span>
+          <span class="tbar"><i style="width:3.22%"></i></span>
+          <span class="tnum">893</span>
+          <span class="tnum sub">218</span>
+          <span class="tpct">3.2%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">空调不制冷/热</span>
+          <span class="tbar"><i style="width:2.90%"></i></span>
+          <span class="tnum">806</span>
+          <span class="tnum sub">19</span>
+          <span class="tpct">2.9%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">地砖地板 / 踢脚线</span>
+          <span class="tbar"><i style="width:2.78%"></i></span>
+          <span class="tnum">772</span>
+          <span class="tnum sub">52</span>
+          <span class="tpct">2.8%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">内部仓库门 / 消防栓门</span>
+          <span class="tbar"><i style="width:2.76%"></i></span>
+          <span class="tnum">767</span>
+          <span class="tnum sub">37</span>
+          <span class="tpct">2.8%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">音响</span>
+          <span class="tbar"><i style="width:2.75%"></i></span>
+          <span class="tnum">763</span>
+          <span class="tnum sub">41</span>
+          <span class="tpct">2.7%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">冻柜不制冷（过保）（门店自修）</span>
+          <span class="tbar"><i style="width:2.74%"></i></span>
+          <span class="tnum">760</span>
+          <span class="tnum sub">91</span>
+          <span class="tpct">2.7%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">风幕柜&amp;立玻柜&amp;冷藏柜（保内）（门店自修）</span>
+          <span class="tbar"><i style="width:2.61%"></i></span>
+          <span class="tnum">726</span>
+          <span class="tnum sub">44</span>
+          <span class="tpct">2.6%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">电视</span>
+          <span class="tbar"><i style="width:1.84%"></i></span>
+          <span class="tnum">511</span>
+          <span class="tnum sub">47</span>
+          <span class="tpct">1.8%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">玻璃幕墙 / 玻璃门</span>
+          <span class="tbar"><i style="width:1.79%"></i></span>
+          <span class="tnum">496</span>
+          <span class="tnum sub">20</span>
+          <span class="tpct">1.8%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">摄像头-其他问题</span>
+          <span class="tbar"><i style="width:1.70%"></i></span>
+          <span class="tnum">472</span>
+          <span class="tnum sub">92</span>
+          <span class="tpct">1.7%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">滴水</span>
+          <span class="tbar"><i style="width:1.66%"></i></span>
+          <span class="tnum">462</span>
+          <span class="tnum sub">24</span>
+          <span class="tpct">1.7%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">空调清洗</span>
+          <span class="tbar"><i style="width:1.34%"></i></span>
+          <span class="tnum">373</span>
+          <span class="tnum sub">17</span>
+          <span class="tpct">1.3%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">墙面掉漆或破损</span>
+          <span class="tbar"><i style="width:1.27%"></i></span>
+          <span class="tnum">353</span>
+          <span class="tnum sub">28</span>
+          <span class="tpct">1.3%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">LED屏</span>
+          <span class="tbar"><i style="width:1.02%"></i></span>
+          <span class="tnum">283</span>
+          <span class="tnum sub">14</span>
+          <span class="tpct">1.0%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">物业要求紧急维修</span>
+          <span class="tbar"><i style="width:0.99%"></i></span>
+          <span class="tnum">275</span>
+          <span class="tnum sub">13</span>
+          <span class="tpct">1.0%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">收银台背柜门脱落</span>
+          <span class="tbar"><i style="width:0.92%"></i></span>
+          <span class="tnum">256</span>
+          <span class="tnum sub">15</span>
+          <span class="tpct">0.9%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">户外广告掉落</span>
+          <span class="tbar"><i style="width:0.92%"></i></span>
+          <span class="tnum">255</span>
+          <span class="tnum sub">17</span>
+          <span class="tpct">0.9%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">安全指示灯</span>
+          <span class="tbar"><i style="width:0.83%"></i></span>
+          <span class="tnum">230</span>
+          <span class="tnum sub">13</span>
+          <span class="tpct">0.8%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">消防检查</span>
+          <span class="tbar"><i style="width:0.57%"></i></span>
+          <span class="tnum">158</span>
+          <span class="tnum sub">9</span>
+          <span class="tpct">0.6%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">顶面破损</span>
+          <span class="tbar"><i style="width:0.56%"></i></span>
+          <span class="tnum">155</span>
+          <span class="tnum sub">10</span>
+          <span class="tpct">0.6%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">渗水</span>
+          <span class="tbar"><i style="width:0.54%"></i></span>
+          <span class="tnum">149</span>
+          <span class="tnum sub">5</span>
+          <span class="tpct">0.5%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">摄像头-有内存卡但无回放（已格式化仍失败）</span>
+          <span class="tbar"><i style="width:0.33%"></i></span>
+          <span class="tnum">93</span>
+          <span class="tnum sub">10</span>
+          <span class="tpct">0.3%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">地砖地板 (营业区域）</span>
+          <span class="tbar"><i style="width:0.18%"></i></span>
+          <span class="tnum">49</span>
+          <span class="tnum sub">11</span>
+          <span class="tpct">0.2%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">内部仓库/ 消防栓门损坏</span>
+          <span class="tbar"><i style="width:0.15%"></i></span>
+          <span class="tnum">18</span>
+          <span class="tnum sub">9</span>
+          <span class="tpct">0.1%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">内部仓库/ 消防栓门锁、把手（门店自修）</span>
+          <span class="tbar"><i style="width:0.15%"></i></span>
+          <span class="tnum">13</span>
+          <span class="tnum sub">3</span>
+          <span class="tpct">0.0%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">踢脚线（损坏）</span>
+          <span class="tbar"><i style="width:0.15%"></i></span>
+          <span class="tnum">8</span>
+          <span class="tnum sub">1</span>
+          <span class="tpct">0.0%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">收银台背柜门关闭异常＞2个</span>
+          <span class="tbar"><i style="width:0.15%"></i></span>
+          <span class="tnum">7</span>
+          <span class="tnum sub">1</span>
+          <span class="tpct">0.0%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">摄像头-缺内存卡（接店需检查）</span>
+          <span class="tbar"><i style="width:0.15%"></i></span>
+          <span class="tnum">5</span>
+          <span class="tnum sub">0</span>
+          <span class="tpct">0.0%</span>
+        </div>
+        
+      </div></div>
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:8px">
+          <span class="caret ">▾</span>
+          <span class="tname l1">营运用具类</span>
+          <span class="tbar"><i style="width:0.15%"></i></span>
+          <span class="tnum">0</span>
+          <span class="tnum sub">0</span>
+          <span class="tpct">0.0%</span>
+        </div>
+        <div class="tkids">
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">推车</span>
+          <span class="tbar"><i style="width:2.59%"></i></span>
+          <span class="tnum">718</span>
+          <span class="tnum sub">18</span>
+          <span class="tpct">2.6%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">价签机</span>
+          <span class="tbar"><i style="width:2.04%"></i></span>
+          <span class="tnum">566</span>
+          <span class="tnum sub">21</span>
+          <span class="tpct">2.0%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">PDA</span>
+          <span class="tbar"><i style="width:1.44%"></i></span>
+          <span class="tnum">399</span>
+          <span class="tnum sub">11</span>
+          <span class="tpct">1.4%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">梯子</span>
+          <span class="tbar"><i style="width:1.22%"></i></span>
+          <span class="tnum">339</span>
+          <span class="tnum sub">3</span>
+          <span class="tpct">1.2%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">网络设备（路由器）</span>
+          <span class="tbar"><i style="width:0.97%"></i></span>
+          <span class="tnum">269</span>
+          <span class="tnum sub">23</span>
+          <span class="tpct">1.0%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">购物篮</span>
+          <span class="tbar"><i style="width:0.48%"></i></span>
+          <span class="tnum">133</span>
+          <span class="tnum sub">0</span>
+          <span class="tpct">0.5%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">摄像头-已添加未激活</span>
+          <span class="tbar"><i style="width:0.31%"></i></span>
+          <span class="tnum">87</span>
+          <span class="tnum sub">10</span>
+          <span class="tpct">0.3%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">摄像头-无法添加至乐橙含光</span>
+          <span class="tbar"><i style="width:0.29%"></i></span>
+          <span class="tnum">80</span>
+          <span class="tnum sub">8</span>
+          <span class="tpct">0.3%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">液压车/地牛</span>
+          <span class="tbar"><i style="width:0.15%"></i></span>
+          <span class="tnum">27</span>
+          <span class="tnum sub">0</span>
+          <span class="tpct">0.1%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret ">▾</span>
+          <span class="tname ">收银设备</span>
+          <span class="tbar"><i style="width:0.15%"></i></span>
+          <span class="tnum">3</span>
+          <span class="tnum sub">0</span>
+          <span class="tpct">0.0%</span>
+        </div>
+        <div class="tkids">
+      <div class="tnode">
+        <div class="trow" style="padding-left:52px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">扫码枪</span>
+          <span class="tbar"><i style="width:2.26%"></i></span>
+          <span class="tnum">627</span>
+          <span class="tnum sub">28</span>
+          <span class="tpct">2.3%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:52px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">人工收银机/POS</span>
+          <span class="tbar"><i style="width:1.47%"></i></span>
+          <span class="tnum">409</span>
+          <span class="tnum sub">18</span>
+          <span class="tpct">1.5%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:52px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">小票机</span>
+          <span class="tbar"><i style="width:1.18%"></i></span>
+          <span class="tnum">328</span>
+          <span class="tnum sub">10</span>
+          <span class="tpct">1.2%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:52px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">钱箱</span>
+          <span class="tbar"><i style="width:0.27%"></i></span>
+          <span class="tnum">76</span>
+          <span class="tnum sub">4</span>
+          <span class="tpct">0.3%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:52px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">自助收银机</span>
+          <span class="tbar"><i style="width:0.20%"></i></span>
+          <span class="tnum">56</span>
+          <span class="tnum sub">8</span>
+          <span class="tpct">0.2%</span>
+        </div>
+        
+      </div></div>
+      </div></div>
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:8px">
+          <span class="caret ">▾</span>
+          <span class="tname l1">特别紧急（慎重选择）</span>
+          <span class="tbar"><i style="width:0.15%"></i></span>
+          <span class="tnum">0</span>
+          <span class="tnum sub">0</span>
+          <span class="tpct">0.0%</span>
+        </div>
+        <div class="tkids">
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">外部大门关不上/打不开</span>
+          <span class="tbar"><i style="width:2.24%"></i></span>
+          <span class="tnum">622</span>
+          <span class="tnum sub">50</span>
+          <span class="tpct">2.2%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">断电</span>
+          <span class="tbar"><i style="width:1.43%"></i></span>
+          <span class="tnum">396</span>
+          <span class="tnum sub">25</span>
+          <span class="tpct">1.4%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">店铺门或墙板掉落</span>
+          <span class="tbar"><i style="width:0.59%"></i></span>
+          <span class="tnum">163</span>
+          <span class="tnum sub">5</span>
+          <span class="tpct">0.6%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">管道破裂导致大水漫灌</span>
+          <span class="tbar"><i style="width:0.15%"></i></span>
+          <span class="tnum">28</span>
+          <span class="tnum sub">2</span>
+          <span class="tpct">0.1%</span>
+        </div>
+        
+      </div>
+      <div class="tnode">
+        <div class="trow" style="padding-left:30px">
+          <span class="caret hidden">▾</span>
+          <span class="tname ">着火</span>
+          <span class="tbar"><i style="width:0.15%"></i></span>
+          <span class="tnum">19</span>
+          <span class="tnum sub">1</span>
+          <span class="tpct">0.1%</span>
+        </div>
+        
+      </div></div>
+      </div>
+  </div>
+
+  <h2>月度单量走势（近 24 个月）</h2>
+  <div class="months"><div class="mcol" title="2024-12：663 单"><i style="height:59%"></i><span>24-12</span></div><div class="mcol" title="2025-01：498 单"><i style="height:44%"></i><span>25-01</span></div><div class="mcol" title="2025-02：540 单"><i style="height:48%"></i><span>25-02</span></div><div class="mcol" title="2025-03：668 单"><i style="height:59%"></i><span>25-03</span></div><div class="mcol" title="2025-04：650 单"><i style="height:58%"></i><span>25-04</span></div><div class="mcol" title="2025-05：712 单"><i style="height:63%"></i><span>25-05</span></div><div class="mcol" title="2025-06：730 单"><i style="height:65%"></i><span>25-06</span></div><div class="mcol" title="2025-07：919 单"><i style="height:82%"></i><span>25-07</span></div><div class="mcol" title="2025-08：766 单"><i style="height:68%"></i><span>25-08</span></div><div class="mcol" title="2025-09：696 单"><i style="height:62%"></i><span>25-09</span></div><div class="mcol" title="2025-10：769 单"><i style="height:68%"></i><span>25-10</span></div><div class="mcol" title="2025-11：728 单"><i style="height:65%"></i><span>25-11</span></div><div class="mcol" title="2025-12：681 单"><i style="height:60%"></i><span>25-12</span></div><div class="mcol" title="2026-01：716 单"><i style="height:64%"></i><span>26-01</span></div><div class="mcol" title="2026-02：473 单"><i style="height:42%"></i><span>26-02</span></div><div class="mcol" title="2026-03：790 单"><i style="height:70%"></i><span>26-03</span></div><div class="mcol" title="2026-04：663 单"><i style="height:59%"></i><span>26-04</span></div><div class="mcol" title="2026-05：730 单"><i style="height:65%"></i><span>26-05</span></div><div class="mcol" title="2026-06：784 单"><i style="height:70%"></i><span>26-06</span></div><div class="mcol" title="2026-07：1127 单"><i style="height:100%"></i><span>26-07</span></div><div class="mcol" title="2026-08：932 单"><i style="height:83%"></i><span>26-08</span></div><div class="mcol" title="2026-09：681 单"><i style="height:60%"></i><span>26-09</span></div><div class="mcol" title="2026-10：671 单"><i style="height:60%"></i><span>26-10</span></div><div class="mcol" title="2026-11：624 单"><i style="height:55%"></i><span>26-11</span></div></div>
+
+  <footer>口径附注：空类别 331 单（1.2%，多为早期数据）已排除；「购物袋」类近90天为 0 单；趋势倍数=近90天月均 ÷ 此前9个月月均。
+  拉数与分析脚本在会话工作区（pull_repair_prod.py / analyze_tree.py），未入库。</footer>
+</div>
+<script>
+document.querySelectorAll('.caret').forEach(function(c){
+  c.addEventListener('click', function(){
+    var kids=this.closest('.tnode').querySelector(':scope > .tkids');
+    if(!kids) return;
+    var open=kids.style.display!=='none';
+    kids.style.display=open?'none':'';
+    this.textContent=open?'▸':'▾';
+  });
+});
+// 一级分类下默认只展开第一个(工程类)
+var l1=document.querySelectorAll('.tnode > .tkids > .tnode');
+l1.forEach(function(n,i){
+  var k=n.querySelector(':scope > .tkids');
+  if(k&&i>0){ k.style.display='none'; var c=n.querySelector(':scope > .trow .caret'); if(c)c.textContent='▸'; }
+});
+</script>
+</body>
+</html>
