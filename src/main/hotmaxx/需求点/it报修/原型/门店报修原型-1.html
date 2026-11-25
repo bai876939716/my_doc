@@ -1,0 +1,388 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>门店报修 · IT 类融合版</title><style>
+:root{--blue:#ee8745;--ink:#192636;--muted:#798695;--line:#e7ebf1;--bg:#f3f6fa}*{box-sizing:border-box}body{margin:0;background:#e8e8e8;color:var(--ink);font:14px/1.6 -apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif}button,input,textarea,select{font:inherit}button{cursor:pointer}button:disabled{cursor:default;opacity:.55}button{border:0;background:none;color:inherit}input,textarea,select{width:100%;padding:12px;border:1px solid #dce2e9;border-radius:7px;background:white;color:var(--ink);outline:none}input:focus,textarea:focus,select:focus{border-color:var(--blue);box-shadow:0 0 0 3px #ee874512}textarea{resize:vertical;min-height:104px}button:focus-visible{outline:3px solid #85b5ff;outline-offset:2px}.layout{max-width:1180px;margin:36px auto;display:grid;grid-template-columns:300px minmax(360px,520px);gap:64px;justify-content:center;align-items:start}.aside{padding:42px 0;position:sticky;top:36px}.brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:1px}.brandmark{background:#f6ce32;border-radius:10px;padding:7px 11px;font-size:18px;color:#171d27}.eyebrow{font-size:11px;letter-spacing:2px;color:#8f8f8f;margin-top:40px}.aside h1{font-size:34px;line-height:1.4;margin:12px 0 16px;letter-spacing:-1px}.aside p{color:#7a8796;font-size:14px}.steps{margin:32px 0;display:grid;gap:17px}.step{display:flex;align-items:center;gap:12px;color:#8290a0}.step b{border:1px solid #d7dfe9;border-radius:50%;height:26px;width:26px;text-align:center;font-size:12px;line-height:24px}.step.active{color:var(--blue);font-weight:600}.step.active b{color:white;background:var(--blue);border-color:var(--blue)}.demo-tools{border-top:1px solid #dce3ec;padding-top:22px;display:grid;gap:10px}.demo-tools button{text-align:left;color:#64768c;font-size:12px}.phone{height:min(880px,calc(100dvh - 72px));min-height:620px;display:flex;flex-direction:column;background:white;border:1px solid #dfe6ef;border-radius:22px;overflow:hidden;box-shadow:0 24px 70px #263f5b16;position:relative}.statusbar{height:31px;background:#101216;color:white;padding:8px 23px 0;font-size:10px;display:flex;justify-content:space-between}.nav{background:#101216;color:white;padding:13px 16px;display:flex;align-items:center;justify-content:space-between}.nav span{font-size:16px;font-weight:500}.nav button{color:white;font-size:20px;padding:0 5px}.page{display:none;flex:1;min-height:0;flex-direction:column}.page.visible{display:flex}.scroll{overflow-y:auto;flex:1;scroll-behavior:smooth}.formhead{padding:22px 22px 0}.formhead h2{font-size:22px;margin:0 0 17px}.tab{color:var(--blue);font-weight:600;padding-bottom:12px;border-bottom:2px solid var(--blue);display:inline-block}.entry{margin:20px 20px 6px;padding:18px;border-radius:12px;border:1px solid #d6e6ff;background:linear-gradient(120deg,#f2f7ff,#edf4ff);display:flex;align-items:center;gap:12px;text-align:left;width:calc(100% - 40px)}.spark{font-size:25px;color:var(--blue);background:#fff;border-radius:10px;width:44px;height:44px;display:grid;place-items:center;flex-shrink:0}.fields{padding:6px 22px 24px}.field{margin:21px 0}.field label{display:block;margin:0 0 8px;color:#5c6979;font-weight:600}.req:before{content:'* ';color:#ed6559}.hint{font-size:11px;color:#99a2ae;margin:7px 0 0}.sectionlabel2{font-size:12px;color:#8e9bac;padding:14px 0 2px;font-weight:600}.frow{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid #f0f3f7}.frow>label{flex-shrink:0;min-width:88px;color:#263344;font-weight:600;margin:0;font-size:13px}.frow .fval{margin-left:auto;color:#555;font-size:13px;text-align:right}.frow .fr{flex:1;min-width:0;padding:8px 10px;font-size:13px;text-align:right;background:#fafbfc}.frow select.fr{text-align-last:right}.fbtn{border:1px solid #e7ebf1;border-radius:6px;background:#fafbfc;color:#555;font-size:13px;padding:8px 10px}.status{padding:10px;border:1px solid #e0e3e8;border-radius:6px;background:#f6f7f9}.pill{font-size:12px;border-radius:20px;background:#eef4fd;color:var(--blue);padding:4px 10px}.pill.ok{color:#279b70;background:#e9f7ef}.pill.doing{color:#b07a2a;background:#fdf3e3}.uploads{display:flex;gap:8px;flex-wrap:wrap}.outline{border:1px solid #dce3ec;border-radius:7px;background:white;padding:9px 14px}.textbtn{color:var(--blue);padding:0;font-size:12px}.footer{padding:14px 20px 18px;background:white;border-top:1px solid var(--line);display:flex;gap:12px;align-items:center}.primary{background:var(--blue);color:white;border-radius:9px;padding:12px 18px;font-weight:600}.footer .primary{flex:1}.counter{font-size:11px;color:#99a2ae;text-align:right}.seg{display:flex;gap:8px}.seg button{border:1px solid #dce3ec;border-radius:7px;background:white;padding:10px 0;flex:1}.seg button.selected{border-color:var(--blue);background:#fdeee1;color:#c9682a;font-weight:600}.homebody{padding:16px 16px 24px}.tabcard{display:flex;align-items:center;gap:12px;border:1px solid #e3e9f2;background:#fff;border-radius:12px;padding:16px;margin-bottom:10px;width:100%;text-align:left}.tabcard .micon{width:42px;height:42px;border-radius:10px;display:grid;place-items:center;font-size:20px;flex-shrink:0}.tabcard .tinfo{min-width:0;flex:1}.tabcard h3{margin:0;font-size:15px;display:flex;align-items:center;gap:6px}.tabcard small{color:#8e9cac;display:block;margin-top:3px;font-size:11px}.reclink{margin-left:auto;font-size:10px;color:#7d8a99;padding:6px 0 6px 14px;border-left:1px solid #eef1f6;flex-shrink:0;line-height:1.5}.mfoot{font-size:11px;color:#98a2ae;text-align:center;padding:6px 0 2px}.tabsbar{display:flex;gap:4px;padding:12px 18px 0;border-bottom:1px solid var(--line);background:#fff}.stab{padding:9px 14px;font-size:13px;color:#7d8a99;border-bottom:2px solid transparent}.stab.active{color:var(--blue);font-weight:600;border-color:var(--blue)}.recwrap{padding:14px 16px 24px}.rec{border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:10px;background:#fff;display:block;width:100%;text-align:left}.rec .rrow{display:flex;justify-content:space-between;align-items:center;gap:8px}.rec .rid{font-weight:700;font-size:13px}.rec .meta{font-size:11px;color:#8e9cac;margin-top:6px;display:flex;gap:12px;flex-wrap:wrap}.detailhead{padding:20px 20px 0}.detailhead h2{font-size:18px;margin:0 0 6px}.kv{padding:8px 20px 20px}.data-row{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:7px 0}.data-row span{color:#8896a6;flex-shrink:0}.data-row b{font-weight:500;text-align:right;overflow-wrap:anywhere}.tl{margin:6px 0 14px}.tl-item{display:flex;gap:12px;padding:0 0 16px;position:relative}.tl-item:before{content:'';position:absolute;left:5px;top:14px;bottom:-2px;width:2px;background:#e5eaf1}.tl-item:last-child:before{display:none}.tl-dot{width:12px;height:12px;border-radius:50%;background:#dde4ec;flex-shrink:0;margin-top:4px}.tl-item.done .tl-dot{background:#37a374}.tl-item.doing .tl-dot{background:#e8a33d;box-shadow:0 0 0 3px #fdf3e3}.tl-item .tlabel{font-size:12px;font-weight:600}.tl-item.dim .tlabel{color:#a6b0bc;font-weight:400}.tl-item .ttime{font-size:11px;color:#98a2ae}.chathead{padding:15px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:11px}.chathead strong{font-size:16px}.chathead small{display:block;color:#99a3b0;font-size:10px}.chathead button{margin-left:auto}.context{background:#f7faff;padding:11px 18px;border-bottom:1px solid #e5edf8;font-size:11px;color:#67809e;display:flex;justify-content:space-between;gap:10px}.context strong{font-size:12px;color:#385679;display:block}.chatbody{background:var(--bg);padding:18px 16px}.date{text-align:center;color:#a2aebb;font-size:10px;margin-bottom:18px}.msg{display:flex;gap:8px;margin:16px 0;align-items:flex-start}.avatar{width:28px;height:28px;background:#e4edff;color:var(--blue);border-radius:9px;display:grid;place-items:center;flex-shrink:0;font-weight:700;font-size:16px}.bubble{max-width:calc(100% - 35px);background:white;border:1px solid var(--line);padding:12px 14px;border-radius:3px 13px 13px;font-size:13px;line-height:1.8;min-width:0}.msg.user{justify-content:flex-end}.user .bubble{background:var(--blue);color:white;border:0;border-radius:13px 3px 13px 13px}.bubble p{margin:0 0 8px}.bubble p:last-child{margin:0}.bubble small{color:#8e9cac;font-size:11px}.quickgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.quick{border:1px solid #e3e9f2;border-radius:8px;padding:12px 7px;text-align:left;font-size:11px;background:#fbfcff}.quick i{display:block;font-style:normal;font-size:20px;margin-bottom:4px}.options{display:grid;gap:8px;margin-top:12px}.option{border:1px solid #dfe6f0;text-align:left;border-radius:8px;padding:10px;font-size:12px;background:#fff}.option:first-child{border-color:#bfd7ff;background:#f5f9ff;color:#c9682a}.option small{display:block}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.actions button{font-size:12px}.composer{background:white;padding:10px 15px 14px;border-top:1px solid var(--line)}.composer-tools{display:flex;gap:12px;margin-bottom:8px;color:#7c8ba0;font-size:11px}.composer-row{display:flex;align-items:flex-end;gap:9px}.composer textarea{min-height:43px;height:43px;max-height:95px;font-size:13px;background:#f6f8fb;border:0;padding:11px;resize:none}.composer .primary{padding:10px 14px;flex-shrink:0}.fineprint{text-align:center;font-size:10px;color:#a4adba;margin-top:7px}.confirm{margin-top:12px;min-width:0}.confirm h3{font-size:15px;margin:0 0 4px}.sectionlabel{font-size:10px;color:#8e9bac;padding:15px 0 5px;border-top:1px solid var(--line);margin-top:10px}.detail{background:#f7f9fc;border-radius:6px;padding:11px;font-size:12px;white-space:pre-wrap;margin:8px 0}.attachment{padding:9px;background:#f0f5fc;border-radius:7px;font-size:11px;margin-top:8px;overflow-wrap:anywhere}.full{width:100%}.success-icon{display:grid;place-items:center;background:#e6f6ee;color:#29a976;border-radius:50%;height:48px;width:48px;margin:10px auto;font-size:26px}.success{text-align:center}.success h3{margin:12px 0 5px}.success .number{background:#f6f8fb;padding:12px;border-radius:8px;font-size:12px;margin:16px 0}dialog{border:0;border-radius:15px;width:min(420px,92vw);max-height:85dvh;padding:24px;box-shadow:0 20px 80px #14233b33}dialog::backdrop{background:#19263666}dialog h3{margin-top:0}dialog .field{margin:13px 0}dialog .actions{justify-content:flex-end}.toast{position:absolute;bottom:95px;left:50%;transform:translateX(-50%);background:#22334fed;color:white;padding:11px 17px;border-radius:8px;font-size:12px;z-index:5;width:max-content;max-width:90%;display:none}.banner{padding:10px 15px;background:#fff8e7;color:#9c7b36;font-size:11px}.selected{border-color:var(--blue)!important;background:#fdeee1!important}@media(max-width:760px){body{background:white}.layout{display:block;margin:0}.aside{display:none}.phone{width:100%;height:100dvh;min-height:0;border:0;border-radius:0;box-shadow:none}.statusbar{display:none}.nav{padding:13px 16px}.bubble{font-size:13px}}@media(min-width:761px) and (max-height:740px){.phone{min-height:580px}.layout{margin:20px auto}.aside{padding-top:10px}}
+
+
+:root{color-scheme:light}
+:root{
+  --accent:#ee8745;        /* App 主色（橙） */
+  --accent-deep:#c9682a;   /* 主色文字/描边加深 */
+  --accent-bg:#fdeee1;     /* 主色浅底 */
+  --accent-line:#f5c9a9;   /* 主色浅描边 */
+  --ink:#262626; --muted:#8f8f8f; --line:#ececec; --bg:#f0f0f0;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:#f0f0f0;color:var(--ink);
+  font:14px/1.6 -apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif}
+button,input,textarea,select{font:inherit}
+button{cursor:pointer;border:0;background:none;color:inherit}
+button:disabled{cursor:default;opacity:.55}
+button:focus-visible{outline:3px solid #f6b98d;outline-offset:2px}
+input,textarea,select{border:1px solid #e3e3e3;border-radius:8px;background:#fff;color:var(--ink);outline:none}
+input:focus,textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px #ee874522}
+
+/* ============ 页面容器（整页嵌入；桌面预览时居中一列） ============ */
+.app{max-width:520px;margin:0 auto;height:100dvh;min-height:480px;display:flex;
+  flex-direction:column;background:#fff;position:relative;overflow:hidden}
+@media(min-width:600px){
+  body{background:#e8e8e8}
+  .app{height:100dvh;box-shadow:0 0 44px rgba(0,0,0,.10)}
+}
+
+/* ============ 顶部 ============ */
+.chathead{padding:10px 12px 10px 8px;border-bottom:1px solid var(--line);display:flex;
+  align-items:center;gap:10px;background:#fff;flex-shrink:0;
+  padding-top:calc(10px + env(safe-area-inset-top))}
+.backbtn{width:34px;height:34px;border-radius:9px;font-size:20px;line-height:1;
+  color:#555;background:#f5f5f5;flex-shrink:0;display:grid;place-items:center}
+.backbtn:active{background:#ececec}
+.spark{font-size:20px;color:var(--accent);background:var(--accent-bg);border-radius:10px;
+  width:38px;height:38px;display:grid;place-items:center;flex-shrink:0}
+.chathead strong{font-size:15px;display:block;line-height:1.3}
+.chathead small{display:block;color:var(--muted);font-size:10px}
+.statebadge{margin-left:auto;font-size:10px;color:#8a8a8a;background:#f5f5f5;
+  border-radius:12px;padding:4px 9px;white-space:nowrap;flex-shrink:0}
+.context{background:#fdf7f1;padding:9px 16px;border-bottom:1px solid #f3e4d7;font-size:11px;
+  color:#9c8370;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-shrink:0}
+.context strong{font-size:12px;color:var(--accent-deep);display:block;margin-bottom:1px}
+.textbtn{color:var(--accent);padding:0;font-size:12px}
+
+/* ============ 消息流 ============ */
+.scroll{overflow-y:auto;flex:1;min-height:0;scroll-behavior:smooth;-webkit-overflow-scrolling:touch}
+.chatbody{background:var(--bg);padding:16px 14px}
+.date{text-align:center;color:#b5b5b5;font-size:10px;margin-bottom:14px}
+.msg{display:flex;gap:8px;margin:14px 0;align-items:flex-start;animation:fin .18s ease}
+@keyframes fin{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.avatar{width:28px;height:28px;background:var(--accent-bg);color:var(--accent);border-radius:9px;
+  display:grid;place-items:center;flex-shrink:0;font-weight:700;font-size:15px}
+.bubble{max-width:calc(100% - 36px);background:#fff;border:1px solid var(--line);
+  padding:11px 13px;border-radius:3px 13px 13px 13px;font-size:13px;line-height:1.75;min-width:0}
+.msg.user{justify-content:flex-end}
+.user .bubble{background:var(--accent);color:#fff;border:0;border-radius:13px 3px 13px 13px}
+.bubble p{margin:0 0 8px}
+.bubble p:last-child{margin:0}
+.bubble small{color:#9a9a9a;font-size:11px;display:block;margin-top:6px}
+.user .bubble small{color:#ffe4cf}
+.dots{display:inline-flex;gap:3px;margin-right:5px;vertical-align:middle}
+.dots i{width:5px;height:5px;border-radius:50%;background:#c4b0a2;animation:blink 1s infinite}
+.dots i:nth-child(2){animation-delay:.18s}
+.dots i:nth-child(3){animation-delay:.36s}
+@keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+
+/* 高频卡片墙 */
+.quickgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.quick{border:1px solid #f0e6dd;border-radius:9px;padding:11px 7px;text-align:left;
+  font-size:11px;background:#fffdfb;color:var(--ink)}
+.quick i{display:block;font-style:normal;font-size:19px;margin-bottom:3px}
+.quick.selected{border-color:var(--accent);background:var(--accent-bg);color:var(--accent-deep)}
+
+/* 类别单选（enum_card） */
+.options{display:grid;gap:8px;margin-top:8px}
+.options.full{max-height:262px;overflow-y:auto;padding-right:2px}
+.option{border:1px solid #ececec;text-align:left;border-radius:9px;padding:10px 11px;
+  font-size:12px;background:#fff;color:var(--ink)}
+.option.grp{font-weight:600;background:#fffdfb}
+.option.back{color:#9a9a9a;background:#fafafa;font-weight:400}
+.option.pre{border-color:var(--accent-line);background:#fff4ea;color:var(--accent-deep);font-weight:600}
+.option.cur{border-color:#9fd4b8;background:#f2faf6;color:#1e7a4f;font-weight:600}
+.option.selected{border-color:var(--accent);background:var(--accent-bg);color:var(--accent-deep);font-weight:600}
+.option small{display:block;color:#a8a8a8;font-size:10px;margin-top:2px;font-weight:400}
+
+/* 二选一（seg_card）：等宽两列、永不换行——「可等待安排」5 字也一行放下 */
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px;margin-top:10px}
+.seg button{border:1px solid #e8e8e8;border-radius:10px;background:#fff;padding:9px 10px;
+  min-width:64px;font-size:13px;font-weight:500;text-align:center;white-space:nowrap}
+.seg button.selected{border-color:var(--accent);background:var(--accent-bg);color:var(--accent-deep);font-weight:600}
+
+/* 拍照引导（photo_guide） */
+.ptips{margin:9px 0 0;display:grid;gap:6px}
+.ptip{font-size:12px;color:#5c5c5c;display:flex;gap:7px;align-items:flex-start;line-height:1.5}
+.ptip i{font-style:normal;flex-shrink:0}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}
+.actions button{font-size:12px}
+.primary{background:var(--accent);color:#fff;border-radius:10px;padding:10px 16px;font-weight:600}
+.primary:active{background:#e07a35}
+.outline{border:1px solid var(--line);border-radius:8px;background:#fff;padding:10px 14px;color:#555}
+.pill{font-size:12px;border-radius:20px;background:var(--accent-bg);color:var(--accent-deep);padding:3px 10px}
+.pill.doing{color:#b07a2a;background:#fdf3e3}
+.pill.ok{color:#279b70;background:#e9f7ef}
+
+/* 系统提示条（system_tip） */
+.stip{margin:14px auto;max-width:88%;text-align:center;font-size:11px;border-radius:8px;
+  padding:8px 12px;line-height:1.6;animation:fin .18s ease}
+.stip.info{background:#f5f5f5;color:#777}
+.stip.warn{background:#fdf3e3;color:#b07a2a}
+.stip.error{background:#fdf1f0;color:#b3543f}
+
+/* 确认单（confirm_card） */
+.confirmwrap{display:block}               /* 确认单独立成卡：左右各让出 36px（同头像列宽），与对话文字对齐且左右对称 */
+.confirmwrap .avatar{display:none}
+.confirmwrap .bubble{width:calc(100% - 72px);margin:0 auto;max-width:100%;border-radius:12px}
+.confirm{margin-top:2px;min-width:0}
+.confirm h3{font-size:15px;margin:0 0 3px}
+.confirm>small{display:block;color:#a5a5a5;font-size:10px;margin-bottom:2px}
+.sectionlabel{font-size:10px;color:#9a9a9a;padding:14px 0 5px;border-top:1px solid var(--line);margin-top:10px}
+.confirm .sectionlabel:first-of-type{border-top:0;margin-top:6px}
+.data-row{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:7px 0;align-items:flex-start}
+.data-row>span{color:#8f8f8f;flex-shrink:0}
+.data-row b,.data-row button{font-weight:500;text-align:right;overflow-wrap:anywhere;margin-left:auto;color:#4a4a4a;font-size:12px;padding:0}
+.data-row button{color:var(--accent-deep)}
+.data-row button::after{content:' ›'}
+.badge-ai{display:inline-block;font-size:9px;background:var(--accent-bg);color:var(--accent-deep);
+  border-radius:3px;padding:1px 5px;margin-left:6px;vertical-align:1px;font-weight:600}
+.detail{background:#fafafa;border-radius:6px;padding:10px;font-size:12px;white-space:pre-wrap;margin:6px 0;overflow-wrap:anywhere}
+.missnote{color:#b3543f;font-size:11px;background:#fdf1f0;border-radius:6px;padding:7px 10px;margin-top:8px}
+.stale{opacity:.5}
+.stale button{pointer-events:none}
+.attachment{padding:8px;background:#faf6f2;border-radius:7px;font-size:11px;margin-top:8px;
+  overflow-wrap:anywhere;display:flex;gap:8px;align-items:center}
+.athumb{width:52px;height:40px;border-radius:5px;overflow:hidden;flex-shrink:0;background:#f0e9e2;
+  display:inline-block}
+.athumb svg,.athumb img{width:100%;height:100%;object-fit:cover;display:block}
+.ph-inline .athumb{width:30px;height:24px;margin-left:3px;vertical-align:middle}
+
+/* 结果卡（result） */
+.success{text-align:center}
+.success-icon{display:grid;place-items:center;background:#e6f6ee;color:#29a976;border-radius:50%;
+  height:48px;width:48px;margin:8px auto;font-size:26px}
+.success h3{margin:10px 0 4px}
+.success .number{background:#f7f7f7;padding:11px;border-radius:8px;font-size:12px;margin:14px 0}
+.success .number strong{font-size:15px;letter-spacing:.5px;overflow-wrap:anywhere}
+.success .number strong.long{font-size:12px;letter-spacing:0}
+
+/* 底栏 */
+.composer{background:#fff;padding:10px 14px;border-top:1px solid var(--line);flex-shrink:0;
+  padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+#submitBar{display:none;width:100%;padding:12px;font-size:14px;margin-bottom:9px}
+#submitBar.on{display:block}
+.composer-row{display:flex;align-items:flex-end;gap:9px}
+.composer textarea{flex:1;min-height:43px;height:43px;max-height:110px;font-size:13px;
+  background:#f5f5f5;border:0;border-radius:10px;padding:11px;resize:none}
+.composer .primary{padding:10px 14px;flex-shrink:0}
+.fineprint{text-align:center;font-size:10px;color:#b5b5b5;margin-top:7px}
+
+/* 弹窗 / Toast */
+dialog{border:0;border-radius:15px;width:min(360px,88vw);max-height:85dvh;padding:22px;
+  box-shadow:0 20px 80px #3a3a3a55}
+dialog::backdrop{background:#26262666}
+dialog h3{margin:0 0 4px;font-size:16px}
+dialog .field{margin:12px 0}
+dialog .field label{display:block;margin:0 0 7px;color:#6b6b6b;font-weight:600;font-size:13px}
+dialog textarea{width:100%;padding:11px;border-radius:8px;resize:vertical;min-height:96px;font-size:13px}
+dialog input{width:100%;padding:11px;border-radius:8px;font-size:14px}
+dialog .actions{justify-content:flex-end;flex-direction:column;gap:8px}
+dialog .actions .row{display:flex;gap:8px;justify-content:flex-end}
+dialog .options{margin-top:10px}
+.toast{position:absolute;bottom:96px;left:50%;transform:translateX(-50%);background:#3a3a3aee;
+  color:#fff;padding:10px 16px;border-radius:8px;font-size:12px;z-index:8;width:max-content;
+  max-width:90%;display:none;line-height:1.5}
+
+/* 忙碌态：请求期间禁点 */
+body.busy #messages button,body.busy .composer #submitBar,body.busy #sendBtn{pointer-events:none;opacity:.6}
+
+/* ============ 演示版增量（正式版无此段）：stage 布局 + 场景模拟面板 + 样例照片弹层 ============ */
+body{background:#e6e6e6}
+
+
+.layout{grid-template-columns:300px minmax(360px,520px)}.phone{background:#fff}.aside{color:#262626}.step.active{color:#c9682a}.step.active b{background:#ee8745;border-color:#ee8745}.demo-tools{font-size:11px;color:#8f8f8f}.demo-tools button{color:#795740}.homebody,.page>.scroll:not(.chatbody){background:#f0f0f0}.homebody{min-height:100%}.tabcard,.fields{border:0;border-radius:12px;box-shadow:0 2px 10px #00000009}.fields,.kv,.detailhead{background:white}.fields{margin:0;padding:4px 15px 14px}.tabcard small,.sectionlabel2,.hint{color:#828282}.ai-entry .micon{background:#fdeee1;color:#ee8745}.reclink{color:#c9682a}.frow .fr{text-align:right;background:#fafafa}.footer .primary{color:white}.field textarea{padding:10px;min-height:75px}.itblock{margin:12px -3px;padding:4px 10px 12px;background:#fff9f3;border-radius:9px}.itblock .sectionlabel2{color:#a65a28}.itblock small{display:block;color:#8f7868;font-size:11px}.itblock select{padding:7px;font-size:12px}.sectionlabel2{margin-top:6px}.quickgrid .it-quick{grid-column:1/-1;display:flex;align-items:center;gap:10px}.it-quick i{margin:0 2px}.it-quick small{margin:0}.it-quick em{margin-left:auto;font-size:16px;font-style:normal;color:#c9682a}.quickgrid{min-width:215px}.actions .outline,.seg button{white-space:normal}.msg .bubble{overflow-wrap:anywhere}.options.full{max-height:240px}.records-foot{padding:10px}.chathead #backBtn{margin-left:0}.statebadge{margin-left:auto}.chathead .textbtn{margin-left:0}.sectionlabel2+small{color:#999}.pill{white-space:nowrap}.nav button{padding:0 6px}.dialogbody textarea{min-height:75px}.dialogbody label{display:block;margin:8px 0}.phone:has(#chat.visible) .nav{display:none}.phone .statusbar{flex-shrink:0}.phone{height:min(880px,calc(100dvh - 72px))}.attachments{display:grid;gap:4px}.fileline{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:#faf7f4;margin-top:4px}.fileline button{color:#a65a28}.field label,.frow label{color:#555}.option:first-child{color:inherit;background:#fff;border-color:#ececec}.option.pre{color:#aa5928;background:#fff4ea}.confirmwrap .bubble{width:calc(100% - 40px)}.notice{color:#a04825;background:#fff5eb;padding:8px 14px;font-size:12px}.notice:empty{display:none}.phone .context strong{color:#ac622e}.date{margin:0 0 8px}.field select{padding:8px}.seg{flex-wrap:wrap}.rec{color:#333}.homebody .tabcard{margin-bottom:12px}.frow .fr:focus{box-shadow:0 0 0 3px #ee874522}.phone .banner{background:#faf7f1;color:#89765c}.photoList{margin:10px 0}.phone .toast{background:#393939ef}.aside .brandmark{letter-spacing:0}
+@media(max-width:760px){.layout{display:block;margin:0}.phone{height:100dvh;min-height:0}.aside{display:none}.quickgrid{min-width:190px}}
+
+
+.phone:has(#form.visible) .statusbar,.phone:has(#form.visible) .nav{background:white;color:#151515}
+.phone:has(#form.visible) .nav{position:relative;justify-content:center;border-bottom:1px solid #f4f4f4;padding:10px 14px}
+.phone:has(#form.visible) .nav button:first-child{position:absolute;left:13px;color:#ee8745;font-size:28px;font-weight:300}
+.phone:has(#form.visible) #navAction{position:absolute;right:14px;font-size:12px;color:#777}
+#form .homebody{padding:0 10px 10px;background:#f7f7f7}#form .fields{background:transparent;padding:0;margin:0;box-shadow:none}
+.sheetcard{background:#fff;border-radius:12px;padding:8px 14px 1px;margin:0 0 10px;box-shadow:0 2px 7px #00000004}
+.sheetcard h2{font-size:17px;font-weight:500;line-height:1.6;color:#333;margin:0 0 8px}
+.sheetcard .frow{height:49px;padding:0;gap:5px;border:0;border-bottom:1px solid #f6f6f6;font-size:15px}
+.sheetcard .frow:last-child{border-bottom:none}.sheetcard .frow>label,.sheetcard .field>label{font-size:15px;color:#333;font-weight:400;min-width:0;margin:0;white-space:nowrap}
+.sheetcard .req:before{content:none}.sheetcard .req:after{content:'*';color:#d1544f;margin-left:2px}
+.sheetcard .fval,.pickvalue,.plaininput{font-size:15px;color:#666;margin-left:auto;text-align:right}
+.pickvalue{max-width:70%;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:6px 0}
+.pickvalue span{color:#ccc;font-size:20px;vertical-align:-1px}.pickvalue.empty,.sheetcard input::placeholder,.sheetcard textarea::placeholder{color:#c5c5c5}
+.sheetcard .plaininput{width:58%;padding:6px 0;background:transparent;border:0;box-shadow:none}
+.snhelp{font-size:10px;line-height:15px;width:17px;height:17px;padding:0;border-radius:50%;color:#888;border:1px solid #ccc}
+.sheetcard .field{margin:10px 0 14px}.sheetcard .field>label{display:block;margin:0 0 9px}
+.writing{background:#f8f8f8;border-radius:7px;padding:9px}.writing #description{padding:0;border:0;background:none;width:100%;font-size:14px;min-height:70px;resize:none;box-shadow:none}
+.writing .counter{color:#aaa;font-size:12px}.sheetcard .photoField{margin-top:27px}.thumbset,.radios{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.plus,.phototile{width:64px;height:64px;background:#f8f8f8}.plus{color:#c7c7c7;font-size:30px;line-height:1;font-weight:300}.phototile{position:relative;overflow:hidden;display:grid;place-items:center;font-size:10px;color:#777}.phototile img{width:100%;height:100%;object-fit:cover}.phototile button{position:absolute;top:0;right:0;background:#fff;color:#555}
+.radios{margin-left:auto;gap:22px}.radios label{display:flex;align-items:center;gap:8px;color:#333}.radios input{width:18px;height:18px;accent-color:#ee8745}
+#form .footer{padding:12px 12%;justify-content:center;border:0}#form .footer .primary{background:#ff8732;border-radius:30px;max-width:340px;padding:10px;color:white;font-weight:400;font-size:16px}
+@media(max-width:760px){.phone:has(#form.visible) .statusbar{display:none}}
+
+.ai-entry{display:flex;align-items:center;gap:12px;width:100%;background:#fff;
+  border:0;border-radius:12px;padding:14px;box-shadow:0 2px 10px rgba(0,0,0,.04);
+  cursor:pointer;text-align:left;font:inherit;margin-bottom:12px}
+.ai-entry .ic{width:42px;height:42px;border-radius:11px;background:#fdeee1;
+  color:#ee8745;font-size:20px;display:grid;place-items:center;flex-shrink:0}
+.ai-entry b{display:block;font-size:15px;color:#262626}
+.ai-entry small{display:block;font-size:11px;color:#9a9a9a;margin-top:2px}
+.ai-entry .go{margin-left:auto;color:#ee8745;font-size:13px;flex-shrink:0}
+
+.phone:has(#form.visible) #navAction{display:none}.chathead .switch-form{color:#555;background:#f6f6f6;border-radius:8px;font-size:12px;padding:7px 10px;white-space:nowrap}.chathead .statebadge{margin-left:auto}
+</style></head><body><main class="layout"><aside class="aside"><div class="brand"><span class="brandmark">好特卖</span><span>HOTMAXX</span></div><div class="eyebrow">STORE SERVICE / 门店服务</div><h1>报修说得清，<br>进度查得到。</h1><p>在原报修表单选择类别，或从 AI 常见问题中选择 IT 设备报修。</p><div class="steps"><div class="step active" data-step="0"><b>1</b>服务助手 · 首页</div><div class="step" data-step="1"><b>2</b>我要报修 · 表单与 AI 填报</div><div class="step" data-step="2"><b>3</b>核对预填 · 确认提交</div><div class="step" data-step="3"><b>4</b>历史报修记录 · 查进度</div></div><div class="demo-tools"><span>本地交互演示 · 数据仅保存在此浏览器</span><button onclick="resetChat()">↺ 重置对话内容</button><button onclick="showPage('form')">打开原报修表单 ›</button><button onclick="enterAI()">打开 AI 高频卡片 ›</button><button onclick="showPage('records')">查看报修与验收示例 ›</button></div></aside><section class="phone"><div class="statusbar"><b>9:41</b><span>▮▮▮  Wi-Fi  ▰</span></div><nav class="nav"><button aria-label="返回" onclick="goBack()">‹</button><span id="navtitle">服务助手</span><button id="navAction" aria-label="演示选项" onclick="demoMenu()">···</button></nav><div id="home" class="page visible"><div class="scroll"><div class="homebody"><button class="tabcard" onclick="showPage('form')"><span class="micon" style="background:#fdecea;color:#f1534e">🛠</span><span class="tinfo"><h3>我要报修</h3><small>工程、营运用具、购物袋及 IT 设备报修</small></span><span class="reclink" onclick="event.stopPropagation();showPage('records')">历史记录 ›</span></button></div></div></div>
+<div id="form" class="page"><div class="scroll"><div class="homebody">
+
+<button type="button" class="ai-entry" aria-label="AI 智能填报" onclick="enterAI()">
+  <span class="ic" aria-hidden="true">✦</span>
+  <span><b>AI 智能填报</b><small>描述故障，核对后提交</small></span>
+  <span class="go">去填报 ›</span>
+</button>
+<form id="traditional" class="fields" onsubmit="return false"></form></div></div>
+<div id="err" class="notice" role="alert"></div><footer class="footer"><button class="primary" onclick="sendForm()">提交</button>
+</footer></div>
+<div id="chat" class="page"><header class="chathead"><button id="backBtn" class="backbtn" aria-label="返回表单" onclick="showPage('form')">‹</button><span class="spark">✦</span><div><strong>AI 报修助手</strong><small>帮你整理 · 每一步由你确认</small></div><span id="badge" class="statebadge">采集中</span><button type="button" class="switch-form" onclick="showPage('form')">切换表单</button></header>
+<div class="context"><div id="ctx"></div></div>
+<div id="messages" class="scroll chatbody" aria-live="polite"></div><div class="composer"><button id="submitBar" class="primary" onclick="submitOrder()">✓ 确认并提交</button><div class="composer-row"><textarea id="input" rows="1" maxlength="100" aria-label="输入故障描述" placeholder="描述一下门店遇到的问题…"></textarea><button class="primary" id="sendBtn" onclick="sendText()">发送</button></div><div class="fineprint">AI 生成内容请核对后提交</div></div></div>
+<div id="review" class="page"><div class="scroll homebody" id="reviewBody"></div><footer class="footer"><button class="outline" onclick="showPage('form')">返回修改</button><button class="primary" onclick="submitOrder()">确认并提交</button></footer></div>
+<div id="result" class="page"><div class="scroll homebody" id="resultBody"></div></div>
+<div id="records" class="page"><div class="tabsbar"></div><div class="scroll"><div class="recwrap" id="recList"></div></div></div>
+<div id="detail" class="page"><div class="scroll"><div class="detailhead" id="detailHead"></div><div class="kv" id="detailBody"></div></div><footer class="footer" id="detailFoot"></footer></div>
+<div id="toast" class="toast" role="status"></div></section></main><dialog id="modal"><div id="content"></div></dialog><input type="file" id="file" hidden accept="image/*" multiple><script>
+const groups={"工程类": ["空调不制冷/热", "照明灯（1至4个）", "照明灯（超过4个）", "门头字/LOGO字不亮", "风幕柜&立玻柜&冷藏柜（保内）（门店自修）", "风幕柜/冷藏柜（过保）（门店自修）", "收银台背柜门关闭异常＞2个", "收银台背柜门脱落", "物业要求紧急维修", "户外广告掉落", "玻璃幕墙 / 玻璃门", "墙面掉漆或破损", "顶面破损", "地砖地板 (营业区域）", "地砖地板 / 踢脚线", "踢脚线（损坏）", "内部仓库门 / 消防栓门", "内部仓库/ 消防栓门损坏", "内部仓库/ 消防栓门锁、把手（门店自修）", "开关 / 插座 / 线路", "LED屏", "安全指示灯", "音响", "电视", "空调清洗", "消防检查", "灭火器（门店自修）", "滴水", "渗水", "摄像头-其他问题", "摄像头-离线（已重启仍失败）", "摄像头-缺内存卡（接店需检查）", "摄像头-有内存卡但无回放（已格式化仍失败）", "工程-其他（不含调改）"], "营运用具类": ["人工收银机/POS", "自助收银机", "扫码枪", "小票机", "钱箱", "收银设备", "网络设备（路由器）", "PDA", "价签机", "摄像头-已添加未激活", "摄像头-无法添加至乐橙含光", "液压车/地牛", "梯子", "购物篮", "推车"], "购物袋": []};
+'use strict';
+const $=id=>document.getElementById(id);
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const action=(label,fn,cls='outline')=>'<button type="button" class="'+cls+'" onclick="'+fn+'">'+esc(label)+'</button>';
+const options=(values,v,empty='请选择')=>'<option value="">'+esc(empty)+'</option>'+values.map(x=>'<option '+(x===v?'selected':'')+'>'+esc(x)+'</option>').join('');
+const IT='IT 设备报修',devices=['电脑','手机','显示器'],impacts=['是','否'],visits=['维修人员尽快上门','可等待安排'];
+groups[IT]=devices;
+const store='11522 安徽商之都OK店',basePhone='13800001234';
+const today=()=>new Date().toLocaleDateString('sv-SE');
+const mask=s=>s.replace(/^(\d{3})\d{4}(\d{4})$/,'$1****$2');
+const newDraft=()=>({group:'',leaf:'',desc:'',phone:'',visit:'',person:'白云翔',date:today(),impact:'',sn:'',photos:[],snChecked:false,photoChecked:false,phoneChecked:false,history:[]});
+const key='hotshop-it-fusion-20261125-form',load=(k,v)=>{try{return JSON.parse(localStorage.getItem(key+k))??v}catch{return v}};
+function storeLocal(k,v){try{localStorage.setItem(key+k,JSON.stringify(v));return true}catch{return false}}
+let d={...newDraft(),...load('draft',{})},page='home',mode='form',tab='全部',active='',timer;
+let formDraft=d;
+const isIT=()=>d.group===IT,path=()=>[d.group,d.leaf].filter(Boolean).join(' › ');
+const quicks=[
+ ['💡','照明灯不亮','工程类',['照明灯（1至4个）','照明灯（超过4个）']],
+ ['🪧','门头/招牌灯不亮','工程类',['门头字/LOGO字不亮']],
+ ['🔌','开关/插座/线路','工程类',['开关 / 插座 / 线路']],
+ ['❄️','冷柜不制冷','工程类',['风幕柜/冷藏柜（过保）（门店自修）']],
+ ['📷','摄像头问题','工程类',['摄像头-离线（已重启仍失败）','摄像头-其他问题']],
+ ['🧯','灭火器','工程类',['灭火器（门店自修）']],
+ ['💻',IT,IT,devices]
+];
+const guide={电脑:'查看主机底部或侧面标签；开不了机、标签脱落都可以跳过。',手机:'可查看设置中的设备信息。手机开不了机时可以跳过。',显示器:'可查看显示器背面铭牌，留意与主机序列号的区别。'};
+const samples={电脑:'电脑启动后提示磁盘空间不足',手机:'工作手机插上充电线没有反应',显示器:'显示器电源灯亮，屏幕没有画面'};
+const demoOrders=[
+ {id:'BX-1125-002',group:IT,leaf:'显示器',desc:'显示器背光亮，屏幕无画面',status:'待验收',impact:impacts[1],events:['门店提交报修','运维核实归属，供应商接单','供应商已更换连接线，请门店试用']},
+ {id:'BX-1125-001',group:'工程类',leaf:'门头字/LOGO字不亮',desc:'门头灯已修复',status:'已完成',events:['提交报修','师傅上门维修','门店确认恢复']}
+].map(r=>({...newDraft(),phone:basePhone,visit:visits[0],impact:'是',photos:['设备现场.jpg'],...r}));
+let records=load('records',demoOrders),candidates=[];
+function toast(t){$('toast').textContent=t;$('toast').style.display='block';clearTimeout(timer);timer=setTimeout(()=>$('toast').style.display='none',2300)}
+function saveDraft(){toast(storeLocal('draft',d)?'已保存本次填写，可稍后继续':'当前浏览器无法保存草稿')}
+function modal(title,body){$('content').innerHTML='<h3>'+esc(title)+'</h3><div class="dialogbody">'+body+'</div><div class="actions">'+action('关闭',"document.getElementById('modal').close()")+'</div>';if(!$('modal').open)$('modal').showModal()}
+function closeModal(){if($('modal').open)$('modal').close();$('content').replaceChildren()}
+function demoMenu(){modal('演示选项',action('返回服务助手',"closeModal();showPage('home')")+action('查看历史记录',"closeModal();showPage('records')"))}
+function showPage(id){if(id==='form' && mode==='chat'){d=formDraft;mode='form'}page=id;
+ document.querySelectorAll('.page').forEach(x=>x.classList.toggle('visible',x.id===id));const step=['home'].includes(id)?0:['form','chat'].includes(id)?1:['review','result'].includes(id)?2:3;document.querySelectorAll('.step').forEach((x,i)=>x.classList.toggle('active',i===step));$('navtitle').textContent=({home:'服务助手',form:'我要报修',chat:'AI 智能填报',review:'报修预填确认单',result:'提交结果',records:'历史报修记录',detail:'报修单详情'})[id];if(id==='form'){mode='form';form()}if(id==='chat')chat();if(id==='records')renderRecords();if(id==='review')$('reviewBody').innerHTML=confirmCard();if(id==='detail')detail()}
+function goBack(){showPage(({form:'home',chat:'form',review:'form',records:'home',detail:'records',result:'records'})[page]||'home')}
+function enterAI(){if(mode==='form')formDraft=d;d=newDraft();candidates=[];$('input').value='';mode='chat';showPage('chat')}
+function resetChat(){if(mode==='form')formDraft=d;d=newDraft();candidates=[];$('input').value='';mode='chat';showPage('chat');toast('对话已重置')}
+function setCategory(g,l=''){if(d.group!==g||d.leaf!==l){d.sn='';d.snChecked=false;d.photoChecked=false;d.phoneChecked=false}d.group=g;d.leaf=l}
+function changeGroup(g){if(d.photos.length)toast('类别已更新，请核对已有照片是否适用');setCategory(g);d.history=[];candidates=[];form()}
+function changeLeaf(l){if(d.photos.length||d.sn)toast('设备或明细已更新，请核对故障现象及照片');setCategory(d.group,l);d.history=[];candidates=[];form()}
+function photosHtml(){return d.photos.map((p,i)=>'<div class="fileline"><span>▧ '+esc(p)+'</span>'+action('移除','removePhoto('+i+')','textbtn')+'</div>').join('')}
+function removePhoto(i){d.photos.splice(i,1);refresh()}
+function refresh(){if(page==='form')form();else if(page==='chat')chat();else if(page==='review')showPage('review')}
+function addPhotos(names){const merged=[...new Set([...d.photos,...names])];if(merged.length>5)return toast('每张报修单最多 5 张照片');d.photos=merged;d.photoChecked=true;refresh()}
+const previews=new Map();
+$('file').onchange=e=>{const fs=[...e.target.files];e.target.value='';if(!fs.length)return;if(fs.some(x=>!x.type.startsWith('image/')||x.size>3*1024*1024))return toast('请选择不超过 3 MB 的图片');for(const x of fs){if(previews.has(x.name))URL.revokeObjectURL(previews.get(x.name));previews.set(x.name,URL.createObjectURL(x))}addPhotos(fs.map(x=>x.name))};
+function photoButtons(){return '<div class="uploads">'+action('＋ 添加照片',"document.getElementById('file').click()")+action('使用演示照片',"addPhotos(['现场照片（演示）.jpg'])")+'</div>'}
+function frow(label,html,req=false){return '<div class="frow"><label '+(req?'class="req"':'')+'>'+label+'</label>'+html+'</div>'}
+function select(label,values,v,fn){return '<select aria-label="'+label+'" class="fr" onchange="'+fn+'">'+options(values,v)+'</select>'}
+function textField(label,k,type='text'){return '<input aria-label="'+label+'" class="fr" type="'+type+'" maxlength="'+(k==='phone'?11:50)+'" value="'+esc(d[k])+'" oninput="d.'+k+'=this.value">'}
+function pickCategory(groupIndex=-1){
+ const names=Object.keys(groups);
+ if(groupIndex<0){
+   modal('报修类别','<div class="options">'+names.map((name,i)=>action(name,'pickCategory('+i+')','option')).join('')+'</div>');
+   return;
+ }
+ const name=names[groupIndex], leaves=groups[name];
+ if(!leaves.length)return finishCategory(groupIndex,-1);
+ modal(name,action('‹ 返回类别','pickCategory()','textbtn')+'<div class="options">'+leaves.map((leaf,i)=>action(leaf,'finishCategory('+groupIndex+','+i+')','option')).join('')+'</div>');
+}
+function finishCategory(g,i){
+ const group=Object.keys(groups)[g],leaf=groups[group][i]||'';
+ const changed=d.group!==group||d.leaf!==leaf;
+ setCategory(group,leaf);candidates=[];if(changed)d.history=[];closeModal();form();
+ if(changed&&d.photos.length)toast('请核对已有照片是否对应这台设备');
+}
+function chooseVisit(i){d.visit=visits[i];if(page==='chat')answer('期望上门',d.visit);else{closeModal();form()}}
+function visitMenu(){modal('期望上门','<div class="options">'+visits.map((v,i)=>action(v,'chooseVisit('+i+')','option')).join('')+'</div>')}
+function choosePhoto(){modal('添加现场照片','<div class="options">'+action('选择图片',"closeModal();document.getElementById('file').click()",'option')+action('使用演示照片',"closeModal();addPhotos(['现场照片（演示）.jpg'])",'option')+'</div>')}
+function pickRow(label,value,fn){
+ return '<button type="button" aria-label="'+label+'" class="pickvalue '+(value?'':'empty')+'" onclick="'+fn+'">'+esc(value||'请选择')+' <span aria-hidden="true">›</span></button>'
+}
+function form(){
+ $('err').textContent='';
+ const value=v=>'<span class="fval">'+esc(v)+'</span>';
+ const serial=isIT()&&d.leaf?frow('设备序列号','<button type="button" class="snhelp" aria-label="如何找设备序列号" onclick="modal(\'如何找设备序列号\',guide[d.leaf])">?</button><input class="plaininput" aria-label="设备序列号" maxlength="50" placeholder="选填，找不到可跳过" value="'+esc(d.sn)+'" oninput="d.sn=this.value">'):'';
+ const impact=impacts.map(v=>'<label><input type="radio" name="impact" value="'+v+'" '+(d.impact===v?'checked':'')+' onchange="d.impact=this.value">'+v+'</label>').join('');
+ $('traditional').innerHTML='<section class="sheetcard"><h2>基础信息</h2>'+
+ frow('门店名称',value(store))+frow('报修类别',pickRow('报修类别',path(),'pickCategory()'),true)+serial+
+ frow('报修人员',value(d.person))+frow('报修日期',value(d.date.replaceAll('-','/')))+
+ '<div class="field describe"><label for="description" class="req">描述具体故障</label><div class="writing"><textarea id="description" maxlength="100" oninput="d.desc=this.value;document.getElementById(\'count\').textContent=this.value.length" placeholder="请描述故障现象、发生时间、影响范围等…">'+esc(d.desc)+'</textarea><div class="counter"><span id="count">'+d.desc.length+'</span>/100</div></div></div>'+
+ '<div class="field photoField"><label class="req">现场照片(3MB以内)</label><div class="thumbset">'+d.photos.map((file,i)=>'<div class="phototile">'+(previews.has(file)?'<img alt="'+esc(file)+'" src="'+esc(previews.get(file))+'">':'<span>'+esc(file)+'</span>')+'<button type="button" aria-label="移除照片" onclick="removePhoto('+i+')">×</button></div>').join('')+
+ (d.photos.length<5?'<button type="button" class="plus" aria-label="添加现场照片" onclick="choosePhoto()">＋</button>':'')+'</div></div></section>'+
+ '<section class="sheetcard"><h2>期望处理</h2>'+frow('期望上门',pickRow('期望上门',d.visit,'visitMenu()'),true)+frow('影响营业','<div class="radios">'+impact+'</div>',true)+
+ frow('联系电话','<input class="plaininput" type="tel" aria-label="联系电话" maxlength="11" placeholder="请填写" value="'+esc(d.phone)+'" oninput="d.phone=this.value;d.phoneChecked=false">',true)+'</section>';
+}
+function missing(){if(!d.group||(groups[d.group]?.length&&!d.leaf))return '报修类别';if(!d.desc.trim())return '描述具体故障';if(!d.photos.length)return '现场照片（至少一张，每张不超过 3 MB）';if(!d.visit)return '期望上门';if(!impacts.includes(d.impact))return '影响营业（是或否）';if(!/^1[3-9]\d{9}$/.test(d.phone))return '有效的 11 位联系电话';return ''}
+function sendForm(){const err=missing();if(err){$('err').textContent='请补充'+err;return}submitOrder()}
+function confirmRows(x){return [['报修类别',[x.group,x.leaf].filter(Boolean).join(' › ')],...(x.group===IT?[['设备序列号',x.sn||'待运维核实']]:[]),['描述具体故障',x.desc],['现场照片',x.photos.join('、')],['期望上门',x.visit],['影响营业',x.impact],['联系电话',mask(x.phone)]]}
+
+function rows(items){return items.map(([k,v])=>'<div class="data-row"><span>'+esc(k)+'</span><b>'+esc(v)+'</b></div>').join('')}
+function confirmCard(){return '<div class="confirm fields"><h3>报修预填确认单</h3><small>请核对类别、故障信息和联系方式</small><div class="sectionlabel">基础信息</div>'+rows([['门店名称',store],['报修人员',d.person||'未提供'],['报修日期',d.date]])+'<div class="sectionlabel">报修内容</div>'+rows(confirmRows(d))+action('修改报修信息',"editChatOrder()",'textbtn')+'</div>'}
+function editChatOrder(){
+ modal('修改报修信息','<div class="options">'+action('修改报修类别','closeModal();allCategories()','option')+action('修改故障描述','editDescription()','option')+(isIT()?action('修改设备序列号',"closeModal();edit(\'sn\')",'option'):'')+action('修改现场照片','editChatPhotos()','option')+action('修改期望上门','editChatVisit()','option')+action('修改影响营业','editChatImpact()','option')+action('修改联系电话',"closeModal();edit(\'phone\')",'option')+'</div>');
+}
+function editDescription(){modal('修改故障描述','<form id="editDescription"><textarea name="value" maxlength="100" required>'+esc(d.desc)+'</textarea><button class="primary">保存</button></form>');$('editDescription').onsubmit=e=>{e.preventDefault();d.desc=e.target.elements.value.value.trim();if(!d.desc)return;closeModal();chat()}}
+function editChatPhotos(){modal('修改现场照片',photosHtml()+action('添加照片',"closeModal();document.getElementById('file').click()")+action('完成','closeModal();chat()','primary'))}
+function editChatVisit(){modal('修改期望上门','<div class="options">'+visits.map((v,i)=>action(v,'closeModal();chooseVisit('+i+')','option')).join('')+'</div>')}
+function editChatImpact(){modal('修改影响营业','<div class="options">'+impacts.map((v,i)=>action(v,'closeModal();setImpact('+i+')','option')).join('')+'</div>')}
+const bot=html=>'<div class="msg"><div class="avatar">✦</div><div class="bubble">'+html+'</div></div>',user=t=>'<div class="msg user"><div class="bubble">'+esc(t)+'</div></div>';
+function answer(q,a){d.history.push({q,a});chat()}
+function cardWall(){return '<small>说不好？点下面的常见问题更快：</small><div class="quickgrid">'+quicks.map(([ic,t],i)=>'<button class="quick '+(i===6?'it-quick':'')+'" onclick="pickQuick('+i+')"><i>'+ic+'</i><span>'+t+(i===6?'<small>电脑、手机、显示器</small>':'')+'</span>'+(i===6?'<em>›</em>':'')+'</button>').join('')+'</div>'}
+function pickQuick(i){const [icon,title,g,leaves]=quicks[i];setCategory(g,leaves.length===1?leaves[0]:'');candidates=leaves;if(i!==6&&!d.desc)d.desc=title;answer('选择常见问题',title)}
+function pickChatLeaf(i){const l=candidates[i];setCategory(d.group,l);candidates=[];answer('请选择'+(isIT()?'故障设备':'类别明细'),l)}
+function setImpact(i){d.impact=impacts[i];answer('故障对营业有什么影响？',d.impact)}
+function skipSn(){d.snChecked=true;answer('能找到设备序列号吗？','暂时找不到，请运维协助核验')}
+function skipPhoto(){d.photoChecked=true;answer('是否补充现场照片？','暂不提供照片')}
+function confirmPhone(){if(!d.phone)d.phone=basePhone;if(!/^1[3-9]\d{9}$/.test(d.phone))return edit('phone');d.phoneChecked=true;answer('确认联系电话',mask(d.phone))}
+function edit(k){const label=k==='sn'?'设备序列号':'联系电话';modal('填写'+label,'<form id="editbox"><label>'+label+'<input required aria-label="'+label+'" name="v" maxlength="'+(k==='sn'?50:11)+'" '+(k==='phone'?'pattern="1[3-9][0-9]{9}" type="tel"':'')+' value="'+esc(d[k])+'"></label><button class="primary">保存</button></form>');$('editbox').onsubmit=e=>{e.preventDefault();let v=e.target.elements.v.value.trim();if(!v)return;d[k]=v;d[k==='sn'?'snChecked':'phoneChecked']=true;closeModal();answer(label,k==='phone'?mask(v):v)}}
+function chatStage(){if(!d.group)return 'category';if(groups[d.group].length&&!d.leaf)return 'leaf';if(!d.desc.trim())return 'desc';if(isIT()&&!d.sn&&!d.snChecked)return 'sn';if(!d.photos.length)return 'photos';if(!d.visit)return 'visit';if(!impacts.includes(d.impact))return 'impact';if(!d.phoneChecked||!/^1[3-9]\d{9}$/.test(d.phone))return 'phone';return 'confirm'}
+function chat(){
+ const stage=chatStage();document.querySelectorAll('.step').forEach((x,i)=>x.classList.toggle('active',i===(stage==='confirm'?2:1)));$('ctx').innerHTML='<strong>📍 '+store+'</strong>报修人：'+esc(d.person||'未提供')+' · '+esc(mask(d.phone||basePhone));$('badge').textContent=stage==='confirm'?'待确认':'采集中';
+ let html=bot('直接说哪里坏了，我来帮你整理报修信息。');for(const item of d.history)html+=bot(esc(item.q))+user(item.a);
+ if(stage==='category')html+=bot(cardWall()+action('查看全部报修类别','allCategories()','textbtn'));
+ if(stage==='leaf'){if(!candidates.length)candidates=groups[d.group];html+=bot('<strong>'+esc(d.group)+'</strong><p>请选择'+(isIT()?'故障设备':'类别明细')+'</p><div class="options">'+candidates.map((x,i)=>action(x,'pickChatLeaf('+i+')','option')).join('')+'</div>'+action('更换大类','allCategories()','textbtn'))}
+ if(stage==='desc')html+=bot('已选 <strong>'+esc(path())+'</strong>。设备有什么故障？可在下方输入。'+(samples[d.leaf]?'<div class="actions">'+action(samples[d.leaf],'useSample()')+'</div>':''));
+ if(stage==='visit')html+=bot('期望什么时候上门？<div class="options">'+visits.map((v,i)=>action(v,'chooseVisit('+i+')','option')).join('')+'</div>');
+ if(stage==='impact')html+=bot('是否影响营业？<div class="seg">'+impacts.map((x,i)=>action(x,'setImpact('+i+')')).join('')+'</div>');
+ if(stage==='sn')html+=bot('<strong>设备序列号（选填）</strong><p>'+esc(guide[d.leaf])+'</p><div class="actions">'+action('填写设备序列号',"edit('sn')")+action('找不到，继续','skipSn()')+'</div>');
+ if(stage==='photos')html+=bot('<strong>现场照片(3MB以内)</strong><p>请添加一张能看清设备或故障的照片。</p>'+photoButtons());
+ if(stage==='phone')html+=bot('联系电话用 <strong>'+esc(mask(d.phone||basePhone))+'</strong> 吗？<div class="actions">'+action('用这个号码','confirmPhone()','primary')+action('更换号码',"edit('phone')")+'</div>');
+ if(stage==='confirm')html+='<div class="msg confirmwrap"><div class="bubble">'+confirmCard()+'</div></div>';
+ $('messages').innerHTML=html;$('submitBar').classList.toggle('on',stage==='confirm');requestAnimationFrame(()=>{const m=$('messages');m.scrollTop=stage==='category'&&!d.history.length?0:m.scrollHeight});
+}
+function allCategories(){const gs=Object.keys(groups);modal('选择报修类别','<div class="options">'+gs.map((x,i)=>action(x,'pickGroup('+i+')','option')).join('')+'</div>')}
+function pickGroup(i){const g=Object.keys(groups)[i];closeModal();setCategory(g);candidates=groups[g];answer('选择报修类别',g)}
+function useSample(){d.desc=samples[d.leaf];answer('请描述故障现象',d.desc)}
+function sendText(){const t=$('input').value.trim();if(!t)return;$('input').value='';const stage=chatStage();
+ if(/(?:改|换|修改|更换).*(?:联系号码|手机号|联系电话|电话号)/.test(t))return edit('phone');
+ if(stage==='sn'){if(/找不到|没有|跳过/.test(t))return skipSn();return edit('sn')}
+ if(stage==='phone'){if(/^1[3-9]\d{9}$/.test(t)){d.phone=t;return confirmPhone()}return edit('phone')}
+ if(stage==='impact'&&impacts.includes(t))return setImpact(impacts.indexOf(t));
+ if(stage==='category'||stage==='desc'||stage==='confirm'){d.desc=t.slice(0,100);if(!d.group){let found=devices.filter(x=>t.includes(x));if(found.length){setCategory(IT);candidates=[...found,...devices.filter(x=>!found.includes(x))]}else if(/冷柜|照明|插座|招牌/.test(t)){setCategory('工程类');candidates=groups['工程类'].filter(x=>/柜|照明|插座|门头/.test(x))}}answer('描述故障现象',t);return}toast('请先选择当前卡片中的选项')}
+function submitOrder(){if(!(page==='form'||page==='review'||page==='chat'&&chatStage()==='confirm')||missing())return;const {group,leaf,desc,phone,person,date,photos}=d;const row={group,leaf,desc:desc.trim(),phone,person,date,visit:d.visit,impact:d.impact,photos:[...photos],...(isIT()?{sn:d.sn.trim()}:{}),id:'BX-'+Date.now().toString(36).toUpperCase(),status:isIT()?'待运维受理':'待派单',events:[isIT()?'已提交至运维受理队列':'已提交至原报修流程']};records.unshift(row);storeLocal('records',records);active=row.id;d=newDraft();candidates=[];if(mode==='form'){formDraft=d;storeLocal('draft',d)}showPage('result');$('resultBody').innerHTML='<div class="fields success"><div class="success-icon">✓</div><h3>报修提交成功</h3><div class="number">报修单号<br><strong>'+row.id+'</strong></div><span class="pill doing">'+row.status+'</span><div class="actions">'+action('查看报修记录',"showPage('records')",'primary')+action('回到服务助手',"showPage('home')")+'</div></div>'}
+function renderRecords(){const tabs=['全部','处理中','已完成'];document.querySelector('.tabsbar').innerHTML=tabs.map((t,i)=>action(t,"tab='"+t+"';renderRecords()",'stab '+(tab===t?'active':''))).join('');const list=records.filter(r=>tab==='全部'||(tab==='已完成')===(r.status==='已完成'));$('recList').innerHTML=list.map(r=>'<button class="rec" onclick="openRecord(\''+r.id+'\')"><span class="rrow"><b>'+esc(r.id)+'</b><span class="pill '+(r.status==='已完成'?'ok':'doing')+'">'+esc(r.status)+'</span></span><span class="meta">'+esc([r.group,r.leaf].filter(Boolean).join(' › '))+'</span>'+esc(r.desc)+'</button>').join('')||'<p class="mfoot">暂无该状态的报修记录</p>'}
+function openRecord(id){active=id;showPage('detail')}
+function detail(){const r=records.find(x=>x.id===active);$('detailHead').innerHTML='<h2>'+esc(r.id)+'</h2><span class="pill">'+esc(r.status)+'</span>';$('detailBody').innerHTML='<div class="sectionlabel">处理进度</div><div class="tl">'+r.events.map((e,i)=>'<div class="tl-item '+(i===r.events.length-1&&r.status!=='已完成'?'doing':'done')+'"><span class="tl-dot"></span><span class="tlabel">'+esc(e)+'</span></div>').join('')+'</div><div class="sectionlabel">报修信息</div>'+rows(confirmRows(r));$('detailFoot').innerHTML=r.status==='待验收'?action('仍有问题','accept(false)')+action('已试用，确认恢复','accept(true)','primary'):action('返回列表',"showPage('records')",'primary')}
+function accept(ok){const r=records.find(x=>x.id===active);if(r.status!=='待验收')return;r.status=ok?'已完成':'运维处理中';r.events.push(ok?'现场联系人确认设备恢复使用':'门店反馈仍有问题，原单回到运维队列');storeLocal('records',records);detail()}
+showPage('form');
+</script></body></html>
