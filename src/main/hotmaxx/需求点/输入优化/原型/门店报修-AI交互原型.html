@@ -323,12 +323,12 @@ const DICT=[
 ];
 const ALL_CATS=DICT.flatMap(c=>c[1].map(i=>c[0]+' - '+i));
 const QUICKS=[
- {id:'c_cool',icon:'❄️',title:'冷柜不制冷',cat:'日常营运用品类 - 冷柜'},
- {id:'c_pos',icon:'🖨',title:'收银机故障',cat:'日常营运用品类 - 收银机'},
  {id:'c_light',icon:'💡',title:'照明灯不亮',cat:'门店工程类 - 照明灯'},
- {id:'c_ac',icon:'🌀',title:'空调不制冷',cat:'门店工程类 - 空调'},
- {id:'c_sign',icon:'🪧',title:'门头招牌LED',cat:'门店广告类 - Led灯和牌匾灯不亮'},
- {id:'c_util',icon:'⚡',title:'断电着火漏水',cat:'门店工程类 - 工程（断电、着火、漏）'}
+ {id:'c_sign',icon:'🪧',title:'门头/招牌灯不亮',cat:'门店广告类 - 门头字/LOGO字'},
+ {id:'c_switch',icon:'🔌',title:'开关/插座/线路',cat:'门店工程类 - 开关插座'},
+ {id:'c_cool',icon:'❄️',title:'冷柜不制冷',cat:'日常营运用品类 - 冷柜'},
+ {id:'c_cam',icon:'📷',title:'摄像头问题',cat:'日常营运用品类 - 摄像头监控'},
+ {id:'c_fire',icon:'🧯',title:'灭火器',cat:'门店工程类 - 灭火器'}
 ];
 /* 关键词 → Top3 候选（顺序敏感：具体在前、泛指在后） */
 const KW=[

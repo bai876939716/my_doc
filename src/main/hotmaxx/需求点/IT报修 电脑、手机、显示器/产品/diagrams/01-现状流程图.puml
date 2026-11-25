@@ -1,0 +1,92 @@
+@startuml 01-现状流程图
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam ActivityBackgroundColor #FFFFFF
+skinparam ActivityBorderColor #90A4AE
+skinparam ActivityDiamondBackgroundColor #FFFDE7
+skinparam ActivityDiamondBorderColor #E0C96B
+skinparam ArrowColor #607D8B
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #E0C96B
+skinparam PartitionBackgroundColor #FAFAFA
+skinparam PartitionBorderColor #B0BEC5
+skinparam swimlane {
+  BorderColor #90A4AE
+  TitleFontSize 14
+}
+
+title
+门店 IT 设备报修 · 现状流程（As-Is）
+据 2026-11-24 业务口述整理 · 泳道 = 角色
+end title
+
+|门店|
+start
+:在群里反映问题;
+
+|运维|
+:在群里对接
+判断能否远程解决（内存满等小问题）;
+
+if (能远程解决？) then (能)
+  :在群里回复处理方法;
+  note right
+    结束：不建单，没有记录
+  end note
+  stop
+else (不能)
+endif
+
+|门店|
+:填明道云「门店IT设备报修申请表」
+9 项必填，其中门店编号 / 店长姓名 / 电话 / 区域 / 地址 全部手填;
+
+|运维|
+while (信息完整、序列号正确？) is (否)
+  :在群里核对报修人身份
+  指导找序列号、补信息;
+  |门店|
+  :重新填写;
+  |运维|
+endwhile (是)
+
+:按序列号人工判断供应商
+（易点租 / 小熊U租）;
+:联系对应供应商;
+
+|供应商|
+:联系门店
+远程或上门维修;
+
+note right
+  ⚠ 后续无跟踪
+  有没有修好、什么时候完成，都不知道。
+  明道云里没有状态回写，门店只能回群里问。
+end note
+
+|供应商|
+if (确认是门店损坏？) then (是)
+  :报价给运维;
+  note right
+    往后的环节全在群里 / 线下进行，没有留痕
+  end note
+  |运维|
+  :判断价格是否合理
+  与供应商沟通;
+  :再和门店沟通费用;
+  |门店|
+  :承担费用（无留痕）;
+else (否)
+endif
+|运维|
+if (手机超过三年？) then (是)
+  :财务建议换新
+  难解决的直接换新;
+  |门店|
+  :走另一套流程（IT 申请）;
+else (否)
+endif
+|供应商|
+stop
+@enduml

@@ -1,0 +1,106 @@
+@startuml 02-目标流程图
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam ActivityBackgroundColor #FFFFFF
+skinparam ActivityBorderColor #90A4AE
+skinparam ActivityDiamondBackgroundColor #FFFDE7
+skinparam ActivityDiamondBorderColor #E0C96B
+skinparam ArrowColor #607D8B
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #E0C96B
+skinparam PartitionBackgroundColor #FAFAFA
+skinparam PartitionBorderColor #B0BEC5
+skinparam swimlane {
+  BorderColor #90A4AE
+  TitleFontSize 14
+}
+
+title
+门店 IT 设备报修 · 目标流程（To-Be）
+方案 v0.1 · 泳道 = 角色，「系统」泳道为自动执行
+end title
+
+|门店|
+start
+:进入 hotshop › IT 报修
+选设备：手机 / 电脑 / 显示器;
+
+if (先按自助指引试过了？) then (已解决)
+  |系统|
+  :记录一次「自助解决」;
+  stop
+else (没解决 / 直接报修)
+endif
+
+|门店|
+:选故障现象、拍照、提供序列号
+说明是否影响营业;
+|系统|
+:自动带出门店、联系人、电话、区域、地址
+序列号辅助：拍标签识别 / 找不到可先提交;
+
+:必填完整、照片齐全
+序列号格式、台账归属门店、重复在修单
+设备年限（手机超三年提示换新）;
+
+if (预检有例外？) then (有)
+  |运维|
+  :人工审核（工作台）
+  看照片、台账、历史报修;
+  if (审核结论？) then (通过)
+  else (驳回)
+    |门店|
+    :按提示补充后重新提交
+    （回到待审核）;
+    stop
+  endif
+else (无)
+endif
+
+|系统|
+if (设备超年限，门店选择换新？) then (是)
+  |门店|
+  :转 IT 申请
+  报修单关联申请单号;
+  stop
+else (否)
+endif
+
+|运维|
+:确认派单
+供应商按台账自动推荐（易点租 / 小熊U租）;
+
+|供应商|
+:接单
+远程或上门维修，进度回写;
+
+if (保外或门店损坏？) then (是)
+  :报价;
+  |运维|
+  :核价;
+  |门店|
+  :确认是否承担费用;
+  if (门店同意？) then (不同意)
+    :转换新评估，转 IT 申请;
+    stop
+  else (同意)
+  endif
+else (否)
+endif
+
+|供应商|
+:维修完成;
+
+|门店|
+:验收
+修好了 / 没修好（二次维修，回到维修中）;
+
+|运维|
+:费用结算;
+
+|系统|
+:关单
+每个状态和时间都有记录;
+stop
+@enduml

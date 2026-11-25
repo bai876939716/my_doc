@@ -1,0 +1,896 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>门店 IT 报修 · AI 交互原型 v0.1</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#eef2f7;color:#192636;font:14px/1.6 -apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;display:flex;justify-content:center;min-height:100vh}
+button,input,textarea,select{font:inherit}
+button{cursor:pointer;border:0;background:none;color:inherit}
+button:disabled{cursor:default;opacity:.55}
+:focus-visible{outline:3px solid #85b5ff;outline-offset:2px}
+.layout{display:flex;gap:34px;align-items:flex-start;padding:34px 22px;max-width:1080px}
+/* ============ 左侧说明栏 ============ */
+.aside{width:300px;flex-shrink:0;position:sticky;top:34px}
+.brand{display:flex;align-items:center;gap:8px;font-weight:800;letter-spacing:1px;font-size:14px}
+.brandmark{background:#f6ce32;border-radius:8px;padding:3px 9px;color:#171d27}
+.eyebrow{font-size:10px;letter-spacing:2.5px;color:#8a97a8;margin:14px 0 6px}
+.aside h1{font-size:26px;line-height:1.35;margin:0 0 10px}
+.aside p{color:#657383;font-size:12.5px;line-height:1.8;margin:0 0 18px}
+.steps{display:grid;gap:7px}
+.step{display:flex;gap:9px;align-items:center;font-size:12px;color:#7c8a9b;padding:8px 11px;border:1px solid #e2e8f0;border-radius:9px;background:#fff}
+.step b{width:20px;height:20px;border-radius:50%;background:#eef2f7;display:grid;place-items:center;font-size:10px;flex-shrink:0}
+.step.active{color:#2475ef;border-color:#bfd7ff;background:#f5f9ff;font-weight:600}
+.step.active b{background:#2475ef;color:#fff}
+.demo-tools{margin-top:16px;display:grid;gap:7px}
+.demo-tools span{font-size:11px;color:#9ca6b3}
+.demo-tools button{border:1px solid #e3e9f2;border-radius:8px;background:#fff;padding:8px 11px;font-size:12px;color:#3d5876;text-align:left}
+.demo-tools button:hover{border-color:#bfd7ff}
+/* ============ 手机壳 ============ */
+.phone{width:390px;height:820px;flex-shrink:0;display:flex;flex-direction:column;background:#fff;border:1px solid #dfe6ef;border-radius:26px;overflow:hidden;box-shadow:0 24px 70px #263f5b1c;position:relative}
+.statusbar{height:30px;background:#101216;color:#fff;padding:8px 20px 0;font-size:10px;display:flex;justify-content:space-between;flex-shrink:0}
+.nav{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid #eef2f7;flex-shrink:0}
+.nav .back{font-size:20px;color:#3d5876;padding:2px 8px}
+.nav .more{font-size:18px;color:#3d5876;letter-spacing:2px;padding:2px 8px}
+.nav span{flex:1;text-align:center;font-weight:600;font-size:14px}
+.page{display:none;flex-direction:column;flex:1;min-height:0}
+.page.visible{display:flex}
+.scroll{overflow-y:auto;flex:1;min-height:0}
+/* ============ 首页 / 入口 ============ */
+.homebody{padding:16px 14px}
+.tabcard{width:100%;display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #e7ebf1;border-radius:14px;padding:15px 14px;text-align:left}
+.micon{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-size:22px;flex-shrink:0}
+.tinfo{flex:1;min-width:0}
+.tinfo h3{margin:0;font-size:15px}
+.tinfo small{color:#8b98a7;font-size:11px}
+.reclink{font-size:11px;color:#2475ef;flex-shrink:0}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0 4px}
+.bigopt{border:1px solid #dce3ec;border-radius:12px;background:#fff;padding:16px 4px 13px;text-align:center}
+.bigopt i{display:block;font-style:normal;font-size:24px;margin-bottom:4px}
+.bigopt.selected{border-color:#2475ef;background:#edf5ff;color:#266cc9;font-weight:600}
+.q{font-size:17px;margin:4px 0 0}
+.cardx{border:1px solid #e7ebf1;border-radius:12px;padding:13px;background:#fff;margin-top:12px}
+.cardx h4{margin:0 0 6px;font-size:13.5px}
+.cardx ol{margin:0 0 10px;padding-left:18px;font-size:12.5px;color:#657383}
+/* ============ 表单页 ============ */
+.sectionlabel2{font-size:11px;color:#8b98a7;margin:16px 0 6px;font-weight:600}
+.frow{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid #f2f5f9}
+.frow label{width:86px;flex-shrink:0;font-size:13px;color:#5c6a7b}
+.frow label.req::after{content:' *';color:#e5484d}
+.frow .fval{flex:1;font-size:13px;color:#3d5876;min-width:0}
+input.fr{width:100%;min-width:0;padding:9px 10px;border:1px solid #dce2e9;border-radius:8px;background:#fff;font-size:13px}
+.field{padding:11px 0;border-bottom:1px solid #f2f5f9}
+.field>label{display:block;font-size:13px;color:#5c6a7b;margin-bottom:7px}
+.field>label.req::after{content:' *';color:#e5484d}
+.field textarea{width:100%;min-height:64px;border:1px solid #dce2e9;border-radius:8px;padding:10px;font-size:13px;resize:vertical}
+.counter{text-align:right;font-size:10px;color:#a4adba;margin-top:3px}
+.uploads{display:flex;gap:8px;flex-wrap:wrap}
+.uploads button{border:1px solid #e7ebf1;border-radius:8px;padding:8px 13px;font-size:12px;color:#3d5876;background:#fff}
+.hint{font-size:10.5px;color:#9aa7b6;margin:6px 0 0}
+.seg{display:flex;gap:8px}
+.seg button{flex:1;border:1px solid #dce3ec;border-radius:8px;background:#fff;padding:10px 4px;font-size:13px}
+.seg button.selected{border-color:#2475ef;background:#edf5ff;color:#266cc9;font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid #dfe6f0;border-radius:18px;background:#fff;padding:8px 14px;font-size:13px}
+.chip.selected{border-color:#2475ef;background:#edf5ff;color:#266cc9;font-weight:600}
+.opt-mark{color:#9aa7b6;font-weight:400;font-size:11px}
+.check{display:flex;align-items:center;gap:6px;font-size:12px;color:#657383;margin-top:8px}
+.snrow{display:flex;gap:8px;margin-bottom:2px}
+.snrow input{flex:1}
+.switch{width:44px;height:26px;border-radius:13px;background:#d5dde8;position:relative;flex-shrink:0}
+.switch::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff}
+.switch.on{background:#2475ef}
+.switch.on::after{left:21px}
+.footer{display:flex;gap:10px;padding:12px 14px;border-top:1px solid #eef2f7;flex-shrink:0}
+.footer .primary{flex:1}
+/* ============ 通用按钮 / 药丸 ============ */
+.primary{background:#2475ef;color:#fff;border-radius:9px;padding:11px 16px;font-weight:600}
+.outline{border:1px solid #e7ebf1;border-radius:8px;background:#fff;padding:10px 14px;color:#3d5876}
+.textbtn{color:#2475ef;padding:0;font-size:12px}
+.pill{font-size:11px;border-radius:20px;background:#eef4fd;color:#2475ef;padding:3px 10px}
+.pill.doing{color:#b07a2a;background:#fdf3e3}
+.pill.ok{color:#279b70;background:#e9f7ef}
+.pill.bad{color:#b3543f;background:#fdf1f0}
+/* ============ 对话页 ============ */
+.chathead{padding:11px 14px;border-bottom:1px solid #eef2f7;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.spark{font-size:20px;color:#2475ef;background:#e4edff;border-radius:10px;width:38px;height:38px;display:grid;place-items:center;flex-shrink:0}
+.chathead strong{font-size:14px;display:block;line-height:1.3}
+.chathead small{display:block;color:#99a3b0;font-size:10px}
+.chathead .right{margin-left:auto;display:flex;align-items:center;gap:9px}
+.statebadge{font-size:10px;color:#6d7c8f;background:#f1f5fb;border-radius:12px;padding:4px 9px;white-space:nowrap}
+.context{background:#f7faff;padding:9px 14px;border:1px solid #e5edf8;border-radius:10px;font-size:11px;color:#67809e;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-shrink:0}
+.chatpage .context{border-radius:0;border-width:0 0 1px}
+.context strong{font-size:12px;color:#385679;display:block;margin-bottom:1px}
+.chatbody{background:#f3f6fa;padding:16px 13px}
+.date{text-align:center;color:#a2aebb;font-size:10px;margin-bottom:14px}
+.msg{display:flex;gap:8px;margin:14px 0;align-items:flex-start}
+.msg.user{justify-content:flex-end}
+.avatar{width:28px;height:28px;background:#e4edff;color:#2475ef;border-radius:9px;display:grid;place-items:center;flex-shrink:0;font-weight:700;font-size:14px}
+.bubble{max-width:calc(100% - 36px);background:#fff;border:1px solid #e7ebf1;padding:11px 13px;border-radius:3px 13px 13px 13px;font-size:13px;line-height:1.75;min-width:0}
+.user .bubble{background:#2475ef;color:#fff;border:0;border-radius:13px 3px 13px 13px}
+.bubble p{margin:0 0 8px}
+.bubble p:last-child{margin:0}
+.bubble small{color:#8e9cac;font-size:11px;display:block;margin-top:6px}
+.options{display:grid;gap:8px;margin-top:8px}
+.options.full{max-height:262px;overflow-y:auto;padding-right:2px}
+.option{border:1px solid #dfe6f0;text-align:left;border-radius:8px;padding:10px 11px;font-size:12px;background:#fff}
+.option.pre{border-color:#bfd7ff;background:#f5f9ff;color:#266cc9;font-weight:600}
+.option.selected{border-color:#2475ef;background:#edf5ff;color:#266cc9;font-weight:600}
+.option small{display:block;color:#8fa0b5;font-size:10px;margin-top:2px;font-weight:400}
+.ptips{margin:9px 0 0;display:grid;gap:6px}
+.ptip{font-size:12px;color:#516072;display:flex;gap:7px;align-items:flex-start;line-height:1.5}
+.ptip i{font-style:normal;flex-shrink:0}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}
+.actions button{font-size:12px}
+.attachment{padding:8px;background:#f0f5fc;border-radius:7px;font-size:11px;margin-top:8px;overflow-wrap:anywhere}
+/* ============ 确认单 ============ */
+.confirmwrap.stale{opacity:.5}
+.confirmwrap.stale button{pointer-events:none}
+.confirm h3{font-size:15px;margin:0 0 3px}
+.confirm>small{display:block;color:#99a2ae;font-size:10px;margin-bottom:2px}
+.sectionlabel{font-size:10px;color:#8e9bac;padding:14px 0 5px;border-top:1px solid #e7ebf1;margin-top:10px}
+.confirm .sectionlabel:first-of-type{border-top:0;margin-top:6px}
+.data-row{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:7px 0;align-items:flex-start}
+.data-row>span{color:#8896a6;flex-shrink:0}
+.data-row b,.data-row button{font-weight:500;text-align:right;overflow-wrap:anywhere;margin-left:auto;color:#3d5876;font-size:12px;padding:0}
+.data-row button{color:#266cc9}
+.data-row button::after{content:' ›'}
+.badge-ai{display:inline-block;font-size:9px;background:#e8f0fe;color:#2f6bd8;border-radius:3px;padding:1px 5px;margin-left:6px;vertical-align:1px;font-weight:600}
+.detail{background:#f7f9fc;border-radius:6px;padding:10px;font-size:12px;white-space:pre-wrap;margin:6px 0;overflow-wrap:anywhere}
+.stip{margin:14px auto;max-width:88%;text-align:center;font-size:11px;border-radius:8px;padding:8px 12px;line-height:1.6}
+.stip.info{background:#eef3fa;color:#5d7290}
+/* ============ 结果卡 ============ */
+.success{text-align:center}
+.success-icon{display:grid;place-items:center;background:#e6f6ee;color:#29a976;border-radius:50%;height:48px;width:48px;margin:8px auto;font-size:26px}
+.success h3{margin:10px 0 4px}
+.success .number{background:#f6f8fb;padding:11px;border-radius:8px;font-size:12px;margin:14px 0}
+.success .number strong{font-size:15px;letter-spacing:.5px;overflow-wrap:anywhere}
+/* ============ 输入区 ============ */
+.composer{background:#fff;padding:10px 13px 12px;border-top:1px solid #e7ebf1;flex-shrink:0}
+#submitBar{display:none;width:100%;padding:12px;font-size:14px;margin-bottom:9px}
+#submitBar.on{display:block}
+.composer-tools{display:flex;gap:14px;color:#7c8ba0;font-size:11px;margin-bottom:8px}
+.composer-row{display:flex;align-items:flex-end;gap:9px}
+.composer textarea{flex:1;min-height:43px;height:43px;max-height:110px;font-size:13px;background:#f6f8fb;border:0;border-radius:9px;padding:11px;resize:none}
+.composer .primary{padding:10px 14px;flex-shrink:0}
+.fineprint{text-align:center;font-size:10px;color:#a4adba;margin-top:7px}
+/* ============ 记录 / 详情 / 运维 ============ */
+.tabsbar{display:flex;gap:8px;padding:12px 14px 4px;flex-shrink:0}
+.stab{border:1px solid #e3e9f2;border-radius:18px;padding:5px 14px;font-size:12px;color:#6d7c8f;background:#fff}
+.stab.active{border-color:#2475ef;color:#2475ef;background:#edf5ff;font-weight:600}
+.banner{margin:10px 14px 0;background:#f5f9ff;border:1px solid #dde9fb;color:#4a6d99;border-radius:9px;padding:9px 12px;font-size:11px}
+.homebody .banner{margin:0 0 10px}
+.recwrap{padding:6px 14px 16px}
+.rec{width:100%;text-align:left;background:#fff;border:1px solid #e7ebf1;border-radius:12px;padding:12px 13px;margin-top:9px;display:block}
+.rrow{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.rid{font-weight:700;font-size:12.5px}
+.rec .meta{display:flex;flex-wrap:wrap;gap:4px 12px;color:#8b98a7;font-size:11px;margin-top:6px}
+.mfoot{text-align:center;font-size:10px;color:#a4adba;padding:10px 0 14px}
+.detailhead{display:flex;align-items:center;gap:10px;padding:14px 15px 4px}
+.detailhead h2{margin:0;font-size:17px;flex:1}
+.kv{padding:4px 15px 18px}
+.tl{margin:8px 0 4px}
+.tl-item{display:flex;gap:11px;padding:7px 0;position:relative}
+.tl-item::before{content:'';position:absolute;left:4.5px;top:24px;bottom:-4px;width:1.5px;background:#e7ebf1}
+.tl-item:last-child::before{display:none}
+.tl-dot{width:10px;height:10px;border-radius:50%;background:#dfe6ef;flex-shrink:0;margin-top:5px}
+.tl-item.done .tl-dot{background:#29a976}
+.tl-item.doing .tl-dot{background:#f0a03c;box-shadow:0 0 0 3px #f0a03c2e}
+.tlabel{font-size:12.5px;font-weight:600}
+.tl-item.dim .tlabel{color:#a4adba;font-weight:400}
+.ttime{font-size:10.5px;color:#a4adba}
+/* ============ 弹窗 / Toast / 序列号面板 ============ */
+dialog{border:0;border-radius:15px;width:min(340px,88vw);max-height:80dvh;padding:20px;box-shadow:0 20px 80px #14233b33}
+dialog::backdrop{background:#19263666}
+dialog h3{margin:0 0 4px;font-size:16px}
+dialog .field{margin:12px 0}
+dialog .field label{display:block;margin:0 0 7px;color:#5c6979;font-weight:600;font-size:13px}
+dialog textarea{width:100%;padding:11px;border-radius:7px;resize:vertical;min-height:96px;font-size:13px;border:1px solid #dce2e9}
+dialog input{width:100%;padding:11px;border-radius:7px;font-size:14px;border:1px solid #dce2e9}
+.tabsx{display:flex;gap:6px;margin:0 0 12px}
+.tabsx button{flex:1;padding:7px 0;font-size:12.5px;border-bottom:2px solid transparent;color:#8b98a7}
+.tabsx button.on{border-color:#2475ef;color:#2475ef;font-weight:600}
+.cam{height:100px;border:1px dashed #c5cfdb;border-radius:10px;display:grid;place-items:center;color:#8b98a7;font-size:12.5px;background:#f6f8fb;margin-bottom:10px}
+.snres{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid #2475ef;border-radius:8px;padding:10px 12px;margin-top:10px;font-size:12px;color:#657383}
+.snres b{font-size:14px;letter-spacing:.03em}
+.stars{display:flex;justify-content:center;gap:2px;margin:8px 0}
+.stars button{font-size:24px;color:#d5dde8;padding:0 3px}
+.stars button.on{color:#f0a03c}
+.toast{position:absolute;bottom:96px;left:50%;transform:translateX(-50%);background:#22334fed;color:#fff;padding:10px 16px;border-radius:8px;font-size:12px;z-index:8;width:max-content;max-width:90%;display:none;line-height:1.5}
+@media(max-width:860px){.layout{flex-direction:column;align-items:center;gap:18px;padding:14px 10px}.aside{width:min(430px,100%);position:static}.aside h1{font-size:21px}.phone{width:min(430px,100%);height:calc(100dvh - 60px);min-height:560px}}
+</style>
+</head>
+<body>
+<main class="layout">
+<aside class="aside">
+  <div class="brand"><span class="brandmark">好特卖</span><span>HOTMAXX</span></div>
+  <div class="eyebrow">STORE SERVICE / 门店服务</div>
+  <h1>IT 设备报修，<br>只填四项。</h1>
+  <p>门店、联系人、电话、区域、地址自动带出。门店只选设备、选现象、拍照、给序列号；提交即自动预检，运维只处理例外，进度门店自己看得到。</p>
+  <div class="steps">
+    <div class="step active" data-step="0"><b>1</b>服务助手 · 首页</div>
+    <div class="step" data-step="1"><b>2</b>IT 报修 · 选设备 / 自助指引</div>
+    <div class="step" data-step="2"><b>3</b>填写 · 表单与 AI 入口</div>
+    <div class="step" data-step="3"><b>4</b>核对 · 确认提交</div>
+    <div class="step" data-step="4"><b>5</b>我的报修 · 进度 / 报价 / 验收</div>
+  </div>
+  <div class="demo-tools">
+    <span>交互原型 v0.1 · 本地模拟引擎 · 无后端 · 不创建真实工单</span>
+    <button onclick="resetChat()">↺ 重新演示 AI 对话</button>
+    <button onclick="showPage('ops')">⚙ 切到运维视角 · 审核与派单</button>
+    <button onclick="resetAll()">▷ 重置全部演示数据</button>
+  </div>
+</aside>
+
+<section class="phone">
+  <div class="statusbar"><b>9:41</b><span>▮▮▮  Wi-Fi  ▰</span></div>
+  <nav class="nav">
+    <button class="back" aria-label="返回" onclick="goBack()">‹</button>
+    <span id="navtitle">服务助手</span>
+    <button class="more" aria-label="演示选项" onclick="demoMenu()">···</button>
+  </nav>
+
+  <!-- ① 首页：现有「我要报修」不动，新增 IT 设备入口 -->
+  <div id="home" class="page visible"><div class="scroll"><div class="homebody">
+    <div class="context"><div><strong>📍 <span class="storename"></span></strong>联系人：<span id="homeWho"></span></div></div>
+    <button class="tabcard" onclick="toast('现有入口保持不变：门店广告、工程、营运用具类')">
+      <span class="micon" style="background:#fdecea;color:#f1534e">🛠</span>
+      <span class="tinfo"><h3>我要报修</h3><small>门店广告、门店工程、营运用具类</small></span>
+    </button>
+    <div style="height:10px"></div>
+    <button class="tabcard" onclick="showPage('it')">
+      <span class="micon" style="background:#e4edff;color:#2475ef">💻</span>
+      <span class="tinfo"><h3>IT 设备报修</h3><small>电脑 · 手机 · 显示器，只需填 4 项</small></span>
+      <span class="reclink" onclick="event.stopPropagation();showPage('records')">我的报修 ›</span>
+    </button>
+    <p class="hint">「IT 设备报修」为本次新增入口，带门店身份进入，不用再填门店信息。</p>
+  </div></div></div>
+
+  <!-- ② IT 报修：选设备 + 自助指引 -->
+  <div id="it" class="page"><div class="scroll"><div class="homebody">
+    <div class="context" style="margin-bottom:14px"><div><strong>📍 <span class="storename"></span></strong>联系人：<span class="who"></span></div><button class="textbtn" onclick="phoneModal(false)">修改</button></div>
+    <h3 class="q">哪台设备出问题了？</h3>
+    <div class="grid3" id="devGrid"></div>
+    <div class="cardx" id="selfHelp"></div>
+    <p class="hint">自助指引可以跳过，不影响营业的设备直接报修。</p>
+  </div></div></div>
+
+  <!-- ③ 填写：顶部 AI 入口 + 表单（按设备类型显示字段） -->
+  <div id="form" class="page"><div class="scroll"><div class="homebody">
+    <button class="tabcard" onclick="enterAI()">
+      <span class="micon" style="background:#e4edff;color:#2475ef">✦</span>
+      <span class="tinfo"><h3>AI 智能填报</h3><small>说句话，自动填好 IT 报修单 · 每步由你确认</small></span>
+      <span class="reclink">去报修 ›</span>
+    </button>
+    <div class="sectionlabel2">自动带出（不用填）</div>
+    <div class="frow"><label>门店</label><span class="fval storename"></span></div>
+    <div class="frow"><label>区域</label><span class="fval">上海一区</span></div>
+    <div class="frow"><label>地址</label><span class="fval">门店详细地址（主数据带出）</span></div>
+    <div class="frow"><label>联系人</label><span class="fval"><span class="who"></span> · <span id="fPhone"></span></span><button class="textbtn" type="button" onclick="phoneModal(false)">修改</button></div>
+    <div class="sectionlabel2">设备与故障</div>
+    <div class="field"><label class="req">设备类型</label><div class="seg" id="fDev"></div></div>
+    <div class="field"><label class="req">故障现象</label><div class="chips" id="fSym"></div><p class="hint" id="fSymHint"></p></div>
+    <div class="field"><label>补充说明 <span class="opt-mark">选填，选「其他」时必填</span></label>
+      <textarea id="fDetail" maxlength="100" placeholder="一句话就行，例如「早上开机电源灯不亮」" oninput="fcount(this)"></textarea>
+      <div class="counter"><span id="fcountn">0</span>/100</div></div>
+    <div class="field"><label class="req">现场照片</label>
+      <div class="uploads">
+        <button type="button" class="outline" onclick="upload('form')">♧ 添加附件</button>
+        <button type="button" class="outline" onclick="upload('form')">◎ 拍照</button>
+        <button type="button" class="outline" onclick="demoPhoto('form')">使用演示照片</button>
+      </div>
+      <div id="formFiles"></div>
+      <p class="hint">拍清屏幕报错、损坏部位，维修师傅好提前判断。</p></div>
+    <div class="field"><label class="req">设备序列号</label>
+      <div class="snrow"><input id="fSn" class="fr" readonly placeholder="还没提供，点「获取」" onclick="snDialog(fillSn)"><button type="button" class="outline" onclick="snDialog(fillSn)">获取</button></div>
+      <label class="check"><input type="checkbox" id="fSnMiss" onchange="snMissToggle(this.checked)"> 标签掉了 / 找不到序列号</label>
+      <p class="hint">可先提交，运维帮你补录；加急单不会因为序列号被卡住。</p></div>
+    <div class="frow" style="border-bottom:0"><label>影响营业吗</label><span class="fval" id="urgTxt">不影响，一般处理</span><button type="button" class="switch" id="fUrg" aria-label="影响营业" onclick="urgToggle()"></button></div>
+  </div></div>
+  <footer class="footer"><button class="primary" onclick="submitForm()">提交报修</button></footer></div>
+
+  <!-- ④ AI 对话页（IT 报修技能包） -->
+  <div id="chat" class="page chatpage">
+    <header class="chathead">
+      <span class="spark">✦</span>
+      <div><strong>AI 报修助手</strong><small>帮你整理 · 每一步由你确认</small></div>
+      <div class="right">
+        <span class="statebadge" id="stateBadge">采集中</span>
+        <button class="textbtn" onclick="showPage('form');toast('已切回表单，AI 对话已保留')">⇄ 表单</button>
+      </div>
+    </header>
+    <div class="context" id="ctxBar"></div>
+    <div id="messages" class="scroll chatbody" aria-live="polite"></div>
+    <div class="composer">
+      <button id="submitBar" class="primary">✓ 确认并提交</button>
+      <div class="composer-tools"><button onclick="useSample()">✎ 填入示例台词</button></div>
+      <div class="composer-row">
+        <textarea id="input" rows="1" maxlength="500" aria-label="输入故障描述" placeholder="说说哪台设备、什么现象…"></textarea>
+        <button id="send" class="primary" onclick="sendText()">发送</button>
+      </div>
+      <div class="fineprint">AI 生成内容请核对后提交 · 演示模式，不会创建真实工单</div>
+    </div>
+  </div>
+
+  <!-- ⑤ 我的报修 -->
+  <div id="records" class="page">
+    <div class="tabsbar">
+      <button class="stab active" onclick="recTab='all';renderRecords()">全部</button>
+      <button class="stab" onclick="recTab='todo';renderRecords()">待我确认</button>
+      <button class="stab" onclick="recTab='doing';renderRecords()">处理中</button>
+      <button class="stab" onclick="recTab='done';renderRecords()">已完成</button>
+    </div>
+    <div class="scroll"><div class="recwrap" id="recList"></div></div>
+  </div>
+
+  <!-- ⑥ 报修单详情：进度 + 门店要做的动作 -->
+  <div id="detail" class="page"><div class="scroll">
+    <div class="detailhead"><h2 id="dTitle">报修单详情</h2><span class="pill" id="dPill">—</span></div>
+    <div class="kv" id="dBody"></div>
+  </div></div>
+
+  <!-- ⑦ 运维：待审核列表 -->
+  <div id="ops" class="page"><div class="scroll"><div class="homebody">
+    <div class="banner">提交即自动预检。正常的标「预检通过」；序列号未匹配、疑似重复的标「需人工」。加急单在前。</div>
+    <div id="opsList"></div>
+  </div></div></div>
+
+  <!-- ⑧ 运维：审核详情 -->
+  <div id="opsdetail" class="page"><div class="scroll"><div class="kv" id="opsBody"></div></div>
+    <footer class="footer" id="opsFoot"></footer></div>
+
+  <div id="toast" class="toast" role="status"></div>
+</section>
+</main>
+
+<dialog id="modal"><div id="modalContent"></div></dialog>
+<dialog id="snModal"><div id="snContent"></div></dialog>
+<input id="file" type="file" accept="image/*,video/*" multiple hidden>
+
+<script>
+'use strict';
+/* =====================================================================
+ * 本地模拟引擎（口径对齐 AgentServerCenter：LLM 只做识别 → 程序管流程 → 人确认）
+ * 规则：设备、现象、是否影响营业 都要点选确认才入库；说没说过的字段不替用户填
+ * ===================================================================== */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clock=()=>{const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')};
+const mask=p=>p.slice(0,3)+'****'+p.slice(-4);
+
+/* ---------- 字典 ---------- */
+const STORE={no:'11522',name:'11522 安徽商之都OK店',region:'上海一区',reporter:'白云翔',phone:'13800001234'};
+const DEVICES=['电脑','手机','显示器'];
+const ICON={'电脑':'🖥','手机':'📱','显示器':'🖵'};
+const SYM={
+ '电脑':['开不了机 / 自动关机','蓝屏、报错','卡顿、死机','黑屏、无显示','无法联网','键盘鼠标失灵','软件问题（收银系统等）','其他'],
+ '手机':['碎屏 / 屏幕显示异常','无法开机','充不进电、耗电快','系统卡顿、闪退','无法联网','声音、听筒异常','其他'],
+ '显示器':['不亮 / 黑屏','花屏、闪屏、线条','颜色异常','接口松动、无信号','其他']
+};
+const HELP={
+ '电脑':['重启电脑','清空回收站和下载目录','看磁盘剩余空间是否低于 10%'],
+ '手机':['重启手机','关闭后台应用','确认存储空间充足'],
+ '显示器':['检查电源线和视频线是否插紧','换一个视频接口试试','重启连接的电脑']
+};
+const PHOTO_TIPS={
+ '电脑':['屏幕上的报错或黑屏画面','机身整体','机身背面的标签（拍清序列号）'],
+ '手机':['损坏部位特写','屏幕显示情况','能开机的话拍设置里的关于本机'],
+ '显示器':['屏幕画面','接口和连线','背面底部的标签']
+};
+const SN_DEMO='YPZ-2024-038871';
+const MY_DEVICES=[{dev:'电脑',n:'收银电脑',sn:SN_DEMO},{dev:'电脑',n:'办公电脑',sn:'YPZ-2024-038872'},{dev:'手机',n:'收银手机',sn:'XXZ-2023-110256'},{dev:'显示器',n:'收银副屏',sn:'YPZ-2023-025514'}];
+const SAMPLE='收银那台电脑开不了机，按了没反应，收银用不了';
+
+/* ---------- 报修单数据 ---------- */
+const PEND_TL=t=>[['提交报修',t,'done'],['运维审核','—','doing'],['派单','—',''],['供应商接单 / 维修','—',''],['门店验收','—',''],['费用结算','—','']];
+const SEED=[
+ {id:'IT-20261124-0027',mine:true,dev:'显示器',sym:'不亮 / 黑屏',sn:'YPZ-2024-038855',snMissing:false,urg:false,status:'quote',statusText:'待确认报价',submitted:'11-24 09:12',detail:'收银副屏开机黑屏，电源灯不亮。',photos:['副屏黑屏.jpg','机身标签.jpg'],ledger:'易点租 · 2023-11 起租 · 在租',
+  tl:[['提交报修','11-24 09:12','done'],['运维审核通过 · 张工','11-24 09:30','done'],['已派单 · 易点租','11-24 09:31','done'],['供应商报价，运维已核价','11-24 13:05','done'],['门店确认报价','—','doing'],['门店验收','—',''],['费用结算','—','']],
+  quote:{plan:'更换电源板',price:'¥260',check:'李工：与市场价持平',due:'明天 18:00'}},
+ {id:'IT-20261121-0019',mine:true,dev:'电脑',sym:'蓝屏、报错',sn:'YPZ-2024-038802',snMissing:false,urg:true,status:'accept',statusText:'待验收',submitted:'11-21 10:40',detail:'开机蓝屏，错误码 CRITICAL_PROCESS_DIED，已换备用机收银。',photos:['蓝屏画面.jpg'],ledger:'小熊U租 · 2023-06 起租 · 在租',
+  tl:[['提交报修','11-21 10:40','done'],['运维审核通过 · 张工','11-21 10:58','done'],['已派单 · 小熊U租','11-21 11:02','done'],['供应商接单','11-21 11:30','done'],['上门维修，更换硬盘','11-24 15:40','done'],['门店验收','—','doing'],['费用结算','—','']]},
+ {id:'IT-20261118-0015',mine:true,dev:'手机',sym:'碎屏 / 屏幕显示异常',sn:'XXZ-2023-110256',snMissing:false,urg:false,status:'done',statusText:'已完成',submitted:'11-18 14:05',detail:'收银手机摔落，屏幕左上角碎裂，触控正常。',photos:['碎屏特写.jpg'],ledger:'小熊U租 · 2023-08 起租 · 在租',rating:5,
+  tl:[['提交报修','11-18 14:05','done'],['运维审核通过 · 李工','11-18 14:20','done'],['已派单 · 小熊U租','11-18 14:22','done'],['上门维修，更换屏幕','11-19 11:10','done'],['门店验收 · 评价 5 星','11-19 13:00','done'],['费用结算','11-25','done']]},
+ {id:'IT-20261112-0008',mine:true,dev:'电脑',sym:'开不了机 / 自动关机',sn:'YPZ-2024-038899',snMissing:false,urg:false,status:'repairing',statusText:'维修中',submitted:'11-12 09:30',detail:'办公电脑开机风扇转但无显示。',photos:['机身.jpg'],ledger:'易点租 · 2024-05 起租 · 在租',
+  tl:[['提交报修','11-12 09:30','done'],['运维审核通过 · 张工','11-12 09:50','done'],['已派单 · 易点租','11-12 09:52','done'],['供应商接单，预约上门','11-12 10:15','done'],['上门维修','—','doing'],['门店验收','—',''],['费用结算','—','']]},
+ {id:'IT-20261124-0031',mine:false,store:'10902 南京新街口店',dev:'手机',sym:'碎屏 / 屏幕显示异常',sn:'XXZ-2023-1109',snMissing:false,urg:true,status:'pending',statusText:'待审核',check:'manual',checkNote:'序列号未匹配到台账',submitted:'11-24 09:48',detail:'屏幕摔碎，无法触控。',photos:['碎屏.jpg'],ledger:'未匹配'},
+ {id:'IT-20261123-0029',mine:false,store:'10888 杭州湖滨店',dev:'显示器',sym:'花屏、闪屏、线条',sn:'YPZ-2023-025514',snMissing:false,urg:false,status:'pending',statusText:'待审核',check:'pass',checkNote:'',submitted:'11-23 16:20',detail:'副屏间歇花屏，重新插线无效。',photos:['花屏.jpg'],ledger:'易点租 · 2023-04 起租 · 在租'}
+];
+let records=SEED.map(r=>Object.assign({},r)),recTab='all',seqNo=31;
+
+const PILL={done:'ok',closed:'ok',supplement:'bad'};
+const pillOf=r=>'pill '+(PILL[r.status]||'doing');
+function pendingRec(o){
+ seqNo++;
+ const t='11-24 '+clock();
+ return {id:'IT-20261124-00'+seqNo,mine:true,dev:o.dev,sym:o.sym,sn:o.sn||'',snMissing:!!o.snMissing,urg:!!o.urg,status:'pending',statusText:'待审核',
+  check:o.snMissing?'manual':'pass',checkNote:o.snMissing?'序列号待补录':'',submitted:t,detail:o.detail||'',photos:o.photos||[],ledger:o.snMissing?'待补录':'易点租 · 2024-03 起租 · 在租',tl:PEND_TL(t)};
+}
+function addRecord(o){const r=pendingRec(o);records.unshift(r);return r}
+function ensureTl(r){if(!r.tl)r.tl=PEND_TL((r.submitted||'').slice(6));return r.tl}
+function setStep(r,label,status,time){ensureTl(r);const s=r.tl.find(x=>x[0].indexOf(label)===0);if(s){s[2]=status;if(time!==undefined)s[1]=time}return s}
+
+/* =====================================================================
+ * 页面导航
+ * ===================================================================== */
+const titles={home:'服务助手',it:'IT 设备报修',form:'IT 报修',chat:'AI 报修助手',records:'我的报修',detail:'报修单详情',ops:'运维 · 待审核',opsdetail:'运维审核'};
+function step(n){document.querySelectorAll('.step').forEach(e=>e.classList.toggle('active',+e.dataset.step===n))}
+function showPage(id){
+ document.querySelectorAll('.page').forEach(e=>e.classList.toggle('visible',e.id===id));
+ $('#navtitle').textContent=titles[id]||'服务助手';
+ if(id==='records')renderRecords();
+ if(id==='ops')renderOps();
+ if(id==='home')step(0);
+ else if(id==='it')step(1);
+ else if(id==='form')step(2);
+ else if(id==='chat')step(E&&E.state!=='collecting'?3:2);
+ else if(id==='detail')step(4);
+ else if(id==='records')step(4);
+ else step(-1);
+}
+function goBack(){
+ const cur=document.querySelector('.page.visible').id;
+ if(cur==='chat'&&chatStarted&&E&&E.state!=='done'){
+  openModal('<h3>本次报修还没完成</h3><p>离开后可随时从表单页顶部的 AI 入口继续。</p><div class="options">'+
+   '<button class="option" data-close>继续填写</button>'+
+   '<button class="option" onclick="closeModal();showPage(\'form\');toast(\'已切回表单\')">返回表单</button>'+
+   '<button class="option" style="color:#b26767" onclick="closeModal();resetChat();showPage(\'it\');toast(\'已放弃本次报修\')">放弃本次报修</button></div>');
+  return;
+ }
+ if(cur==='detail')return showPage('records');
+ if(cur==='opsdetail')return showPage('ops');
+ if(['records','ops'].includes(cur)||cur==='home')return showPage('home');
+ showPage('home');
+}
+function demoMenu(){
+ openModal('<h3>原型演示</h3><p>本地模拟引擎，无后端。门店只填 4 项，其余带出；提交即预检，运维只处理例外。</p><div class="options">'+
+  '<button class="option" onclick="closeModal();resetChat()">重新演示 AI 对话</button>'+
+  '<button class="option" onclick="closeModal();showPage(\'records\')">查看我的报修</button>'+
+  '<button class="option" onclick="closeModal();showPage(\'ops\')">切到运维视角</button>'+
+  '<button class="option" onclick="closeModal();resetAll()">重置全部演示数据</button>'+
+  '<button class="option" data-close>返回</button></div>');
+}
+function resetAll(){records=SEED.map(r=>Object.assign({},r));seqNo=31;recTab='all';resetChat();resetForm();showPage('home');toast('已重置演示数据')}
+
+/* =====================================================================
+ * 弹窗 / Toast
+ * ===================================================================== */
+function openModal(html){$('#modalContent').innerHTML=html;const m=$('#modal');if(!m.open)m.showModal()}
+function closeModal(){const m=$('#modal');if(m.open)m.close()}
+function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast._t);toast._t=setTimeout(()=>t.style.display='none',2600)}
+function pickModal(title,options,onPick,note){
+ openModal('<h3>'+esc(title)+'</h3>'+(note?'<small style="color:#8b97a6;font-size:11px">'+esc(note)+'</small>':'')+
+  '<div class="options full">'+options.map(o=>'<button class="option" data-pick="'+esc(o)+'">'+esc(o)+'</button>').join('')+'</div>');
+ $('#modal').querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>{closeModal();onPick(b.dataset.pick)});
+}
+function textModal(title,placeholder,onDone){
+ openModal('<h3>'+esc(title)+'</h3><form id="tf"><div class="field"><textarea name="v" maxlength="100" placeholder="'+esc(placeholder)+'" required></textarea></div>'+
+  '<div class="actions"><button type="button" class="outline" data-close>取消</button><button class="primary" type="submit">发送</button></div></form>');
+ $('#tf').onsubmit=e=>{e.preventDefault();const v=e.target.v.value.trim();if(!v)return;closeModal();onDone(v)};
+}
+function phoneModal(){
+ openModal('<h3>更换联系电话</h3><form id="phForm"><div class="field"><label>新手机号（11 位）</label><input name="p" type="tel" maxlength="11" required placeholder="13x xxxx xxxx"></div>'+
+  '<div class="actions"><button type="button" class="outline" data-close>取消</button><button class="primary" type="submit">保存</button></div></form>');
+ $('#phForm').onsubmit=e=>{
+  e.preventDefault();const v=e.target.p.value.trim();
+  if(!/^1[3-9]\d{9}$/.test(v))return toast('请输入有效的 11 位手机号');
+  STORE.phone=v;closeModal();syncIdentity();toast('联系电话已更新');
+ };
+}
+function syncIdentity(){
+ document.querySelectorAll('.storename').forEach(n=>n.textContent=STORE.name);
+ document.querySelectorAll('.who,#homeWho').forEach(n=>n.textContent=STORE.reporter+' '+mask(STORE.phone));
+ $('#fPhone').textContent=mask(STORE.phone);
+ if(E&&chatStarted)ctxBar();
+}
+
+/* =====================================================================
+ * ② 选设备 + 自助指引 / ③ 表单页
+ * ===================================================================== */
+const F={device:'电脑',symps:new Set(),detail:'',photos:[],sn:'',snMissing:false,urg:false};
+let formFiles=[];
+function setDev(d){
+ F.device=d;F.symps.clear();F.detail='';$('#fDetail').value='';$('#fcountn').textContent='0';
+ $('#devGrid').innerHTML=DEVICES.map(x=>'<button class="bigopt'+(x===d?' selected':'')+'" onclick="setDev(\''+x+'\')"><i>'+ICON[x]+'</i>'+x+'</button>').join('');
+ $('#fDev').innerHTML=DEVICES.map(x=>'<button class="'+(x===d?'selected':'')+'" onclick="setDev(\''+x+'\');showPage(\'form\')">'+x+'</button>').join('');
+ const h=HELP[d];
+ $('#selfHelp').innerHTML='<h4>先试试自己解决：'+esc({电脑:'电脑卡顿、反应慢',手机:'手机卡顿、应用闪退',显示器:'显示器无信号'}[d])+'</h4><ol>'+h.map(s=>'<li>'+s+'</li>').join('')+'</ol>'+
+  '<div class="actions"><button class="outline" onclick="toast(\'已记录：本次通过自助指引解决\')">已解决</button><button class="primary" onclick="showPage(\'form\')">没解决，去报修</button></div>'+
+  '<p class="hint" style="margin-top:8px">点「没解决」后，系统会记下已尝试的步骤，运维不用再从头问。</p>';
+ renderSym();
+}
+function renderSym(){
+ $('#fSym').innerHTML=SYM[F.device].map(s=>'<button class="chip'+(F.symps.has(s)?' selected':'')+'" onclick="togSym(\''+esc(s)+'\')">'+esc(s)+'</button>').join('');
+ $('#fSymHint').textContent=F.symps.has('其他')?'选了「其他」，请在补充说明里写一句话。':'可多选；选「其他」时需要写补充说明。';
+}
+function togSym(s){F.symps.has(s)?F.symps.delete(s):F.symps.add(s);renderSym()}
+function fcount(t){F.detail=t.value;$('#fcountn').textContent=t.value.length}
+function snMissToggle(on){F.snMissing=on;if(on){F.sn='';$('#fSn').value=''}}
+function urgToggle(){F.urg=!F.urg;$('#fUrg').classList.toggle('on',F.urg);$('#urgTxt').textContent=F.urg?'影响，加急处理':'不影响，一般处理'}
+function fillSn(sn){F.sn=sn;F.snMissing=false;$('#fSn').value=sn;$('#fSnMiss').checked=false;toast('已填入序列号')}
+function resetForm(){Object.assign(F,{device:F.device,detail:'',photos:[],sn:'',snMissing:false,urg:false});F.symps.clear();formFiles=[];$('#formFiles').innerHTML='';$('#fSn').value='';$('#fSnMiss').checked=false;$('#fUrg').classList.remove('on');$('#urgTxt').textContent='不影响，一般处理';setDev(F.device)}
+
+let uploadTarget='form';
+function upload(t){uploadTarget=t;$('#file').click()}
+function demoPhoto(t){
+ const n={电脑:'电脑黑屏（演示照片）',手机:'碎屏特写（演示照片）',显示器:'副屏花屏（演示照片）'}[curDev()];
+ donePhotos(t,[{name:n,url:''}]);
+}
+function donePhotos(t,files){
+ if(t==='form'){files.forEach(f=>{F.photos.push(f.name);formFiles.push(f)});renderFormFiles();return}
+ if(t==='ai'){gesture({type:'upload_done',attachments:files.map(f=>({name:f.name,url:f.url||''}))});return}
+ if(t==='sn')snShowResult();
+}
+function renderFormFiles(){$('#formFiles').innerHTML=formFiles.map(f=>'<div class="attachment">'+(f.url&&f.type&&f.type.startsWith('image')?'<img src="'+f.url+'" style="width:64px;height:48px;object-fit:cover;border-radius:5px;flex-shrink:0">':'▧ ')+esc(f.name)+'</div>').join('')}
+$('#file').addEventListener('change',()=>{
+ const files=[...$('#file').files].filter(f=>/^(image|video)\//.test(f.type));
+ $('#file').value='';
+ if(!files.length)return toast('请选择图片或视频');
+ donePhotos(uploadTarget,files);
+});
+
+function submitForm(){
+ if(!F.symps.size)return toast('请选择故障现象');
+ if(F.symps.has('其他')&&!F.detail.trim())return toast('选了「其他」，请在补充说明里写一句话');
+ if(!F.photos.length)return toast('请至少上传一张现场照片');
+ if(!F.sn&&!F.snMissing)return toast('请提供设备序列号，或勾选「找不到序列号」');
+ const r=addRecord({dev:F.device,sym:[...F.symps].join('、'),detail:F.detail,photos:F.photos,sn:F.sn,snMissing:F.snMissing,urg:F.urg});
+ openModal(resultHtml(r,'resetForm();closeModal();showPage(\'it\')'));
+}
+function resultHtml(r,again){
+ return '<div class="success"><div class="success-icon">✓</div><h3>报修提交成功</h3>'+
+  '<div class="number">报修单号<br><strong>'+esc(r.id)+'</strong></div>'+
+  '<span class="pill doing">'+esc(r.statusText)+(r.urg?' · 加急':'')+'</span>'+
+  '<p style="margin-top:12px;font-size:12px;color:#7a8796">'+(r.urg?'加急单，运维会在 30 分钟内处理；':'运维会尽快审核，')+'进度可在「我的报修」查看。</p>'+
+  '<div class="actions" style="justify-content:center"><button class="primary" data-act="viewOrder">查看报修记录</button><button class="outline" onclick="'+again+'">再报修一单</button></div></div>';
+}
+
+/* =====================================================================
+ * 序列号面板：拍标签识别 / 本店设备 / 自己查
+ * ===================================================================== */
+function snDialog(cb){
+ snCb=cb;
+ $('#snContent').innerHTML='<h3>获取设备序列号</h3>'+
+  '<div class="tabsx"><button class="on" data-tab="scan">拍标签识别</button><button data-tab="list">本店设备</button><button data-tab="how">自己查</button></div>'+
+  '<div data-pane="scan"><div class="cam">对准机身背面的标签拍照</div>'+
+   '<div class="actions" style="margin-top:0"><button class="primary" onclick="snShowResult()">使用演示识别结果</button><button class="outline" onclick="upload(\'sn\')">选择标签照片</button></div>'+
+   '<div id="snResult"></div><p class="hint">识别结果需要你确认后才会填入，不会自动提交。</p></div>'+
+  '<div data-pane="list" hidden><div class="options">'+
+   MY_DEVICES.filter(d=>d.dev===curDev()).map(d=>'<button class="option" data-ussn="'+esc(d.sn)+'">'+esc(d.n)+'<small>'+esc(d.dev)+' · '+esc(d.sn)+'</small></button>').join('')+
+   '</div><p class="hint">依赖设备台账，计划 P1 上线（此处为演示数据）。</p></div>'+
+  '<div data-pane="how" hidden><div class="ptips">'+
+   ({电脑:['电脑上双击「查看设备信息」，弹出的窗口会显示序列号','手机拨号盘输入 *#06* 可查看','显示器：机身背面底部标签'],手机:['手机拨号盘输入 *#06* 查看','或设置 › 关于手机 › 序列号','机身背面标签（如有）'],显示器:['看机身背面底部的标签','部分型号在侧面贴纸','没有标签就选「找不到序列号」']})[curDev()].map(t=>'<div class="ptip"><i>•</i><span>'+t+'</span></div>').join('')+
+   '</div><form id="snManual" style="margin-top:10px"><div class="field" style="border:0;padding:6px 0"><label>手动输入序列号</label><input name="sn" required placeholder="拍到的或查到的序列号"></div>'+
+   '<button class="primary" type="submit" style="width:100%">使用这个序列号</button></form></div>';
+ $('#snContent').querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{
+  $('#snContent').querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('on',x===b));
+  $('#snContent').querySelectorAll('[data-pane]').forEach(p=>p.hidden=p.dataset.pane!==b.dataset.tab);
+ });
+ $('#snContent').querySelectorAll('[data-ussn]').forEach(b=>b.onclick=()=>{closeSn();cb(b.dataset.ussn)});
+ $('#snManual').onsubmit=e=>{e.preventDefault();const v=e.target.sn.value.trim();if(!v)return;closeSn();cb(v)};
+ const m=$('#snModal');if(!m.open)m.showModal();
+}
+function closeSn(){const m=$('#snModal');if(m.open)m.close()}
+function curDev(){return(chatStarted&&E&&E.s.device)?E.s.device:F.device}
+function snShowResult(){
+ const n=$('#snResult');if(!n)return;
+ n.innerHTML='<div class="snres"><span>识别结果，请核对</span><b>'+SN_DEMO+'</b></div><div class="actions"><button class="primary" data-ussn="'+SN_DEMO+'">确认使用</button></div>';
+ n.querySelectorAll('[data-ussn]').forEach(b=>b.onclick=()=>{closeSn();snCb(b.dataset.ussn)});
+}
+let snCb=null;
+
+/* =====================================================================
+ * ④ AI 对话（IT 报修技能包）
+ * ===================================================================== */
+let E=null,chatStarted=false;
+const FOCUS={device:'设备类型',symptom:'故障现象',detail:'故障情况',photos:'现场照片',sn:'设备序列号',urgency:'是否影响营业'};
+function ctxBar(){$('#ctxBar').innerHTML='<div><strong>📍 '+esc(STORE.name)+'</strong>报修人：'+esc(STORE.reporter)+' '+mask(STORE.phone)+'</div><button class="textbtn" onclick="phoneModal()">修改</button>'}
+function el(c,html){const d=document.createElement('div');d.className=c;d.innerHTML=html;return d}
+function scrollChat(){const m=$('#messages');m.scrollTop=m.scrollHeight}
+function bot(html){$('#messages').append(el('msg','<div class="avatar">✦</div><div class="bubble">'+html+'</div>'));scrollChat()}
+function user(t){$('#messages').append(el('msg user','<div class="bubble">'+esc(t)+'</div>'));scrollChat()}
+function disableSiblings(b){b.closest('.options,.seg')?.querySelectorAll('button').forEach(x=>x.disabled=true);b.classList.add('selected')}
+
+function resetChat(){chatStarted=false;E=null;showPage('chat');freshSession(false)}
+function enterAI(){showPage('chat');if(!chatStarted)freshSession(true)}
+function freshSession(fromForm){
+ chatStarted=true;
+ E={state:'collecting',focus:'device',s:{device:fromForm?F.device:'',symptom:'',detail:'',photos:[],sn:'',snMissing:false,urgency:''}};
+ $('#messages').innerHTML='<div class="date">今天 · IT 设备报修</div>';ctxBar();
+ bot('白云翔你好！哪台 IT 设备出问题了，直接说，比如「收银电脑开不了机」。');
+ if(E.s.device)bot('已带入你在表单里选的设备：<b>'+E.s.device+'</b>，不对可以点下面的改。');
+ proceed(true);
+}
+function missing(){
+ const s=E.s;
+ if(!s.device)return 'device';
+ if(!s.symptom)return 'symptom';
+ if(s.symptom==='其他'&&!s.detail)return 'detail';
+ if(!s.photos.length)return 'photos';
+ if(!s.sn&&!s.snMissing)return 'sn';
+ if(!s.urgency)return 'urgency';
+ return '';
+}
+function proceed(quiet){
+ const m=missing();
+ if(m){E.state='collecting';E.focus=m;ask(m)}
+ else{E.state='confirm';E.focus='confirm';if(!quiet)bot('都齐了，核对一下：');confirmCard()}
+ ui();
+}
+function ask(m){
+ const s=E.s;
+ if(m==='device'){
+  const o=DEVICES.map(d=>'<button class="option'+(s.device===d?' pre':'')+'" data-act="pick" data-field="device" data-value="'+d+'">'+d+'</button>').join('');
+  bot('是哪类设备？点一下：'+'<div class="options">'+o+'</div>');
+ }else if(m==='symptom'){
+  const pre=E.cand||detectSym(lastText,s.device);
+  const o=SYM[s.device].map(x=>'<button class="option'+(x===pre?' pre':'')+'" data-act="pick" data-field="symptom" data-value="'+esc(x)+'">'+esc(x)+(x===pre?'<small>根据你的描述推荐 · 请点击确认</small>':'')+'</button>').join('');
+  bot(s.device+'是什么现象？点一个最接近的：'+'<div class="options">'+o+'</div>');
+ }else if(m==='detail'){
+  bot('用一句话说说故障情况，我来整理成报修描述。');
+ }else if(m==='photos'){
+  bot('<strong>现场照片</strong> <span class="pill" style="margin-left:6px">至少 1 张</span><div class="ptips">'+PHOTO_TIPS[s.device].map(t=>'<div class="ptip"><i>•</i><span>'+t+'</span></div>').join('')+'</div>'+
+   '<div class="actions"><button class="primary" data-act="photos">＋ 拍照上传</button><button class="outline" data-act="demoPhoto">使用演示照片</button></div>');
+ }else if(m==='sn'){
+  bot('还需要设备序列号，维修方靠它认设备。'+'<div class="actions"><button class="primary" data-act="snScan">拍机身标签识别</button><button class="outline" data-act="snHow">自己查</button></div>'+
+   '<div class="actions" style="margin-top:6px"><button class="textbtn" data-act="snNotFound">标签掉了，找不到序列号</button></div>');
+ }else if(m==='urgency'){
+  bot('<strong>这台设备影响营业吗？</strong><div class="seg" style="margin-top:8px"><button data-act="urg" data-value="影响营业，加急">影响营业，加急</button><button data-act="urg" data-value="不影响营业">不影响营业</button></div>');
+ }
+}
+const DEV_KW=[[/显示器|副屏/,'显示器'],[/手机/,'手机'],[/电脑|收银机|主机|笔记本|台式/,'电脑']];
+function detectSym(text,dev){
+ if(!text||!SYM[dev])return '';
+ for(const o of SYM[dev]){if(o==='其他')continue;for(const f of o.split(/[、/（]/).map(x=>x.trim())){if(f.length>=2&&text.includes(f))return o}}
+ return '';
+}
+let lastText='';
+function onText(t){
+ lastText=t;user(t);
+ if(E.state==='done')return toast('本单已提交，点「再报修一单」可重来');
+ if(E.state==='confirm')return toast('确认单上点蓝色字段修改，没问题就点「确认并提交」');
+ if(resumePending)return toast('请先选择是否继续上次的报修');
+ const s=E.s,got=[];
+ const d=DEV_KW.find(([r])=>r.test(t));
+ if(d&&s.device!==d[1]){s.device=d[1];s.symptom='';s.detail='';got.push('设备')}
+ if(!s.device)return bot('没听出来是哪类设备，点一下：'+'<div class="options">'+DEVICES.map(x=>'<button class="option" data-act="pick" data-field="device" data-value="'+x+'">'+x+'</button>').join('')+'</div>');
+ if(E.focus==='detail'&&!s.detail){s.detail=t;got.push('故障情况')}
+ else if(!s.symptom){E.cand=detectSym(t,s.device)}
+ else if(E.focus==='sn'&&/^[A-Za-z]{2,4}-?\d{5,}$/.test(t)){s.sn=t;got.push('设备序列号')}
+ if(!s.urgency&&/影响营业|加急|收银用不了|开不了单|营业不了/.test(t)){s.urgency='影响营业，加急';got.push('影响营业')}
+ if(got.length)bot('记下了：'+got.join('、')+'。');
+ proceed();
+}
+function sendText(){
+ if(!E||!chatStarted)return;
+ const v=$('#input').value.trim();if(!v)return;
+ $('#input').value='';onText(v);
+}
+function useSample(){if(!E)return;$('#input').value=SAMPLE;$('#input').focus();toast('已填入示例台词，可直接发送')}
+
+/* ---------- 确认单 ---------- */
+function row(label,field,value,editable){
+ const tag=editable?'<span class="badge-ai">点此修改</span>':'';
+ return '<div class="data-row"><span>'+esc(label)+tag+'</span>'+(editable?'<button data-act="edit" data-field="'+field+'">'+value+'</button>':'<b>'+value+'</b>')+'</div>';
+}
+function confirmCard(){
+ document.querySelectorAll('#messages .confirmwrap').forEach(n=>n.classList.add('stale'));
+ const s=E.s;
+ const snVal=s.snMissing?'找不到，待运维补录':esc(s.sn);
+ const phVal=s.photos.length?'<span>'+s.photos.length+' 张</span>':'<span style="color:#b3543f">未上传</span>';
+ bot('<div class="confirm"><h3>IT 报修预填确认单</h3><small>请核对各字段，点蓝色字段可修改</small>'+
+  '<div class="sectionlabel">基础信息（系统带出）</div>'+
+  row('门店名称','',esc(STORE.name),false)+row('门店编号','',STORE.no,false)+row('联系电话','phone',mask(STORE.phone),true)+
+  '<div class="sectionlabel">设备与故障（本次填写）</div>'+
+  row('设备类型','device',esc(s.device),true)+
+  row('故障现象','symptom',esc(s.symptom),true)+
+  row('故障情况','detail',s.detail?esc(s.detail):'<span style="color:#9aa7b6">未填写</span>',true)+
+  row('现场照片','photos',phVal,true)+
+  row('设备序列号','sn',snVal,true)+
+  row('影响营业','urgency',esc(s.urgency||'未选择'),true)+
+  '<small>核对无误后，点底栏「✓ 确认并提交」</small></div>');
+ $('#messages').lastElementChild.classList.add('confirmwrap');
+}
+function editField(field){
+ const s=E.s;
+ if(field==='device')pickModal('重选设备类型',DEVICES,v=>{s.device=v;s.symptom='';s.detail='';bot('设备改成了「'+v+'」，现象需要重新选。');proceed()});
+ else if(field==='symptom')pickModal('重选故障现象',SYM[s.device],v=>{s.symptom=v;proceed()});
+ else if(field==='detail')textModal('修改故障情况','一句话说说现象，≤100 字',v=>{s.detail=v;bot('故障情况已更新。');proceed()});
+ else if(field==='urgency')pickModal('是否影响营业',['影响营业，加急','不影响营业'],v=>{s.urgency=v;proceed()});
+ else if(field==='phone')phoneModal();
+ else if(field==='photos')upload('ai');
+ else if(field==='sn')snDialog(snForChat);
+}
+function snForChat(sn){if(!E)return;E.s.sn=sn;E.s.snMissing=false;bot('序列号记下了，确认单上可以核对。');if(E.state==='confirm')confirmCard();else proceed()}
+
+function submitOrder(){
+ if(!E||E.state!=='confirm')return;
+ const s=E.s;
+ const r=addRecord({dev:s.device,sym:s.symptom,detail:s.detail,photos:s.photos,sn:s.sn,snMissing:s.snMissing,urg:s.urgency==='影响营业，加急'});
+ E.state='done';E.focus='done';
+ bot(resultHtml(r,'resetChat()'));
+ ui();
+}
+function ui(){
+ if(!E)return;
+ const done=E.state==='done',lock=done;
+ $('#input').disabled=lock;$('#send').disabled=lock;
+ $('#input').placeholder=done?'本单已提交':'说说哪台设备、什么现象…';
+ $('#submitBar').classList.toggle('on',E.state==='confirm');
+ $('#stateBadge').textContent=done?'已提交 ✓':(E.state==='confirm'?'请核对确认单':'采集中 · '+(FOCUS[E.focus]||''));
+}
+
+/* =====================================================================
+ * 手势分发
+ * ===================================================================== */
+function gesture(g){
+ if(g.type==='upload_done'){
+  const a=g.attachments||[];
+  E.s.photos.push(...a.map(x=>({name:x.name,url:x.url})));
+  bot('收到 '+a.length+' 张照片。');
+  if(E.state==='confirm')confirmCard();else proceed();
+ }
+}
+document.addEventListener('click',e=>{
+ if(e.target.closest('[data-close]')){closeModal();return}
+ const b=e.target.closest('[data-act]');
+ if(!b||b.closest('.stale')||b.disabled)return;
+ const s=E?E.s:null;
+ switch(b.dataset.act){
+  case 'pick':{
+   disableSiblings(b);
+   const f=b.dataset.field,v=b.dataset.value;
+   if(f==='device'){if(s.device!==v){s.symptom='';s.detail=''}s.device=v}
+   else s.symptom=v;
+   bot('「'+(f==='device'?'设备':'现象')+'」登记为「'+v+'」。');
+   if(f==='symptom'&&v==='其他')E.state='collecting';
+   proceed();break}
+  case 'urg':disableSiblings(b);s.urgency=b.dataset.value;proceed();break;
+  case 'photos':upload('ai');break;
+  case 'demoPhoto':demoPhoto('ai');break;
+  case 'snScan':{
+   b.disabled=true;b.textContent='识别中…';
+   setTimeout(()=>{bot('标签识别到序列号 <b>'+SN_DEMO+'</b>，对吗？'+'<div class="actions"><button class="primary" data-ussn2>对，用这个</button><button class="outline" data-act="snNo">不对，重新拍</button></div>')},600);break}
+  case 'snNo':ask('sn');break;
+  case 'snHow':snDialog(snForChat);break;
+  case 'snNotFound':s.snMissing=true;bot('好的，先这样提交，运维会帮你补录序列号。');proceed();break;
+  case 'edit':editField(b.dataset.field);break;
+  case 'viewOrder':closeModal();showPage('records');break;
+ }
+ if(b.hasAttribute('data-ussn2')){disableSiblings(b);snForChat(SN_DEMO)}
+});
+$('#input').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();sendText()}});
+$('#submitBar').addEventListener('click',submitOrder);
+let resumePending=false;
+
+/* =====================================================================
+ * ⑤⑥ 我的报修 / 详情（门店要做的动作在这里）
+ * ===================================================================== */
+const TABNAME={all:'全部',todo:'待我确认',doing:'处理中',done:'已完成'};
+function renderRecords(){
+ document.querySelectorAll('.stab').forEach(b=>b.classList.toggle('active',b.textContent===TABNAME[recTab]));
+ const list=records.filter(r=>r.mine&&(
+  recTab==='all'?true:
+  recTab==='todo'?['quote','accept'].includes(r.status):
+  recTab==='done'?['done','closed'].includes(r.status):
+  !['done','closed'].includes(r.status)));
+ $('#recList').innerHTML=list.length?list.map(r=>'<button class="rec" onclick="openRecord(\''+r.id+'\')">'+
+  '<span class="rrow"><span class="rid">'+esc(r.id)+'</span><span style="display:flex;gap:6px">'+(r.urg&&r.status!=='done'?'<span class="pill doing">加急</span>':'')+'<span class="'+pillOf(r)+'">'+esc(r.statusText)+'</span></span></span>'+
+  '<span class="meta"><span>'+esc(r.dev)+' · '+esc(r.sym)+'</span><span>提交 '+esc(r.submitted)+'</span></span></button>').join('')
+  :'<div class="mfoot" style="padding:30px 0">这里还没有报修单</div>';
+}
+function kv(l,v){return '<div class="data-row"><span>'+esc(l)+'</span><b>'+v+'</b></div>'}
+function openRecord(id){
+ const r=records.find(x=>x.id===id);if(!r)return;
+ $('#dTitle').textContent=r.id;$('#dPill').textContent=r.statusText;$('#dPill').className=pillOf(r);
+ let act='';
+ if(r.status==='quote'){
+  act='<div class="cardx"><h4>维修费用需要你确认</h4>'+kv('维修方案',esc(r.quote.plan))+kv('费用','<b style="font-size:16px">'+esc(r.quote.price)+'</b> 由门店承担')+kv('运维核价',esc(r.quote.check))+kv('请于',esc(r.quote.due)+' 前确认')+
+   '<div class="actions"><button class="primary" onclick="quoteOk(\''+r.id+'\')">同意维修</button><button class="outline" onclick="quoteNo(\''+r.id+'\')">不同意，申请换新</button><button class="outline" onclick="toast(\'已通知运维，会有人联系你\')">想先问一下</button></div>'+
+   '<p class="hint">同意后会通知供应商继续维修；这笔费用之后按这个记录结算。</p></div>';
+ }else if(r.status==='accept'){
+  act='<div class="cardx"><h4>设备修好了吗？</h4><div class="actions"><button class="primary" onclick="acceptOk(\''+r.id+'\')">修好了</button><button class="outline" onclick="acceptBad(\''+r.id+'\')">没修好，需要再来看</button></div></div>';
+ }
+ $('#dBody').innerHTML='<div class="sectionlabel">处理进度</div><div class="tl">'+r.tl.map(x=>'<div class="tl-item '+(x[2]==='done'?'done':x[2]==='doing'?'doing':'dim')+'"><span class="tl-dot"></span><span><div class="tlabel">'+esc(x[0])+(x[2]==='doing'?' · 进行中':'')+'</div><div class="ttime">'+esc(x[1])+'</div></span></div>').join('')+'</div>'+
+  act+
+  '<div class="sectionlabel">报修内容</div>'+kv('门店',esc(STORE.name))+kv('设备',esc(r.dev)+' · '+esc(r.sym))+kv('设备序列号',esc(r.sn||(r.snMissing?'待运维补录':'—')))+kv('是否影响营业',r.urg?'是，加急':'否')+
+  (r.detail?'<div class="sectionlabel">故障情况</div><div class="detail">'+esc(r.detail)+'</div>':'')+
+  '<div class="sectionlabel">现场照片（'+(r.photos||[]).length+'）</div>'+(r.photos||[]).map(p=>'<div class="attachment">▧ '+esc(typeof p==='string'?p:p.name)+'</div>').join('');
+ showPage('detail');
+}
+function quoteOk(id){
+ const r=records.find(x=>x.id===id);if(!r)return;
+ const t='今天 '+clock();
+ r.status='repairing';r.statusText='维修中';setStep(r,'门店确认报价','done',t);
+ r.tl.splice(r.tl.findIndex(x=>x[0].indexOf('门店验收')===0),0,['供应商继续维修',t,'doing']);
+ openRecord(id);toast('已同意，供应商会继续维修');
+}
+function quoteNo(id){
+ const r=records.find(x=>x.id===id);if(!r)return;
+ openModal('<h3>不同意这笔报价</h3><p>报修单会转给运维做换新评估；超过三年的设备财务建议直接换新。</p><div class="options">'+
+  '<button class="option" onclick="toReplace(\''+id+'\')">申请换新评估（转 IT 申请）</button>'+
+  '<button class="option" onclick="closeModal();toast(\'已通知运维，会有人联系你\')">先和运维沟通</button>'+
+  '<button class="option" data-close>返回</button></div>');
+}
+function toReplace(id){
+ const r=records.find(x=>x.id===id);closeModal();
+ r.status='closed';r.statusText='已转换新';setStep(r,'门店确认报价','done','今天 '+clock);
+ r.tl.splice(r.tl.findIndex(x=>x[0].indexOf('门店验收')===0),0,['转 IT 申请（换新评估）','今天 '+clock(),'done']);
+ r.tl.forEach(x=>{if(x[2]==='doing')x[2]=''});openRecord(id);toast('已转 IT 申请，报修单会关联申请单号');
+}
+function acceptOk(id){
+ const r=records.find(x=>x.id===id);if(!r)return;
+ $('#dBody').querySelector('.cardx').innerHTML='<h4>给这次维修打个分</h4><div class="stars" id="stars">'+[1,2,3,4,5].map(n=>'<button data-star="'+n+'">★</button>').join('')+'</div>'+
+  '<div class="actions" style="justify-content:center"><button class="primary" id="rateDone">提交评价</button><button class="textbtn" id="rateSkip" style="align-self:center">跳过</button></div>';
+ let n=5;const paint=()=>$('#stars').querySelectorAll('button').forEach(b=>b.classList.toggle('on',+b.dataset.star<=n));paint();
+ $('#stars').querySelectorAll('button').forEach(b=>b.onclick=()=>{n=+b.dataset.star;paint()});
+ const fin=()=>{r.status='done';r.statusText='已完成';r.rating=n;setStep(r,'门店验收','done','今天 '+clock());r.tl.forEach(x=>{if(x[0].indexOf('门店验收')===0)x[0]='门店验收 · 评价 '+n+' 星'});openRecord(id);toast('已确认修好，感谢评价')};
+ $('#rateDone').onclick=fin;$('#rateSkip').onclick=fin;
+}
+function acceptBad(id){
+ const r=records.find(x=>x.id===id);if(!r)return;
+ r.status='repairing';r.statusText='维修中';
+ r.tl.splice(r.tl.findIndex(x=>x[0].indexOf('门店验收')===0),0,['门店反馈没修好 · 二次维修','今天 '+clock(),'doing']);
+ r.tl.forEach(x=>{if(x[0].indexOf('门店验收')===0){x[1]='—';x[2]=''}});
+ openRecord(id);toast('已通知供应商二次维修，报修单不会关闭');
+}
+
+/* =====================================================================
+ * ⑦⑧ 运维视角：审核与派单
+ * ===================================================================== */
+function renderOps(){
+ const list=records.filter(r=>r.status==='pending').sort((a,b)=>(b.urg?1:0)-(a.urg?1:0));
+ $('#opsList').innerHTML=(list.length?'':'<div class="mfoot" style="padding:30px 0">没有待审核的报修单</div>')+list.map(r=>'<button class="rec" onclick="openOps(\''+r.id+'\')">'+
+  '<span class="rrow"><span class="rid">'+esc(r.id)+'</span><span style="display:flex;gap:6px">'+(r.urg?'<span class="pill doing">加急</span>':'')+'<span class="pill '+(r.check==='manual'?'doing':'ok')+'">'+(r.check==='manual'?'需人工':'预检通过')+'</span></span></span>'+
+  '<span class="meta"><span>'+esc(r.store||STORE.name)+'</span><span>提交 '+esc(r.submitted)+'</span></span>'+
+  '<div style="margin-top:4px;font-size:12.5px">'+esc(r.dev)+' · '+esc(r.sym)+'</div>'+
+  (r.checkNote?'<div style="margin-top:4px;font-size:11px;color:#b07a2a">'+esc(r.checkNote)+'</div>':'')+'</button>').join('');
+}
+function openOps(id){
+ const r=records.find(x=>x.id===id);if(!r)return;
+ const ph=(r.photos||[]).map(p=>'<div class="attachment">▧ '+esc(typeof p==='string'?p:p.name)+'</div>').join('');
+ $('#opsBody').innerHTML='<div class="detailhead" style="padding:14px 0 4px"><h2>'+esc(r.id)+'</h2><span style="display:flex;gap:6px">'+(r.urg?'<span class="pill doing">加急</span>':'')+'<span class="pill '+(r.check==='manual'?'doing':'ok')+'">'+(r.check==='manual'?'需人工':'预检通过')+'</span></span></div>'+
+  '<div class="sectionlabel">报修信息</div>'+kv('门店',esc(r.store||STORE.name))+kv('联系人',esc(STORE.reporter)+' '+mask(STORE.phone))+kv('设备',esc(r.dev)+' · '+esc(r.sym))+kv('设备序列号',esc(r.sn||'待补录'))+
+  kv('台账',esc(r.ledger))+kv('历史报修',r.dev==='电脑'?'这台设备 1 次（08-12，已完结）':'无')+kv('是否影响营业',r.urg?'是':'否')+
+  (r.detail?'<div class="sectionlabel">故障情况</div><div class="detail">'+esc(r.detail)+'</div>':'')+
+  '<div class="sectionlabel">现场照片</div>'+(ph||'<div class="mfoot">无</div>')+
+  '<div class="sectionlabel">远程诊断建议（可选，门店可见）</div><textarea id="opsAdvice" maxlength="100" placeholder="例如：先检查插排和电源线，确认插座有电" style="width:100%;min-height:56px;border:1px solid #dce2e9;border-radius:8px;padding:10px;font-size:13px;resize:vertical"></textarea>'+
+  '<p class="hint" style="margin-top:8px">加急单需在 30 分钟内处理，超时自动提醒负责人。供应商已按台账预选，可改。</p>';
+ $('#opsFoot').innerHTML='<button class="primary" onclick="opsApprove(\''+id+'\')">通过并派单</button><button class="outline" onclick="opsReject(\''+id+'\')">驳回</button><button class="outline" onclick="opsReplace(\''+id+'\')">转 IT 申请</button>';
+ showPage('opsdetail');
+}
+function opsApprove(id){
+ const r=records.find(x=>x.id===id);if(!r)return;ensureTl(r);
+ const pre=(r.ledger||'').indexOf('小熊U租')===0?'小熊U租':'易点租';
+ pickModal('派给哪家供应商',['易点租','小熊U租'],v=>{
+  r.status='assigned';r.statusText='已派单';
+  setStep(r,'运维审核','done','今天 '+clock());r.tl.find(x=>x[0].indexOf('运维审核')===0)[0]='运维审核通过 · 张工';
+  setStep(r,'派单','done','今天 '+clock());r.tl.find(x=>x[0]==='派单')[0]='已派单 · '+v;
+  setStep(r,'供应商接单','doing');
+  showPage('ops');toast('已派单给 '+v+'，门店会收到通知');
+ },'台账显示：'+r.ledger+'。推荐：'+pre);
+}
+function opsReject(id){
+ openModal('<h3>驳回，让门店补充</h3><p>门店会看到你写的原因，修改后重新提交。</p><div class="options">'+
+  ['设备序列号不对，请重新提供','故障现象与照片对不上','重复报修，已有在修单'].map(x=>'<button class="option" data-rj="'+esc(x)+'">'+x+'</button>').join('')+'<button class="option" data-close>返回</button></div>');
+ $('#modal').querySelectorAll('[data-rj]').forEach(b=>b.onclick=()=>{
+  const r=records.find(x=>x.id===id);closeModal();ensureTl(r);
+  r.status='supplement';r.statusText='待补充';setStep(r,'运维审核','done','今天 '+clock());
+  r.tl.splice(2,0,['待门店补充：'+b.dataset.rj,'今天 '+clock(),'doing']);
+  showPage('ops');toast('已驳回，门店会收到补充提示');
+ });
+}
+function opsReplace(id){
+ const r=records.find(x=>x.id===id);if(!r)return;ensureTl(r);
+ r.status='closed';r.statusText='已转换新';setStep(r,'运维审核','done','今天 '+clock());
+ r.tl.splice(2,0,['转 IT 申请（换新）','今天 '+clock(),'done']);r.tl.forEach(x=>{if(x[2]==='doing')x[2]=''});
+ showPage('ops');toast('已转 IT 申请，报修单关联申请单号');
+}
+
+/* ---------- 启动 ---------- */
+syncIdentity();setDev('电脑');
+</script>
+</body>
+</html>

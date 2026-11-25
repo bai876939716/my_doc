@@ -1,0 +1,86 @@
+@startuml 产品交互流程图
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam ActivityBackgroundColor #FFFFFF
+skinparam ActivityBorderColor #90A4AE
+skinparam ActivityDiamondBackgroundColor #FFFDE7
+skinparam ActivityDiamondBorderColor #E0C96B
+skinparam ArrowColor #607D8B
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #E0C96B
+
+title 门店 IT 报修 · 服务助手交互流程（hotshop · 表单式为主，对话式并列）
+
+start
+:进入 App「服务助手」;
+:首页「我要报修」卡片保持现有样式
+新增「IT 设备报修」入口;
+note right
+  现有报修分类里没有 IT 类，
+  IT 设备（电脑 / 手机 / 显示器）走新入口
+end note
+
+:登录态自动带出
+门店 / 联系人 / 联系电话 / 区域 / 地址;
+:选设备：手机 / 电脑 / 显示器;
+
+if (先看自助指引？) then (已解决)
+  :记录一次自助解决，结束;
+  stop
+else (没解决 / 跳过)
+endif
+
+partition "门店只填 4 项" {
+  if (填写方式) then (表单式 · 默认)
+    :故障现象：按设备类型的选项，可多选
+选「其他」时才要求写补充说明;
+    :现场照片：至少 1 张;
+    if (序列号怎么给？) then (拍标签识别)
+      :识别结果需用户确认后填入;
+    elseif (找不到) then (标记找不到)
+      :勾选「标签掉了 / 找不到」
+允许提交，运维补录;
+    else (自己查 / 以后从本店设备选)
+      :查看获取方法
+（P1：台账接入后直接选设备）;
+    endif
+    :「影响营业吗」开关，打开即加急;
+  else (对话式 · AI 智能填报)
+    :一句大白话说清哪台设备、什么现象;
+    :AI 识别设备与现象 → 卡片点选确认
+（识别结果必须点选才入库）;
+    :拍照引导卡（屏幕 + 机身标签）
+标签识别序列号 → 确认;
+    :预填确认单：带出 5 项 + 采集 4 项
+点蓝色字段可改;
+  endif
+}
+
+:点击【提交报修】;
+:提交即自动预检
+必填 / 序列号格式 / 台账归属 / 重复在修单 / 设备年限;
+
+if (预检结果) then (正常)
+  :状态「待审核」→ 运维确认后派单;
+else (有例外)
+  :标出例外项，运维人工审核;
+endif
+
+:提交成功，返回报修单号
+加急单告知 30 分钟内响应;
+
+partition "提交后 · 门店可见的节点" {
+  :审核通过（驳回则按提示补充重提）;
+  :已派单 → 供应商已接单 → 维修中;
+  if (保外或门店损坏) then (需要报价)
+    :收到「报价确认」卡片
+同意维修 / 不同意申请换新 / 先问问;
+  else (不需要)
+  endif
+  :收到「修好了吗」
+修好了并评价 / 没修好（二次维修）;
+}
+:结算完成，报修单关闭;
+stop
+@enduml
