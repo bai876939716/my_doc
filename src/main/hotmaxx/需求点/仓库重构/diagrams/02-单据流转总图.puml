@@ -1,0 +1,91 @@
+@startuml 02-单据流转总图
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #607D8B
+  LifeLineBorderColor #B0BEC5
+  ParticipantBackgroundColor #E3F2FD
+  ParticipantBorderColor #90A4AE
+  ActorBackgroundColor #FFFDE7
+}
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #E0C96B
+
+title 仓储单据流转总图：每张单据，谁把什么交给谁\n参与方从左到右 = 货的方向（供应商 → 仓库 → 司机 → 门店），采购员和中台在左侧发单
+
+actor "供应商" as SUP
+actor "采购员\n（在 CRM 操作）" as BUY
+participant "中台" as MID
+actor "仓库\n（在 WMS 操作）" as WH
+actor "司机\n（用司机端 / PDA）" as DRV
+actor "门店" as ST
+
+== 1 采购单（入仓单） ==
+BUY -> BUY : ① 发起采购单\n② 创建采购发货单
+SUP -> WH : 发货到仓\n（笔记未单列，按常理补）
+BUY -> MID : ③ 推送中台
+MID -> WH : ④ 中台推送 WMS
+WH --> MID : ⑤ 回传实收
+note over BUY, WH
+  ⑥ 关单：指令关单 / 条件关单
+  不允许超收
+end note
+
+== 2 配货单（出库单） ==
+note over MID
+  来源一：计划配货单提交后推到大数据中间表，定时任务生成配货单
+  来源二：中台创建手工单
+end note
+MID -> WH : ① 中台下发 WMS
+note over DRV : ② 通知司机到仓取货\n（谁通知的笔记未写）
+DRV -> WH : ③ 签到并取货
+WH --> MID : ④ 回传出库
+DRV -> ST : ⑤ 到店\n⑥ PDA 交接
+ST -> ST : ⑦ 录入到货信息\n⑧ 收货提交
+ST -> ST : ⑨ 核对是否差异
+alt 有差异
+  ST -> ST : ⑩ 生成差异单
+else 无差异
+  ST -> ST : ⑩ 单据变更完成
+end
+
+== 3 门店库存调整单 ==
+note over ST : 访谈只记了「门店」，流程未记录
+
+== 4 退货单 ==
+note over ST, MID
+  中台通知退货单：中台发起，只能退指定商品
+  普通退货单：不限制商品范围
+  两种都经过：中台审核 → 状态变为「已通过」
+end note
+ST -> MID : ① 退货单推送中台\n（从门店推是推测）
+MID -> MID : ② 生成物流单\n多张单可合成一个
+MID -> ST : ③ 推送门店
+MID -> WH : ③ 推送 WMS
+note over ST, WH : 状态变更为「退仓中」
+DRV -> ST : ④ 取货
+WH --> MID : ⑤ 回传收货
+
+== 5 库位转移单 ==
+note over WH : 同一仓库内，不同库位之间转移 SKU 数量\n流程未记录
+
+== 6 仓间调拨单 ==
+MID -> MID : ① 创建\n② 审核
+MID -> WH : ③ 下发发货通知单\n（给发货仓 A）
+MID -> WH : ④ 下发收货通知单\n（给收货仓 B）
+note over WH : 之后的 A 仓发货、在途、B 仓收货、回传\n访谈未记录
+
+== 7 库存调整单 ==
+MID -> MID : ① 创建\n② 审核
+MID -> WH : ③ 下发 WMS
+WH --> MID : ④ 回传结果\n盘盈 / 盘亏
+
+== 8 退供单 ==
+BUY -> BUY : ① 发起\n② 审核\n审核通过后创建退仓单
+BUY -> MID : ③ 推送中台
+MID -> WH : ④ 下发 WMS 出库单
+WH --> MID : ⑤ 回传实际出库
+WH -> SUP : 货退给供应商\n（笔记未单列，按常理补）
+@enduml

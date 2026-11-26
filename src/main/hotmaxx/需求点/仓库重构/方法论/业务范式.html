@@ -1,0 +1,93 @@
+<html style="margin:0;padding:0;">
+<head>
+<meta charset="UTF-8">
+</head>
+<div style="background-color:transparent;box-sizing:border-box;padding:2px;">
+    <div style="font-family:'Roboto','PingFang SC','Segoe UI',Arial,sans-serif;color:#1A1B1C;">
+
+        <div style="font-size:15px;font-weight:600;">复杂业务系统穿透图：主线 → 单据 → 状态 → 规则</div>
+        <div style="font-size:12px;color:#6B7280;margin:4px 0 12px;">方法示意，不代表任何具体系统的实际架构</div>
+
+        <div style="border:1px solid rgba(0,0,0,0.08);background:rgba(139,200,234,0.10);border-radius:14px;padding:12px;box-sizing:border-box;margin-bottom:10px;">
+            <div style="font-size:12px;font-weight:600;margin-bottom:8px;">第 1 步 · 找价值主链路<span style="font-weight:400;color:#6B7280;">（零售折扣业态示例，换成本行业的等价链路即可）</span></div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
+                <span style="flex:1 1 72px;text-align:center;font-size:12px;padding:6px 4px;border-radius:8px;background:rgba(139,200,234,0.35);">商品建档</span>
+                <span style="font-size:11px;color:#9CA3AF;">›</span>
+                <span style="flex:1 1 72px;text-align:center;font-size:12px;padding:6px 4px;border-radius:8px;background:rgba(139,200,234,0.35);">采购下单</span>
+                <span style="font-size:11px;color:#9CA3AF;">›</span>
+                <span style="flex:1 1 72px;text-align:center;font-size:12px;padding:6px 4px;border-radius:8px;background:rgba(139,200,234,0.35);">到仓入库</span>
+                <span style="font-size:11px;color:#9CA3AF;">›</span>
+                <span style="flex:1 1 72px;text-align:center;font-size:12px;padding:6px 4px;border-radius:8px;background:rgba(139,200,234,0.35);">调拨上架</span>
+                <span style="font-size:11px;color:#9CA3AF;">›</span>
+                <span style="flex:1 1 72px;text-align:center;font-size:12px;padding:6px 4px;border-radius:8px;background:rgba(139,200,234,0.35);">门店销售</span>
+                <span style="font-size:11px;color:#9CA3AF;">›</span>
+                <span style="flex:1 1 72px;text-align:center;font-size:12px;padding:6px 4px;border-radius:8px;background:rgba(139,200,234,0.35);">日结对账</span>
+                <span style="font-size:11px;color:#9CA3AF;">›</span>
+                <span style="flex:1 1 72px;text-align:center;font-size:12px;padding:6px 4px;border-radius:8px;background:rgba(139,200,234,0.35);">退货冲销</span>
+            </div>
+            <div style="font-size:12px;color:#6B7280;margin-top:10px;line-height:1.5;">只追一件货 / 一笔单走完全程，模块之间的关系会自己浮现，比通读功能清单快一个量级。</div>
+        </div>
+
+        <div style="font-size:12px;font-weight:600;margin:2px 0 8px;">第 2 步 · 三层穿透（越往下越接近“深入业务”）</div>
+
+        <div style="display:flex;flex-wrap:wrap;gap:10px;border-radius:12px;padding:10px 12px;box-sizing:border-box;background:rgba(139,200,234,0.18);margin-bottom:8px;">
+            <div style="flex:0 0 62px;min-width:62px;font-size:12px;font-weight:600;line-height:1.4;">单据层<br><span style="font-weight:400;color:#6B7280;font-size:11px;">有什么</span></div>
+            <div style="flex:1 1 220px;min-width:0;">
+                <div style="display:flex;flex-wrap:wrap;gap:5px;">
+                    <span style="font-size:11px;padding:3px 7px;border-radius:6px;background:#FFFFFF;">采购单</span>
+                    <span style="font-size:11px;padding:3px 7px;border-radius:6px;background:#FFFFFF;">入库单</span>
+                    <span style="font-size:11px;padding:3px 7px;border-radius:6px;background:#FFFFFF;">调拨单</span>
+                    <span style="font-size:11px;padding:3px 7px;border-radius:6px;background:#FFFFFF;">销售单</span>
+                    <span style="font-size:11px;padding:3px 7px;border-radius:6px;background:#FFFFFF;">退货单</span>
+                    <span style="font-size:11px;padding:3px 7px;border-radius:6px;background:#FFFFFF;">结算单</span>
+                </div>
+                <div style="font-size:12px;color:#6B7280;margin-top:6px;line-height:1.5;">单据是业务的原子，单据之间的流转关系就是系统骨架。</div>
+            </div>
+        </div>
+
+        <div style="display:flex;flex-wrap:wrap;gap:10px;border-radius:12px;padding:10px 12px;box-sizing:border-box;background:rgba(155,187,244,0.20);margin-bottom:8px;">
+            <div style="flex:0 0 62px;min-width:62px;font-size:12px;font-weight:600;line-height:1.4;">状态层<br><span style="font-weight:400;color:#6B7280;font-size:11px;">怎么动</span></div>
+            <div style="flex:1 1 220px;min-width:0;">
+                <div style="font-size:12px;line-height:1.6;letter-spacing:0.2px;">待审 → 已审 → 已入 → 已出 → 已结 → 已冲销</div>
+                <div style="font-size:12px;color:#6B7280;margin-top:6px;line-height:1.5;">状态机是隐藏的规则库：每次跃迁都带条件、角色、时限；卡住的单子就是规则漏洞。</div>
+            </div>
+        </div>
+
+        <div style="display:flex;flex-wrap:wrap;gap:10px;border-radius:12px;padding:10px 12px;box-sizing:border-box;background:rgba(225,185,143,0.26);margin-bottom:10px;">
+            <div style="flex:0 0 62px;min-width:62px;font-size:12px;font-weight:600;line-height:1.4;">规则层<br><span style="font-weight:400;color:#6B7280;font-size:11px;">为什么</span></div>
+            <div style="flex:1 1 220px;min-width:0;">
+                <div style="display:flex;flex-wrap:wrap;gap:5px;">
+                    <span style="font-size:11px;padding:3px 7px;border-radius:6px;background:#FFFFFF;">金额与折扣口径</span>
+                    <span style="font-size:11px;padding:3px 7px;border-radius:6px;background:#FFFFFF;">库存扣减时点</span>
+                    <span style="font-size:11px;padding:3px 7px;border-radius:6px;background:#FFFFFF;">审批权限</span>
+                    <span style="font-size:11px;padding:3px 7px;border-radius:6px;background:#FFFFFF;">异常归属</span>
+                    <span style="font-size:11px;padding:3px 7px;border-radius:6px;background:#FFFFFF;">重复提交与冲正</span>
+                </div>
+                <div style="font-size:12px;color:#6B7280;margin-top:6px;line-height:1.5;">“深入业务”真正发生在这里：同样的动作，为什么这次允许、下次拒绝。</div>
+            </div>
+        </div>
+
+        <div style="font-size:12px;font-weight:600;margin:2px 0 8px;">第 3 步 · 四个信息抓手（按投入产出比排序）</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            <div style="flex:1 1 132px;min-width:0;padding:10px;border-radius:12px;border:1px solid rgba(0,0,0,0.08);background:rgba(255,255,255,0.7);box-sizing:border-box;">
+                <div style="font-size:12px;font-weight:600;">① 数据</div>
+                <div style="font-size:11px;color:#6B7280;margin-top:4px;line-height:1.5;">表结构 + 字段注释 + 真实样本。问“这张表谁写、什么时候写、写错谁修”。</div>
+            </div>
+            <div style="flex:1 1 132px;min-width:0;padding:10px;border-radius:12px;border:1px solid rgba(0,0,0,0.08);background:rgba(255,255,255,0.7);box-sizing:border-box;">
+                <div style="font-size:12px;font-weight:600;">② 人</div>
+                <div style="font-size:11px;color:#6B7280;margin-top:4px;line-height:1.5;">一线操作者、财务结算、客服。问“哪三件事最烦、最怕出错”。</div>
+            </div>
+            <div style="flex:1 1 132px;min-width:0;padding:10px;border-radius:12px;border:1px solid rgba(0,0,0,0.08);background:rgba(255,255,255,0.7);box-sizing:border-box;">
+                <div style="font-size:12px;font-weight:600;">③ 异常</div>
+                <div style="font-size:11px;color:#6B7280;margin-top:4px;line-height:1.5;">对账不平、负库存、重复支付、状态卡死。问“上次出事怎么发现的”。</div>
+            </div>
+            <div style="flex:1 1 132px;min-width:0;padding:10px;border-radius:12px;border:1px solid rgba(0,0,0,0.08);background:rgba(255,255,255,0.7);box-sizing:border-box;">
+                <div style="font-size:12px;font-weight:600;">④ 版本</div>
+                <div style="font-size:11px;color:#6B7280;margin-top:4px;line-height:1.5;">需求变更单、上线时间线。问“这个奇怪逻辑当初为什么这么设计”。</div>
+            </div>
+        </div>
+
+        <div style="font-size:12px;color:#6B7280;margin-top:10px;line-height:1.5;">顺序不能颠倒：先有主线（1–3 天）→ 再穿透三层（1–2 周）→ 最后靠异常与版本持续加深。</div>
+    </div>
+</div>
+</html>

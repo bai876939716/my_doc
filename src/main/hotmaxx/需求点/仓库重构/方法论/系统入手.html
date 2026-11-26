@@ -1,0 +1,126 @@
+<html style="margin:0;padding:0;">
+<head>
+    <meta charset="UTF-8">
+</head>
+<div style="background-color:transparent;box-sizing:border-box;font-family:'Roboto','PingFang SC','Segoe UI',Arial,sans-serif;color:#1A1B1C;--accent:#8BC8EA;">
+    <div style="box-sizing:border-box;padding:2px;">
+
+        <div style="font-size:11.5px;color:#6B7280;letter-spacing:.5px;margin-bottom:8px;">分析主线：由外到内，先骨架后细节</div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-bottom:16px;">
+            <span style="font-size:11.5px;padding:4px 8px;border-radius:6px;background:rgba(139,200,234,.30);color:#1d4d66;font-weight:600;">0 定目的</span>
+            <span style="color:#9aa3ad;font-size:11px;">›</span>
+            <span style="font-size:11.5px;padding:4px 8px;border-radius:6px;background:rgba(139,200,234,.22);color:#1d4d66;">1 划边界</span>
+            <span style="color:#9aa3ad;font-size:11px;">›</span>
+            <span style="font-size:11.5px;padding:4px 8px;border-radius:6px;background:rgba(139,200,234,.22);color:#1d4d66;">2 跑通一条主链路</span>
+            <span style="color:#9aa3ad;font-size:11px;">›</span>
+            <span style="font-size:11.5px;padding:4px 8px;border-radius:6px;background:rgba(139,200,234,.22);color:#1d4d66;">3 拆结构</span>
+            <span style="color:#9aa3ad;font-size:11px;">›</span>
+            <span style="font-size:11.5px;padding:4px 8px;border-radius:6px;background:rgba(139,200,234,.22);color:#1d4d66;">4 抽数据与状态</span>
+            <span style="color:#9aa3ad;font-size:11px;">›</span>
+            <span style="font-size:11.5px;padding:4px 8px;border-radius:6px;background:rgba(139,200,234,.22);color:#1d4d66;">5 评非功能</span>
+            <span style="color:#9aa3ad;font-size:11px;">›</span>
+            <span style="font-size:11.5px;padding:4px 8px;border-radius:6px;background:rgba(139,200,234,.30);color:#1d4d66;font-weight:600;">6 出结论</span>
+        </div>
+
+        <!-- 业务层 -->
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;align-items:stretch;">
+            <div style="flex:0 0 86px;min-width:0;padding:10px 8px;border-radius:12px;background:rgba(139,200,234,.16);box-sizing:border-box;">
+                <div style="font-size:12.5px;font-weight:600;color:#1d4d66;">业务层</div>
+                <div style="font-size:10.5px;color:#5b6b76;line-height:1.5;margin-top:4px;">为什么建<br>给谁用<br>边界在哪</div>
+            </div>
+            <div style="flex:1 1 420px;min-width:0;display:flex;flex-wrap:wrap;gap:8px;">
+                <div style="flex:1 1 150px;min-width:0;padding:10px;border:0.5px solid rgba(0,0,0,.09);border-radius:12px;background:rgba(0,0,0,.02);box-sizing:border-box;">
+                    <div style="font-size:12.5px;font-weight:600;">① 业务目标与价值</div>
+                    <div style="font-size:11px;color:#6B7280;line-height:1.5;margin:4px 0 7px;">替代了什么、成功指标是什么</div>
+                    <div style="font-size:10.5px;color:#1d4d66;background:rgba(139,200,234,.26);border-radius:5px;padding:2px 6px;display:inline-block;margin:0 3px 3px 0;">系统上下文图</div>
+                    <div style="font-size:10.5px;color:#1d4d66;background:rgba(139,200,234,.26);border-radius:5px;padding:2px 6px;display:inline-block;margin:0 3px 3px 0;">价值流图</div>
+                </div>
+                <div style="flex:1 1 150px;min-width:0;padding:10px;border:0.5px solid rgba(0,0,0,.09);border-radius:12px;background:rgba(0,0,0,.02);box-sizing:border-box;">
+                    <div style="font-size:12.5px;font-weight:600;">② 角色与权限</div>
+                    <div style="font-size:11px;color:#6B7280;line-height:1.5;margin:4px 0 7px;">谁在用、能看到和改到什么</div>
+                    <div style="font-size:10.5px;color:#1d4d66;background:rgba(139,200,234,.26);border-radius:5px;padding:2px 6px;display:inline-block;margin:0 3px 3px 0;">用例图</div>
+                    <div style="font-size:10.5px;color:#1d4d66;background:rgba(139,200,234,.26);border-radius:5px;padding:2px 6px;display:inline-block;margin:0 3px 3px 0;">角色-权限矩阵</div>
+                </div>
+                <div style="flex:1 1 150px;min-width:0;padding:10px;border:0.5px solid rgba(0,0,0,.09);border-radius:12px;background:rgba(0,0,0,.02);box-sizing:border-box;">
+                    <div style="font-size:12.5px;font-weight:600;">③ 流程与规则</div>
+                    <div style="font-size:11px;color:#6B7280;line-height:1.5;margin:4px 0 7px;">主流程、异常流、规则在哪生效</div>
+                    <div style="font-size:10.5px;color:#1d4d66;background:rgba(139,200,234,.26);border-radius:5px;padding:2px 6px;display:inline-block;margin:0 3px 3px 0;">泳道流程图</div>
+                    <div style="font-size:10.5px;color:#1d4d66;background:rgba(139,200,234,.26);border-radius:5px;padding:2px 6px;display:inline-block;margin:0 3px 3px 0;">规则清单</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 结构层 -->
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;align-items:stretch;">
+            <div style="flex:0 0 86px;min-width:0;padding:10px 8px;border-radius:12px;background:rgba(158,172,234,.18);box-sizing:border-box;">
+                <div style="font-size:12.5px;font-weight:600;color:#2f3a72;">结构层</div>
+                <div style="font-size:10.5px;color:#5b6478;line-height:1.5;margin-top:4px;">怎么搭起来<br>数据怎么走<br>改一处影响哪</div>
+            </div>
+            <div style="flex:1 1 420px;min-width:0;display:flex;flex-wrap:wrap;gap:8px;">
+                <div style="flex:1 1 150px;min-width:0;padding:10px;border:0.5px solid rgba(0,0,0,.09);border-radius:12px;background:rgba(0,0,0,.02);box-sizing:border-box;">
+                    <div style="font-size:12.5px;font-weight:600;">④ 架构与集成</div>
+                    <div style="font-size:11px;color:#6B7280;line-height:1.5;margin:4px 0 7px;">分层与模块职责、外部系统怎么接</div>
+                    <div style="font-size:10.5px;color:#2f3a72;background:rgba(158,172,234,.28);border-radius:5px;padding:2px 6px;display:inline-block;margin:0 3px 3px 0;">分层架构图</div>
+                    <div style="font-size:10.5px;color:#2f3a72;background:rgba(158,172,234,.28);border-radius:5px;padding:2px 6px;display:inline-block;margin:0 3px 3px 0;">组件依赖图</div>
+                </div>
+                <div style="flex:1 1 150px;min-width:0;padding:10px;border:0.5px solid rgba(0,0,0,.09);border-radius:12px;background:rgba(0,0,0,.02);box-sizing:border-box;">
+                    <div style="font-size:12.5px;font-weight:600;">⑤ 数据与状态</div>
+                    <div style="font-size:11px;color:#6B7280;line-height:1.5;margin:4px 0 7px;">核心实体、来源去向、关键状态迁移</div>
+                    <div style="font-size:10.5px;color:#2f3a72;background:rgba(158,172,234,.28);border-radius:5px;padding:2px 6px;display:inline-block;margin:0 3px 3px 0;">ER 图</div>
+                    <div style="font-size:10.5px;color:#2f3a72;background:rgba(158,172,234,.28);border-radius:5px;padding:2px 6px;display:inline-block;margin:0 3px 3px 0;">数据流图</div>
+                    <div style="font-size:10.5px;color:#2f3a72;background:rgba(158,172,234,.28);border-radius:5px;padding:2px 6px;display:inline-block;margin:0 3px 3px 0;">状态机</div>
+                </div>
+                <div style="flex:1 1 150px;min-width:0;padding:10px;border:0.5px solid rgba(0,0,0,.09);border-radius:12px;background:rgba(0,0,0,.02);box-sizing:border-box;">
+                    <div style="font-size:12.5px;font-weight:600;">⑥ 接口与链路</div>
+                    <div style="font-size:11px;color:#6B7280;line-height:1.5;margin:4px 0 7px;">谁调谁、幂等/超时/重试约定</div>
+                    <div style="font-size:10.5px;color:#2f3a72;background:rgba(158,172,234,.28);border-radius:5px;padding:2px 6px;display:inline-block;margin:0 3px 3px 0;">端到端时序图</div>
+                    <div style="font-size:10.5px;color:#2f3a72;background:rgba(158,172,234,.28);border-radius:5px;padding:2px 6px;display:inline-block;margin:0 3px 3px 0;">接口矩阵</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 运行层 -->
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;align-items:stretch;">
+            <div style="flex:0 0 86px;min-width:0;padding:10px 8px;border-radius:12px;background:rgba(148,216,195,.22);box-sizing:border-box;">
+                <div style="font-size:12.5px;font-weight:600;color:#1c5a49;">运行层</div>
+                <div style="font-size:10.5px;color:#4f6b62;line-height:1.5;margin-top:4px;">稳不稳<br>贵不贵<br>能撑多久</div>
+            </div>
+            <div style="flex:1 1 420px;min-width:0;display:flex;flex-wrap:wrap;gap:8px;">
+                <div style="flex:1 1 120px;min-width:0;padding:10px;border:0.5px solid rgba(0,0,0,.09);border-radius:12px;background:rgba(0,0,0,.02);box-sizing:border-box;">
+                    <div style="font-size:12.5px;font-weight:600;">⑦ 部署与容量</div>
+                    <div style="font-size:11px;color:#6B7280;line-height:1.5;margin:4px 0 7px;">环境/实例、瓶颈与水位</div>
+                    <div style="font-size:10.5px;color:#1c5a49;background:rgba(148,216,195,.32);border-radius:5px;padding:2px 6px;display:inline-block;margin:0 3px 3px 0;">部署拓扑图</div>
+                    <div style="font-size:10.5px;color:#1c5a49;background:rgba(148,216,195,.32);border-radius:5px;padding:2px 6px;display:inline-block;margin:0 3px 3px 0;">容量曲线</div>
+                </div>
+                <div style="flex:1 1 120px;min-width:0;padding:10px;border:0.5px solid rgba(0,0,0,.09);border-radius:12px;background:rgba(0,0,0,.02);box-sizing:border-box;">
+                    <div style="font-size:12.5px;font-weight:600;">⑧ 质量与风险</div>
+                    <div style="font-size:11px;color:#6B7280;line-height:1.5;margin:4px 0 7px;">SLO 能否达标、单点在哪、合规</div>
+                    <div style="font-size:10.5px;color:#1c5a49;background:rgba(148,216,195,.32);border-radius:5px;padding:2px 6px;display:inline-block;margin:0 3px 3px 0;">SLO/故障域矩阵</div>
+                    <div style="font-size:10.5px;color:#1c5a49;background:rgba(148,216,195,.32);border-radius:5px;padding:2px 6px;display:inline-block;margin:0 3px 3px 0;">风险热力图</div>
+                </div>
+                <div style="flex:1 1 120px;min-width:0;padding:10px;border:0.5px solid rgba(0,0,0,.09);border-radius:12px;background:rgba(0,0,0,.02);box-sizing:border-box;">
+                    <div style="font-size:12.5px;font-weight:600;">⑨ 成本与演进</div>
+                    <div style="font-size:11px;color:#6B7280;line-height:1.5;margin:4px 0 7px;">钱花在哪、技术债、怎么扩</div>
+                    <div style="font-size:10.5px;color:#1c5a49;background:rgba(148,216,195,.32);border-radius:5px;padding:2px 6px;display:inline-block;margin:0 3px 3px 0;">成本结构图</div>
+                    <div style="font-size:10.5px;color:#1c5a49;background:rgba(148,216,195,.32);border-radius:5px;padding:2px 6px;display:inline-block;margin:0 3px 3px 0;">演进时间线</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 最小集 -->
+        <div style="padding:10px 12px;border-radius:12px;background:rgba(0,0,0,.025);border:0.5px solid rgba(0,0,0,.08);box-sizing:border-box;">
+            <div style="font-size:11.5px;color:#6B7280;margin-bottom:7px;">如果时间只够画六张，按这个优先级（覆盖 80% 的判断力）</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                <span style="font-size:11px;padding:3px 8px;border-radius:6px;background:rgba(139,200,234,.30);color:#1d4d66;">1 系统上下文图</span>
+                <span style="font-size:11px;padding:3px 8px;border-radius:6px;background:rgba(139,200,234,.30);color:#1d4d66;">2 主链路端到端时序图</span>
+                <span style="font-size:11px;padding:3px 8px;border-radius:6px;background:rgba(139,200,234,.30);color:#1d4d66;">3 分层架构图</span>
+                <span style="font-size:11px;padding:3px 8px;border-radius:6px;background:rgba(139,200,234,.30);color:#1d4d66;">4 部署拓扑图</span>
+                <span style="font-size:11px;padding:3px 8px;border-radius:6px;background:rgba(139,200,234,.30);color:#1d4d66;">5 核心 ER 图或状态机</span>
+                <span style="font-size:11px;padding:3px 8px;border-radius:6px;background:rgba(139,200,234,.30);color:#1d4d66;">6 风险热力图</span>
+            </div>
+        </div>
+
+        <div style="font-size:10.5px;color:#9aa3ad;margin-top:8px;">示意：方法论框架，非某个具体系统的实际结构</div>
+    </div>
+</div>
+</html>

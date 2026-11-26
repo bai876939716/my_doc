@@ -1,0 +1,33 @@
+@startuml 01-单据主线-货怎么走
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam state {
+  BackgroundColor #FFFDE7
+  BorderColor #A5D6A7
+  ArrowColor #607D8B
+  FontSize 13
+}
+
+left to right direction
+
+title 仓储单据主线：一张单据让货从哪到哪
+
+state "供应商" as SUP
+state "仓库 A" as WA
+state "仓库 B" as WB
+state "门店" as ST
+
+SUP --> WA : 1 采购单（入仓）
+WA --> ST : 2 配货单（出库）\n司机送货
+ST --> WA : 4 退货单（退仓）\n司机取货
+WA --> SUP : 8 退供单
+WA --> WB : 6 仓间调拨单
+WA -[dashed]-> WA : 5 库位转移单\n7 库存调整单
+ST -[dashed]-> ST : 3 门店库存调整单
+
+legend right
+  实线：货真的在走
+  虚线：货不进出仓库，只挪库位或调账
+endlegend
+@enduml
