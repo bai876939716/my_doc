@@ -1,0 +1,89 @@
+@startuml 04-核心表关系
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+hide circle
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor #E3F2FD
+  BorderColor #90A4AE
+  ArrowColor #607D8B
+  FontSize 13
+}
+skinparam package {
+  BorderColor #B0BEC5
+  FontStyle italic
+}
+
+title 仓储 ERP：一张单据从业务单走到库存余额，经过哪几张表、靠什么字段连起来\n只画主链路；任务表、监控表、日志表和其余单据见 表关系.md
+
+package "单据（base-scm 为主，provider-ops、mms-ops 也会直接写）" {
+  entity "业务单\n配货单 htm_scm_delivery_order\n（采购单、退货单、退供单、调拨单同理）" as BIZDO {
+    order_no
+    state
+  }
+  entity "通知单 htm_scm_notice_order\n明细 _item" as NTC {
+    order_no
+    source_busi_order_no → 业务单
+    state / syn_state
+  }
+  entity "出入库单\nhtm_scm_inbound_order\nhtm_scm_outbound_order\n明细 _item" as INOUT {
+    order_no
+    source_order_no → 通知单
+    source_busi_order_no → 业务单
+    state / busi_state / notice_state
+  }
+  entity "差异单 htm_scm_diff_order\n明细 _item" as DIFF {
+    order_no
+    source_busi_order_no → 业务单
+    stock_state / process_inv_state
+  }
+  entity "库存调整单 htm_scm_adjust_order\n明细 _item" as ADJ {
+    order_no
+    source_busi_order_no → 差异单
+    state
+  }
+}
+
+package "库存（base-ivm）" {
+  entity "库存余额 htm_ivm_business_inventory\n批次 _batch_item" as INV {
+    id
+    warehouse_location_code
+    com_code
+    inv_total / lock_total
+  }
+  entity "库存流水 htm_ivm_business_inventory_log" as LOG {
+    busi_inv_item_id → 余额
+    source_order_no → 出入库单 / 差异单
+    source_order_item_id → 出入库单明细
+    source_busi_order_no → 业务单
+    type / inv_change_qty
+  }
+  entity "预占流水 htm_ivm_business_lock_inventory" as LOCK {
+    busi_inv_item_log_id → 流水
+    inv_lock_total
+    inv_lock_release_total
+  }
+  entity "库位 htm_ivm_base_warehouse_location" as LOC {
+    code
+    warehouse_location_type\n10 在库 / 20 调拨在途 / 30 调拨差异\n40 配货在途 / 50 配货差异
+    is_negative_inv
+  }
+}
+
+BIZDO ||--o{ NTC : 下发
+NTC ||--o{ INOUT : WMS 回传
+INOUT ||--o{ LOG : 记账
+BIZDO ||--o{ DIFF : 收发不一致
+DIFF ||--o{ LOG : 在途仓、差异仓调账
+DIFF ||--o| ADJ : 判责后自动生成
+ADJ ||--o{ NTC : 也要下发
+LOG }o--|| INV : 改的是哪一行余额
+LOG ||--o| LOCK : 预占类流水
+INV }o--|| LOC : 记在哪个库位
+
+legend bottom
+  连线上的字是两表的关系；实体框里带「→」的字段是连到另一张表的键
+  出入库单靠 source_order_no 连通知单；库存流水靠 source_order_no 连出入库单或差异单
+endlegend
+@enduml

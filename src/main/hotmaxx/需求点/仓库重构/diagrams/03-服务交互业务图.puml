@@ -1,0 +1,159 @@
+@startuml 03-服务交互业务图
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam sequenceMessageAlign center
+skinparam sequence {
+  ArrowColor #607D8B
+  LifeLineBorderColor #B0BEC5
+  ParticipantBackgroundColor #E3F2FD
+  ParticipantBorderColor #90A4AE
+}
+skinparam NoteBackgroundColor #FFFDE7
+skinparam NoteBorderColor #E0C96B
+
+title 仓储 ERP：每条业务里，哪个服务把什么交给哪个服务\n从左到右大致是「发单的 → 执行的 → 记账的」；黄底的系统和服务不在本地仓库里，看不到代码
+
+actor "CRM、算法\n（外部系统）" as EXT #FFF3E0
+participant "边界服务\nwd-ops-brd" as BRD
+participant "管理后台\nscm-mms" as MMS
+participant "司机端\ndriver" as DRV
+participant "门店侧服务\n（不在本地）" as SHOP #FFF3E0
+participant "物流网关\nprovider-ops" as OPS
+participant "WMS\n（海鼎等）" as WMS #FFF3E0
+participant "编排\nbiz-scm" as BIZ
+participant "单据主数据\nbase-scm" as SCM
+participant "库存记账中间层\ninventory-middle\n（不在本地）" as MID #FFF3E0
+participant "库存\nbase-ivm" as IVM
+
+== 1 采购入库（采购单 → 采购发货单 → WMS 回传 → 记账） ==
+EXT -> BRD : ① 采购单推中台
+BRD -> SCM : 建采购单（创建即「已审核」）
+EXT -> BRD : ② 采购发货单（到货预约）推中台
+BRD -> SCM : 建预约入库单
+BRD -> DRV : 建司机签到记录
+note over MMS, SCM
+  另一入口：仓库现场端 mms-ops 的接口
+  直接写采购发货单和通知单
+end note
+DRV -> SCM : ③ 司机到仓签到、离场
+BIZ -> OPS : ④ 通知单经 MQ 推送
+OPS -> WMS : 下发入库单
+WMS --> OPS : ⑤ 回传实收
+OPS -> SCM : 落入库单（通知单流程下直接写单据表）
+note over OPS, BIZ
+  回传之后另有一条「入库结果」MQ 送到 biz-scm，
+  由它向 base-scm 建入库单（已存在视为成功）；
+  发这条消息的一方不在本地（推测是 ops-job）
+end note
+BIZ -> SCM : ⑥ 取 1 条待处理入库单
+BIZ -> MID : ⑦ 出入库记账指令
+MID -> IVM : （推测）加收货仓位在库、写流水
+BIZ -> SCM : ⑧ 入库单→已入库；回写采购单
+note over OPS : 关单：回传后延时 2 分钟关单，\n或由 ops-job（不在本地）关单
+
+== 2 退供出库 ==
+EXT -> BRD : ① 退供单推中台
+BRD -> BIZ : ② 建退供单
+BIZ -> SCM : 保存退供单（创建即「已审核」）
+BIZ -> MID : 预占库存
+note over SCM : 退仓出库通知单随单生成
+BIZ -> OPS : ③ 通知单经 MQ 推送
+OPS -> WMS : 下发出库单
+WMS --> OPS : ④ 回传实际出库
+OPS -> SCM : 落出库单
+BIZ -> SCM : 取 1 条待处理出库单
+BIZ -> MID : ⑤ 出库记账（减仓库在库）
+BIZ -> SCM : 出库单→已出库；回写退供单
+BRD -> EXT : ⑥ 退供状态同步回 CRM
+
+== 3 门店配货（建单 → 审核 → 仓库出库 → 门店收货） ==
+EXT -> BRD : ① 计划配货结果
+BRD -> BIZ : 建配货单
+BIZ -> SCM : 保存配货单
+note over BIZ, SCM
+  另外两条来源：大数据中间表 → biz-scm 常驻线程
+  按仓位建单；管理后台手工建单
+end note
+BIZ -> SCM : ② 取 1 张待预占配货单
+BIZ -> MID : ③ 预占库存
+BIZ -> SCM : ④ 回写审核数量、生成发货通知单
+BIZ -> OPS : ⑤ 通知单经 MQ 推送（先标「已推送」）
+OPS -> WMS : 下发出库单
+DRV -> SCM : ⑥ 司机到仓签到、取货交接
+WMS --> OPS : ⑦ 回传实际出库
+OPS -> SCM : 落出库单（直接写单据表）
+BIZ -> SCM : ⑧ 取 1 条待处理出库单
+BIZ -> MID : ⑨ 出库记账（发货仓在库 → 配货在途）
+MID -> IVM : （推测）改余额、写流水
+BIZ -> SCM : 出库单→已出库；配货单→「已发货」
+DRV -> SCM : ⑩ 到店签到、交接
+SHOP -> SCM : ⑪ 门店提交收货（入口不在本地）
+SCM -> SCM : ⑫ 配货单→「已收货」或「已完成」
+
+== 4 配货差异与判责 ==
+SCM -> SCM : ① 门店实收 − 仓库实发，生成差异单
+BIZ -> SCM : ② 取 1 张「待处理」差异单
+BIZ -> IVM : ③ 在途仓 ↔ 差异仓调账\n少收：在途→差异；多收：差异→在途
+BIZ -> SCM : 差异单→库存「已处理」\n（失败置「处理中」，之后不再被取到）
+BIZ -> SHOP : ④ MQ：推送差异确认单
+MMS -> SCM : ⑤ 判责确认（仓库原因 / 门店加减库存）
+SCM -> SCM : ⑥ 生成盘盈、盘亏调整单，自动审核完结
+note over SCM, BIZ
+  调整单的出入库单回到第 7 段记账
+  差异仓的余额靠这一步平掉
+end note
+
+== 5 门店退货 ==
+SHOP -> BRD : ① 门店提交退货
+BRD -> SCM : 建退货单
+MMS -> SCM : ② 中台审核 →「已审核」
+note over SCM : 中台通知退货单由中台发起；\n收货通知单随单生成
+BIZ -> OPS : ③ 通知单经 MQ 推送
+OPS -> WMS : 下发收货单
+DRV -> SCM : ④ 司机到店取货、交接
+WMS --> OPS : ⑤ 回传收货
+OPS -> SCM : 落入库单
+BIZ -> MID : ⑥ 入库记账（加仓库在库）
+BIZ -> SHOP : ⑦ MQ：退货入库结果通知门店
+note over SCM : 数量不符 → 退货差异单（同一退货单可多张）\n退货在途：库位类型里没有对应仓位
+
+== 6 仓间调拨、库位转移 ==
+MMS -> SCM : ① 中台创建调拨单（或库位转移单）
+EXT -> BRD : （或）算法创建
+BRD -> BIZ : 创建并审核
+BIZ -> SCM : ② 审核；生成发货、收货两张通知单
+BIZ -> MID : 预占发货仓库存
+BIZ -> OPS : ③ 通知单经 MQ 推送
+OPS -> WMS : A 仓出库
+WMS --> OPS : ④ 回传 A 仓实发
+OPS -> SCM : 落出库单
+BIZ -> MID : ⑤ A 仓出库记账（在库 → 调拨在途）
+OPS -> WMS : B 仓收货
+WMS --> OPS : ⑥ 回传 B 仓实收
+OPS -> SCM : ⑦ 仓库侧算收货差异，生成差异单\n差异调拨：在途 ↔ 差异
+OPS -> SCM : 落入库单
+BIZ -> MID : ⑧ B 仓入库记账（调拨在途 → 收货仓）
+BIZ -> SCM : 调拨单→「已完成」
+note over BIZ, IVM : 差异单的库存调账同第 4 段 ②③\n（调拨类型：调拨在途 ↔ 调拨差异）
+
+== 7 库存调整、冻结 ==
+MMS -> SCM : ① 创建调整单（盘盈 / 盘亏）并审核
+SCM -> MID : ② 下调项预占
+SCM -> SCM : 生成调整通知单
+BIZ -> OPS : ③ 通知单经 MQ 推送（虚拟仓的不推）
+OPS -> WMS : 执行调整
+WMS --> OPS : ④ 回传结果
+OPS -> SCM : 落出入库单
+BIZ -> MID : ⑤ 调整记账
+BIZ -> SCM : 回写调整单→「已完成」
+note over MMS, SCM
+  手动完结：不经 WMS，直接生成出入库单再记账
+  冻结单（电商）：biz-scm 预占，作废时释放
+end note
+
+legend bottom
+  黄底 = 不在本地 11 个仓库里，看不到代码；虚线箭头 = 回传
+  圈号是每段内的先后；标（推测）的环节是按常理补的，说明见 服务介绍.md 第四节
+endlegend
+@enduml
