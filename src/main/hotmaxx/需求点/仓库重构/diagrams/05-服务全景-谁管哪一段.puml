@@ -1,0 +1,65 @@
+@startuml 05-服务全景-谁管哪一段
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam state {
+  BackgroundColor #FFFDE7
+  BorderColor #A5D6A7
+  ArrowColor #607D8B
+  FontSize 13
+}
+
+left to right direction
+
+title 服务全景：11 个服务各管哪一段，谁把什么交给谁
+
+state "上游系统\nCRM、算法" as SRC #FFF3E0
+state "各家 WMS\n海鼎、芯果、京东、安得…" as WMS #FFF3E0
+
+state "入口层：页面、端上、转发" as ENTRY {
+  state "管理后台\nscm-mms" as MMS
+  state "边界服务\nwd-ops-brd" as BRD
+  state "仓库现场\nmms-ops" as SITE
+  state "司机小程序\ndriver" as DRV
+  state "导出\nbase-fio" as FIO
+}
+state "网关层" as GATE {
+  state "provider-ops" as OPS
+}
+state "编排层" as ORCH {
+  state "biz-scm" as BIZ
+}
+state "记账中间层\ninventory-middle\n（不在本地）" as MID #FFF3E0
+state "数据层" as DATA {
+  state "库存\nbase-ivm" as IVM
+  state "单据\nbase-scm" as SCM
+  state "规则\nbase-rule" as RULE
+}
+state "海鼎报表\nhd-rpt\n（停更）" as RPT
+
+SRC --> BRD : 采购单、配货计划、\n仓间调拨
+SITE --> SCM : 到货预约、签到交接
+DRV --> SCM : 到仓、到店的签到交接
+MMS --> SCM : 手工完结、差异确认、建单
+MMS --> BIZ : 配货单、调拨的\n审核和作废
+BRD --> SCM : 建采购单、采购发货单
+BRD --> BIZ : 算法配货单的创建、作废
+BIZ --> OPS : MQ：通知单
+BIZ --> SCM : 记账任务取数和回写、\n差异单处理
+BIZ --> MID : 记账、预占
+SCM --> MID : 记账、预占
+OPS --> WMS : 下发入库单、出库单
+' 回传这条不参与定序，保证 WMS 画在网关的右边
+WMS -[norank]-> OPS : 回传实收、实发
+OPS --> SCM : 落出入库单\n（直接写表）
+MID --> IVM : （推测）改余额、写流水
+
+legend right
+  方块 = 一个服务，大方框 = 一层
+  箭头 = 谁调谁，箭头上的字 = 交接的业务
+  橙底 = 不在本地仓库里，看不到代码
+  「记账」= 出入库记账
+  没画的线：各服务查 base-ivm 的库存、
+  读 base-rule 的规则，见服务介绍的「同步调用」表
+endlegend
+@enduml

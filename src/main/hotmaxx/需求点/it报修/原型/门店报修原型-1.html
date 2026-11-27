@@ -271,6 +271,14 @@ body{background:#e6e6e6}
 .snsteps li b{flex-shrink:0;width:19px;height:19px;border-radius:50%;background:#fdeee1;color:#c9682a;
   font-size:11px;line-height:19px;text-align:center;font-weight:600;margin-top:2px}
 .snnote{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:11px;color:#8f8f8f;line-height:1.6}
+
+/* ============ 2026-11-27：自助排查卡（点常见现象 → 2–3 步 + 两个出口），步骤样式复用「怎么找」的编号圆点 ============ */
+.fxb{min-width:252px}
+.fxb .snsteps{margin-top:9px}
+.fxb .actions{margin-top:12px}
+.fxb .actions button{flex:1;padding:10px 8px;text-align:center;white-space:nowrap}
+.fxb>small{margin-top:8px}
+.aside{padding:30px 0}.eyebrow{margin-top:26px}.steps{margin:24px 0}.changes{margin-top:16px;padding-top:16px}.demo-tools{padding-top:14px;gap:6px}
 </style></head><body><main class="layout">
 <aside class="aside">
   <div class="brand"><span class="brandmark">好特卖</span><span>HOTMAXX</span></div>
@@ -285,8 +293,9 @@ body{background:#e6e6e6}
   <div class="changes">
     <h4>本次改动</h4>
     <ol>
-      <li>AI 首屏高频卡 <b>仍是 6 张</b>：「灭火器」换成「电脑/手机/显示器」，点开选设备</li>
+      <li>AI 首屏高频卡 <b>仍是 6 张</b>：「地砖/踢脚线破损」换成「电脑/手机/显示器」，点开选设备</li>
       <li>选完设备多问一句<b>故障情况</b>：4 个常见现象按钮 +「其他」自己打字</li>
+      <li>点常见现象先给<b>自助排查</b>：自己能解决就不建单，没解决再继续报</li>
       <li>新增<b>设备序列号</b>卡：右上角「怎么找」，可填、可标记找不到</li>
       <li>表单选到 IT 类别，才在「报修类别」下方带出<b>设备序列号</b>一行；其余与线上一致</li>
     </ol>
@@ -295,6 +304,7 @@ body{background:#e6e6e6}
     <button type="button" onclick="initChat()">↺ 重置对话</button>
     <button type="button" onclick="showPage('form')">打开原报修表单 ›</button>
     <button type="button" onclick="openChat()">打开 AI 智能填报 ›</button>
+    <button type="button" onclick="demoFix()">演示：自助排查 ›</button>
   </div>
 </aside>
 <section class="phone">
@@ -336,7 +346,12 @@ const groups={"工程类":["空调不制冷/热","照明灯（1至4个）","照�
 groups[IT]=['电脑','手机','显示器'];
 const catVal=(g,l)=>l?g+' - '+l:g;
 const IT_VALS=groups[IT].map(x=>catVal(IT,x));
-const ALL=Object.keys(groups).flatMap(g=>groups[g].length?groups[g].map(l=>catVal(g,l)):g);
+/* 门店自修（线上口径 2026-11-26）：名字带「门店自修」的类别不进卡、不能点选；对话里提到只告知、不拦流程。表单页的选择器仍读整本字典 */
+const isSelfRepair=v=>/（门店自修）/.test(v);
+const chatLeaves=g=>groups[g].filter(l=>!isSelfRepair(catVal(g,l)));
+const SELF_REPAIR={'灭火器':['灭火器','灭火瓶'],'冷柜':['冷柜','风幕柜','立风柜','立玻柜','冷藏柜','冻柜','保鲜柜']};
+const selfRepairLabels=t=>Object.keys(SELF_REPAIR).filter(k=>SELF_REPAIR[k].some(w=>t.includes(w)));
+const ALL=Object.keys(groups).flatMap(g=>groups[g].length?chatLeaves(g).map(l=>catVal(g,l)):g);
 
 /* 字面命中：与引擎 _fragments / literal_hits 同规则 —— 主类名+细分名，去括注，按 / & 、切开 */
 function frags(v){const out=[];for(const term of v.split(' - ')){const t=term.replace(/[（(][^（）()]*[)）]/g,'');for(const p of t.split(/[/&、]/)){const f=p.trim().replace(/^[-–\s]+|[-–\s]+$/g,'');if(f.length>=2)out.push(f)}}return out}
@@ -348,20 +363,33 @@ const GUESS=[
   [/(手机|工作机)/,IT_VALS],
   [/(显示器|显示屏)/,IT_VALS],
   [/开不了机|无法开机/,IT_VALS],
-  [/(冷柜|冷藏柜|不制冷)/,['工程类 - 风幕柜/冷藏柜（过保）（门店自修）','工程类 - 空调不制冷/热','工程类 - 风幕柜&立玻柜&冷藏柜（保内）（门店自修）']],
+  [/(空调|不凉|不制冷)/,['工程类 - 空调不制冷/热','工程类 - 空调清洗','工程类 - 开关 / 插座 / 线路']],
   [/(灯|照明)/,['工程类 - 照明灯（1至4个）','工程类 - 照明灯（超过4个）','工程类 - 门头字/LOGO字不亮']],
   [/(插座|开关|跳闸)/,['工程类 - 开关 / 插座 / 线路','工程类 - 照明灯（1至4个）']]
 ];
 
-/* ---------- 高频卡（仍是 6 张两列三行：线上第 6 张「灭火器」换成 IT；点 IT 卡出三选一）、常见现象、拍摄清单、找序列号 ---------- */
+/* ---------- 高频卡（仍是 6 张两列三行，与线上一致；线上第 6 张「地砖/踢脚线破损」换成 IT，点 IT 卡出三选一）、常见现象、自助排查、拍摄清单、找序列号 ---------- */
 const quicks=[
  ['💡','照明灯不亮',['工程类 - 照明灯（1至4个）','工程类 - 照明灯（超过4个）']],
  ['🪧','门头/招牌灯不亮','工程类 - 门头字/LOGO字不亮'],
  ['🔌','开关/插座/线路','工程类 - 开关 / 插座 / 线路'],
- ['❄️','冷柜不制冷','工程类 - 风幕柜/冷藏柜（过保）（门店自修）'],
  ['📷','摄像头问题',['工程类 - 摄像头-离线（已重启仍失败）','工程类 - 摄像头-其他问题','工程类 - 摄像头-有内存卡但无回放（已格式化仍失败）']],
- ['💻','电脑/手机/显示器',IT_VALS]];   // 灭火器不再占卡位，仍可从全量类别里选、或打字报
+ ['❄️','空调不制冷/热','工程类 - 空调不制冷/热'],
+ ['💻','电脑/手机/显示器',IT_VALS]];   // 线上第 6 张「地砖/踢脚线破损」换成 IT；地砖/踢脚线仍可打字报或从全量类别里点选（冷柜、灭火器是门店自修，线上已不进卡）
 const SYM={'电脑':['开不了机 / 自动关机','蓝屏、报错','卡顿、死机','无法联网'],'手机':['碎屏 / 屏幕显示异常','无法开机','充不进电、耗电快','系统卡顿、闪退'],'显示器':['不亮 / 黑屏','花屏、闪屏、线条','颜色异常','接口松动、无信号']};
+/* 自助排查（2026-11-27 评审）：点了带排查方法的常见现象，先给 2–3 步让门店自己试，试完选继续报修或已解决；步骤内容是我拟的【待确认：运维】 */
+const FIX={
+ '电脑|开不了机 / 自动关机':{time:'约 1 分钟',steps:['检查电源线和插排，换个插座再按电源键','看主机和显示器的指示灯亮不亮','长按电源键 10 秒，松开后再开一次']},
+ '电脑|蓝屏、报错':{time:'约 2 分钟',steps:['拍下蓝屏或报错的画面','长按电源键 10 秒关机，等 1 分钟再开']},
+ '电脑|卡顿、死机':{time:'约 2 分钟',steps:['关掉用不上的软件和窗口','重启一次电脑','桌面和 C 盘快满了，先清理一下']},
+ '电脑|无法联网':{time:'约 2 分钟',steps:['看路由器和网线的指示灯','网线两头拔插一次','重启路由器，等 1 分钟再连']},
+ '手机|无法开机':{time:'约 2 分钟',steps:['用原装充电器充 10 分钟','长按电源键 10 秒以上']},
+ '手机|充不进电、耗电快':{time:'约 2 分钟',steps:['换一根充电线或充电头','清理充电口的灰尘，重启一次']},
+ '手机|系统卡顿、闪退':{time:'约 1 分钟',steps:['重启一次手机','关掉后台应用，清理存储空间']},
+ '显示器|不亮 / 黑屏':{time:'约 2 分钟',steps:['检查电源线和视频线，两头插紧','按一下显示器的电源键，看指示灯','换一根视频线试试']},
+ '显示器|花屏、闪屏、线条':{time:'约 1 分钟',steps:['把视频线两头拔插一次','换一根视频线，或换个接口']},
+ '显示器|接口松动、无信号':{time:'约 1 分钟',steps:['把视频线两头拔插一次','换主机上另一个接口，或换一根线']}};
+const fixFor=(leaf,sym)=>FIX[leaf+'|'+sym];   // 没配排查方法的现象（如碎屏）不出卡，直接进下一步
 const SHOTS={'风幕柜&立玻柜&冷藏柜（保内）（门店自修）':['设备整体','问题部位特写'],'电脑':['设备整体','问题部位或报错画面','序列号标签（能拍到的话）'],'手机':['设备整体','问题部位（如充电口）'],'显示器':['设备整体','问题部位','背面铭牌'],default:['问题部位特写']};
 const SN_LOC={'电脑':'在主机侧面或底部的标签上','手机':'在设置的设备信息里','显示器':'在背面的铭牌上'};   // 序列号卡 / 填写框上的一行位置提示（一句话，细节放「怎么找」）
 const SN_STEPS={'电脑':['看主机侧面或底部','找到贴在那里的标签，抄下序列号'],'手机':['打开手机设置，进入设备信息','查看序列号；开不了机时，看机身背面或包装盒'],'显示器':['看显示器背面','找到铭牌抄下序列号，注意别抄成主机的']};   // 「怎么找」弹窗里的两步
@@ -370,12 +398,17 @@ const DEV_IC={'电脑':'💻','手机':'📱','显示器':'🖥'};
 
 /* ---------- 话术（前 12 条取自线上 talks.py；标【新增】的是这次要加的） ---------- */
 const T={
- open:'{reporter}你好！哪儿坏了直接说，比如「冷柜不制冷了，鲜奶都不敢卖了」，我来帮你填单。',
+ open:'{reporter}你好！哪儿坏了直接说，比如「空调不制冷了，店里热得不行」，我来帮你填单。',
  quickHint:'说不好？点常见问题更快：',
  catHit:'类别是这个吗？点一下确认 ：',
  catMiss:'这个我没把握归类，从下面选一个吧：',
- askDetail:'用一句话说说故障情况，我来整理成报修描述。',
+ askDetail:'用一句话说说故障情况，我来整理报修表单。',
  askDetailIT:'{device}出什么问题了？点下面的常见现象，或者直接说。',      //【新增】
+ askFix:'先按下面的步骤试一下，能解决就不用报修。',                       //【新增】自助排查卡前面的一句
+ fixOk:'好的，这次就不建单了。问题再出现随时来报。',                      //【新增】
+ selfChecked:'已标记门店自查，运维不用重复排查',                          //【新增】
+ selfRepair:'「{value}」这类需要门店自修，门店自己处理就行，不用报单。',
+ selfRepairMore:'「{value}」这类需要门店自修，门店自己处理就行，不用报单。还有别的要报的吗？',
  askPhotos:'麻烦拍张现场照片，师傅好提前判断。',
  askSn:'能找到{device}的序列号吗？找不到也没关系。',                          //【新增】位置提示放在卡上，不在话里重复
  snBad:'「{value}」看着不像序列号——请核对设备标签后再发一次。',           //【新增】
@@ -401,7 +434,7 @@ const store='11522 安徽商之都OK店',reporter='白云翔',basePhone='1380000
 const mask=s=>String(s).replace(/^(\d{3})\d{4}(\d{4})$/,'$1****$2');
 const today=()=>new Date().toLocaleDateString('sv-SE');
 const newOrderNo=()=>'#BX'+today().replace(/-/g,'')+'007';
-const newDraft=()=>({group:'',leaf:'',catSrc:'',detail:'',detailSrc:'',photos:[],sn:'',snState:'',phone:basePhone,phoneOk:false});
+const newDraft=()=>({group:'',leaf:'',catSrc:'',detail:'',detailSrc:'',photos:[],sn:'',snState:'',selfCheck:'',phone:basePhone,phoneOk:false});   // selfCheck：'' 没走过 / pending 排查卡挂着 / failed 没解决继续报 / resolved 已解决
 let page='home',inited=false,d,st='collecting',nominees=[],forceCat=false,cardMode=false,pending='',orderNo='',fileTarget='form';
 let fd={group:'',leaf:'',desc:'',photos:[],sn:'',snState:'',phone:''};
 const isIT=()=>d.group===IT;
@@ -434,22 +467,24 @@ function stage(){
  if(forceCat){forceCat=false;return 'category'}
  if(!d.detail&&(!cardMode||isIT()))return 'detail';          /* 议程首项是故障情况；点高频卡的路径不问（IT 除外） */
  if(!d.group||(groups[d.group].length&&!d.leaf))return 'category';
+ if(isIT()&&d.selfCheck==='pending')return 'fix';   /* 点了带排查方法的常见现象：先给排查卡，门店试完再往下走 */
  if(!d.photos.length)return 'photos';
  if(isIT()&&!d.sn&&d.snState!=='notfound')return 'sn';
  if(!d.phoneOk)return 'phone';
  return 'confirm';
 }
-function ui(state,focus){const done=state==='done';$('submitBar').classList.toggle('on',state==='confirm');
- $('input').disabled=done;$('sendBtn').disabled=done;$('input').placeholder=done?'本单已提交':(PH[focus]||PH.detail);
- $('badge').textContent=done?'已提交 ✓':state==='confirm'?'请核对确认单':'采集中 · '+(FL[focus]||'自由对话');
+function ui(state,focus){const done=state==='done',res=state==='resolved';$('submitBar').classList.toggle('on',state==='confirm');
+ $('input').disabled=done||res;$('sendBtn').disabled=done||res;$('input').placeholder=done?'本单已提交':res?'本次已结束（未建单）':(PH[focus]||PH.detail);
+ $('badge').textContent=done?'已提交 ✓':res?'已解决 ✓':state==='confirm'?'请核对确认单':'采集中 · '+(FL[focus]||'自由对话');
  document.querySelectorAll('.step').forEach((x,i)=>x.classList.toggle('active',i===2))}
 function ask(o){o=o||{};const s=o.force||stage();
  st=s==='confirm'?'confirm':(s==='done'?'done':'collecting');
  if(s==='confirm'){if(!o.quiet)bot(T.confirm);confirmCard();return ui('confirm')}
- if(s==='category'){const top=nominees.length?nominees.slice(0,3):(d.group?groups[d.group]:[]);
+ if(s==='category'){const top=nominees.length?nominees.slice(0,3):(d.group?chatLeaves(d.group):[]);
   if(top.length){if(!o.quiet)bot(T.catHit);topCard(top)}else{if(!o.quiet)bot(T.catMiss);groupedCard()}
   return ui('collecting','category')}
  if(s==='detail'){if(!o.quiet)bot((o.ack?o.ack+'，':'')+(isIT()?fmt(T.askDetailIT,{device:d.leaf}):T.askDetail));if(isIT())symptomCard();return ui('collecting','detail')}
+ if(s==='fix'){if(!o.quiet)bot(T.askFix);fixCard();return ui('collecting','detail')}
  if(s==='photos'){if(!o.quiet)bot((o.ack?o.ack+'，':'')+T.askPhotos);photoCard();return ui('collecting','photos')}
  if(s==='sn'){if(!o.quiet)bot(fmt(T.askSn,{device:d.leaf}));snCard();return ui('collecting','sn')}
  if(s==='phone'){bot(fmt(T.askPhone,{phone:mask(d.phone)}));phoneCard();return ui('collecting','phone')}
@@ -459,7 +494,9 @@ function initChat(){d=newDraft();st='collecting';nominees=[];forceCat=false;card
  $('ctx').innerHTML='<div><strong>📍 '+esc(store)+'</strong>报修人：'+esc(reporter)+' · '+mask(basePhone)+'</div><button type="button" class="textbtn" data-act="ctxPhone">修改</button>';
  bot(fmt(T.open,{reporter}));bot(quickWall());ui('collecting');showPage('chat')}
 function openChat(){if(inited)showPage('chat');else initChat()}
-function exitModal(){if(!inited||st==='done')return showPage('form');
+/* 演示直达：重置对话 → 点 IT 卡 → 选「手机」，停在常见现象卡（点「充不进电、耗电快」看自助排查卡） */
+function demoFix(){initChat();const m=$('messages');m.querySelector('[data-act="card"][data-i="5"]').click();m.querySelector('[data-act="pick"][data-v="IT设备类 - 手机"]').click()}
+function exitModal(){if(!inited||st==='done'||st==='resolved')return showPage('form');
  modal('', '<h3>离开 AI 填报？</h3><small class="msub">当前进度已实时保存，可随时回来继续</small><div class="actions" style="margin-top:14px"><button type="button" class="primary" data-close>继续填写</button><div class="row"><button type="button" class="outline" data-act="keep">▣ 存草稿离开</button><button type="button" class="outline" data-act="abandon" style="color:#d9534f">✕ 放弃本次</button></div></div>',true)}
 
 /* ---------- 卡片 ---------- */
@@ -467,10 +504,14 @@ function exitModal(){if(!inited||st==='done')return showPage('form');
 function quickWall(){return '<small>'+T.quickHint+'</small><div class="quickgrid">'+quicks.map((q,i)=>'<button type="button" class="quick" data-act="card" data-i="'+i+'"><i>'+q[0]+'</i>'+esc(q[1])+'</button>').join('')+'</div>'}
 const optBtn=(v,pre)=>'<button type="button" class="option'+(pre?' pre':'')+'" data-act="pick" data-v="'+esc(v)+'">'+esc(v)+(pre?'<small>推荐 · 点一下才生效</small>':'')+'</button>';
 function topCard(list){push(node('msg','<div class="avatar">✦</div><div class="bubble"><div class="options" data-live="1">'+list.map((v,i)=>optBtn(v,i===0)).join('')+'</div></div>'))}
-const groupBtns=()=>Object.keys(groups).map(g=>'<button type="button" class="option grp" data-act="grp" data-g="'+esc(g)+'">'+esc(g)+'<small>'+(groups[g].length?groups[g].length+' 项细分':'无细分 · 点选即成')+'</small></button>').join('');
+const groupBtns=()=>Object.keys(groups).map(g=>{const ls=chatLeaves(g);return '<button type="button" class="option grp" data-act="grp" data-g="'+esc(g)+'">'+esc(g)+'<small>'+(groups[g].length?ls.length+' 项细分':'无细分 · 点选即成')+'</small></button>'}).join('');
 function groupedCard(){push(node('msg','<div class="avatar">✦</div><div class="bubble"><div class="options" data-live="1">'+groupBtns()+'</div></div>'))}
-/* 4 个常见现象（2×2）+ 通栏「其他」：点常见现象=替用户说这句；点其他=不填内容，回一句并把光标交回输入框（卡片不锁，仍可点常见现象） */
+/* 4 个常见现象（2×2）+ 通栏「其他」：点常见现象=替用户说这句（配了排查方法的先出自助排查卡，见 fixCard）；点其他=不填内容，回一句并把光标交回输入框（卡片不锁，仍可点常见现象） */
 function symptomCard(){push(node('msg','<div class="avatar">✦</div><div class="bubble"><div class="syms" data-live="1">'+SYM[d.leaf].map(s=>'<button type="button" class="sym" data-act="sym" data-v="'+esc(s)+'">'+esc(s)+'</button>').join('')+'<button type="button" class="sym other" data-act="symOther"><i>✎</i>其他（自己描述）<em>›</em></button></div></div>'))}
+/* 自助排查卡：卡头 + 编号步骤 + 两个出口。主按钮是「没解决，继续报修」——怕门店顺手点主按钮把没修好的单点了结 */
+function fixCard(){const fx=fixFor(d.leaf,d.detail);
+ push(node('msg','<div class="avatar">✦</div><div class="bubble fxb"><div class="snhead"><strong>🔧 自助排查</strong><span class="pill">'+esc(fx.time)+'</span></div><ol class="snsteps">'+fx.steps.map((x,i)=>'<li><b>'+(i+1)+'</b><span>'+esc(x)+'</span></li>').join('')+'</ol><div class="actions" data-live="1"><button type="button" class="primary" data-act="fxNo">没解决，继续报修</button><button type="button" class="outline" data-act="fxOk">✓ 已解决，不报修</button></div><small>只做不拆机的检查，解决不了再报修</small></div></div>'))}
+function fixResolved(text,typed){d.selfCheck='resolved';st='resolved';if(!typed)user(text);bot(T.fixOk+'<div class="actions" style="justify-content:center"><button type="button" class="outline" data-act="again">＋ 再报一单</button></div>');ui('resolved')}
 const lastBotText=()=>{const m=$('messages').lastElementChild;return m&&m.classList.contains('msg')&&!m.classList.contains('user')?m.querySelector('.bubble').textContent.trim():''};
 function photoCard(){const t=SHOTS[d.leaf]||SHOTS.default;
  push(node('msg','<div class="avatar">✦</div><div class="bubble"><strong>📷 现场照片</strong> <span class="pill" style="margin-left:6px">建议 '+t.length+' 张</span><div class="ptips">'+t.map(x=>'<div class="ptip"><i>•</i><span>'+esc(x)+'</span></div>').join('')+'</div><div class="actions"><button type="button" class="primary" data-act="photos">＋ 拍照 / 上传</button></div><small>照片经明道云存储，仅用于本次报修 · 单会话最多 5 张</small></div>'))}
@@ -489,6 +530,7 @@ function confirmCard(){
   '<div class="sectionlabel">报修内容（AI 采集整理）</div>'+
   row('category','报修类别',esc(catText(d)),true,d.catSrc==='ai')+
   row('detail','故障情况',esc(d.detail),true,d.detailSrc==='ai')+
+  (it&&d.selfCheck==='failed'?row('selfcheck','门店自查',esc('已排查，未解决')):'')+   // 走过排查卡、点了「没解决，继续报修」才多这一行（只展示）
   row('photos','现场照片',d.photos.length?thumbs(d.photos)+' '+d.photos.length+' 张':'<span style="color:#b3533f">未上传</span>',true)+
   (it?row('sn','设备序列号',esc(d.sn||'找不到（待运维核对）'),true,false):'')+
   row('phone','联系电话',esc(mask(d.phone)),true)+
@@ -499,7 +541,7 @@ function setCategory(v,src){const i=v.indexOf(' - '),g=i<0?v:v.slice(0,i),l=i<0?
  const changed=!!d.group&&(d.group!==g||d.leaf!==l);
  d.group=g;d.leaf=l;d.catSrc=src||'user';nominees=[];
  if(changed){if(d.detailSrc==='default'){d.detail='';d.detailSrc=''}
-  if(g!==IT){d.sn='';d.snState=''}
+  if(g!==IT){d.sn='';d.snState='';d.selfCheck=''}   // 换出 IT：序列号和自查标记都作废
   if(d.photos.length)tip(fmt(T.stale,{items:'现场照片'}),'info')}
  if(cardMode&&!isIT()&&!d.detail){d.detail=(l||g)+'，详见现场照片';d.detailSrc='default'}}
 
@@ -521,6 +563,13 @@ function handleText(t){
  if(ack||(/(修好|进度|什么时候|多久|到哪|派单|接单|来人|师傅)/.test(t)&&s!=='detail')){
   if(s==='detail'||s==='photos')return ask({ack});
   bot((ack?ack+'，':'')+(ack?T.pullBack:T.pullProgress));return ask({quiet:true})}
+ /* 门店自修（线上口径）：提到只告知、不拦流程，这句话不当故障描述。类别已定或正在选类别 → 只告知并把当前该做的事重新放到最下面 */
+ const sr=selfRepairLabels(t);
+ if(sr.length){bot(fmt((d.group||s==='category')?T.selfRepair:T.selfRepairMore,{value:sr.join('、')}));return ask(s==='category'?{quiet:true}:{})}
+ /* 自助排查卡挂着时直接打字：说好了/解决了 = 已解决；其他内容按「没解决，继续报修」处理，这句话补进故障情况 */
+ if(isIT()&&d.selfCheck==='pending'){
+  if(/(好|解决|正常|恢复)了|可以了|搞定|不用报|不报了/.test(t))return fixResolved(t,true);
+  d.selfCheck='failed';d.detail=(d.detail+'，'+t).slice(0,100);tip(T.selfChecked,'info');return ask()}
  /* 当前问题的直接回答 */
  if(s==='sn'){
   if(/找不到|没有|不知道|看不到|撕|跳过|不填/.test(t)){d.sn='';d.snState='notfound';tip(T.snNotFound,'info');return ask()}
@@ -573,7 +622,7 @@ function editField(f){
   const render=()=>{modal('重选报修类别','<div class="options full" id="mgrp">'+groupBtns().replace(/data-act="grp"/g,'')+'</div><div class="actions"><div class="row"><button type="button" class="outline" data-close>取消</button></div></div>');
    $('content').querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>{const g=b.dataset.g,cur=catText(d);
     if(!groups[g].length){closeModal();if(g!==cur){user('✔ '+g);setCategory(g);ask()}return}
-    $('mgrp').innerHTML='<button type="button" class="option back" id="bk">‹ 返回</button>'+groups[g].map(x=>{const v=catVal(g,x);return '<button type="button" class="option'+(v===cur?' cur':'')+'" data-pick="'+esc(v)+'">'+esc(v)+(v===cur?'<small>当前已选</small>':'')+'</button>'}).join('');
+    $('mgrp').innerHTML='<button type="button" class="option back" id="bk">‹ 返回</button>'+chatLeaves(g).map(x=>{const v=catVal(g,x);return '<button type="button" class="option'+(v===cur?' cur':'')+'" data-pick="'+esc(v)+'">'+esc(v)+(v===cur?'<small>当前已选</small>':'')+'</button>'}).join('');
     $('bk').onclick=render;
     $('mgrp').querySelectorAll('[data-pick]').forEach(ib=>ib.onclick=()=>{const v=ib.dataset.pick;closeModal();if(v===cur)return;user('✔ '+v);setCategory(v);ask()})})};
   render()}
@@ -602,9 +651,11 @@ document.addEventListener('click',e=>{
    if(Array.isArray(q[2]))nominees=q[2].slice();else setCategory(q[2]);ask();break}
   case 'pick':{lock();b.classList.add('selected');user('✔ '+v);setCategory(v);ask();break}
   case 'grp':{const g=b.dataset.g;if(!groups[g].length){lock();b.classList.add('selected');user('✔ '+g);setCategory(g);ask();break}
-   const box=b.closest('.options');box.innerHTML='<button type="button" class="option back" data-act="back">‹ '+esc(g)+' · 点击返回</button>'+groups[g].map(x=>optBtn(catVal(g,x))).join('');box.dataset.back='1';break}
+   const box=b.closest('.options');box.innerHTML='<button type="button" class="option back" data-act="back">‹ '+esc(g)+' · 点击返回</button>'+chatLeaves(g).map(x=>optBtn(catVal(g,x))).join('');box.dataset.back='1';break}
   case 'back':{const box=b.closest('.options');box.innerHTML=groupBtns();break}
-  case 'sym':{lock();b.classList.add('selected');user(v);d.detail=v;d.detailSrc='user';bot(fmt(T.echo,{fields:'故障情况'}));ask();break}
+  case 'sym':{lock();b.classList.add('selected');user(v);d.detail=v;d.detailSrc='user';if(fixFor(d.leaf,v))d.selfCheck='pending';else bot(fmt(T.echo,{fields:'故障情况'}));ask();break}   // 配了排查方法的先出排查卡，不出「记下了」
+  case 'fxNo':{if(st==='resolved')break;lock();user('没解决，继续报修');d.selfCheck='failed';tip(T.selfChecked,'info');ask();break}
+  case 'fxOk':{if(st==='resolved')break;lock();fixResolved('✓ 已解决，不报修');break}
   case 'symOther':{if(lastBotText()!==T.askDetail)bot(T.askDetail);$('input').focus();break}   // 纯前端行为：不回发消息、不写故障情况、不锁卡片，只是把光标交回输入框
   case 'photos':photoMenu('chat');break;
   case 'snFill':snModal();break;

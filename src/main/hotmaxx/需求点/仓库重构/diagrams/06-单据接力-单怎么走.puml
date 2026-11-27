@@ -1,0 +1,43 @@
+@startuml 06-单据接力-单怎么走
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName "PingFang SC,Microsoft YaHei,Arial"
+skinparam state {
+  BackgroundColor #FFFDE7
+  BorderColor #A5D6A7
+  ArrowColor #607D8B
+  FontSize 13
+}
+
+left to right direction
+
+title 单据接力：一张单从发单到记完账，依次经过哪些服务
+
+state "上游系统\nCRM、算法" as SRC #FFF3E0
+state "入口\n边界服务 wd-ops-brd\n管理后台 scm-mms" as ENT
+state "编排\nbiz-scm" as BIZ
+state "单据\nbase-scm" as SCM
+state "记账中间层\ninventory-middle\n（不在本地）" as MID #FFF3E0
+state "库存\nbase-ivm" as IVM
+state "物流网关\nprovider-ops" as OPS
+state "WMS\n海鼎等" as WMS #FFF3E0
+
+SRC --> ENT : 1 发单\n采购单、配货计划、调拨
+ENT --> SCM : 2 建单
+ENT --> BIZ : 2 建单、审核
+BIZ --> SCM : 2 存单\n3 回写审核结果、生成通知单\n7 回写状态
+BIZ --> MID : 3 预占库存\n6 出入库记账
+BIZ --> OPS : 4 MQ：通知单
+OPS --> WMS : 4 下发入库单、出库单
+WMS --> OPS : 5 回传实收、实发
+OPS --> SCM : 5 落出入库单\n（直接写表）
+MID --> IVM : 6 改余额、写流水（推测）
+SCM -[dashed]-> SCM : 之后\n门店提交收货 → 配货单完成\n实发 ≠ 实收 → 差异单
+BIZ -[dashed]-> IVM : 差异单\n在途仓 ↔ 差异仓调账
+
+legend right
+  实线上的数字 = 先后，字 = 交接的业务
+  虚线 = 主线走完之后的分支
+  橙底 = 不在本地仓库里，看不到代码
+endlegend
+@enduml
